@@ -5050,11 +5050,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Admin\\Desktop\\New folder (4)\\BE_API\\BE_API.csproj",
+      "projectUniqueName": "C:\\Users\\Admin\\Documents\\SchoolBus\\BE_API.csproj",
       "projectName": "BE_API",
-      "projectPath": "C:\\Users\\Admin\\Desktop\\New folder (4)\\BE_API\\BE_API.csproj",
+      "projectPath": "C:\\Users\\Admin\\Documents\\SchoolBus\\BE_API.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Admin\\Desktop\\New folder (4)\\BE_API\\obj\\",
+      "outputPath": "C:\\Users\\Admin\\Documents\\SchoolBus\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
