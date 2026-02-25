@@ -27,6 +27,9 @@ namespace BE_API.Database
         public DbSet<Notification> Notifications => Set<Notification>();
 
         public DbSet<BusTracking> BusTrackings => Set<BusTracking>();
+
+        public DbSet<Campus> Campuses { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -60,6 +63,18 @@ namespace BE_API.Database
                 .WithMany()
                 .HasForeignKey(x => x.GuardianId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Student>()
+                .HasOne(s => s.Campus)
+                .WithMany(c => c.Students)
+                .HasForeignKey(s => s.CampusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRoute>()
+                .HasOne(r => r.Campus)
+                .WithMany(c => c.BusRoutes)
+                .HasForeignKey(r => r.CampusId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
     }

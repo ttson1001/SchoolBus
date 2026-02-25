@@ -1,6 +1,6 @@
 ﻿using BE_API.Dto.Account;
 
-namespace BE_API.Service
+namespace BE_API.Service.IService
 {
     public interface IAccountService
     {

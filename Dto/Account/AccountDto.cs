@@ -1,4 +1,4 @@
-﻿namespace BE_API.Dto
+﻿namespace BE_API.Dto.Account
 {
     public class AccountDto
     {

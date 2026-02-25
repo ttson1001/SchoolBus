@@ -13,6 +13,9 @@ namespace BE_API.Entites
         public User Guardian { get; set; } = null!;
 
         public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
+
+        public long CampusId { get; set; }
+        public Campus Campus { get; set; } = null!;
     }
 
 }
