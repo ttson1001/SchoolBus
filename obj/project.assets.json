@@ -5050,11 +5050,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Admin\\Documents\\SchoolBus\\BE_API.csproj",
+      "projectUniqueName": "C:\\Users\\Admin\\Documents\\SchoolBus1\\BE_API.csproj",
       "projectName": "BE_API",
-      "projectPath": "C:\\Users\\Admin\\Documents\\SchoolBus\\BE_API.csproj",
+      "projectPath": "C:\\Users\\Admin\\Documents\\SchoolBus1\\BE_API.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Admin\\Documents\\SchoolBus\\obj\\",
+      "outputPath": "C:\\Users\\Admin\\Documents\\SchoolBus1\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -5173,7 +5173,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.307/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

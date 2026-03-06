@@ -24,9 +24,14 @@ namespace BE_API.Service
             
         }
 
+        private string GenerateOtp()
+        {
+            return new Random().Next(100000, 999999).ToString();
+        }
+
         public async Task<LoginReponseDto> LoginAsync(LoginDto dto)
         {
-            var user = await _userRepo.Query()
+            var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(u => u.Email == dto.Email)
                 ?? throw new KeyNotFoundException("Không tìm thấy tài khoản");

@@ -1,35 +1,75 @@
 ﻿using BE_API.Database;
 using BE_API.Entites;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BE_API.Repository
 {
     public class Repository<T> : IRepository<T> where T : class, IEntity
     {
-        protected readonly DbSet<T> _set;
+        private readonly BeContext _context;
+        private readonly DbSet<T> _set;
+        private IDbContextTransaction _transaction;
 
         public Repository(BeContext context)
         {
-            _set = context.Set<T>();
+            _context = context;
+            _set = _context.Set<T>();
         }
 
-        public IQueryable<T> Query()
-            => _set.AsQueryable();
+        public IQueryable<T> Get()
+        {
+            return _set.Where(x => true);
+        }
 
-        public async Task AddAsync(T entity, CancellationToken ct = default)
-            => await _set.AddAsync(entity, ct);
+        public async Task<List<T>?> GetValuesAsync(CancellationToken cancellationToken = default)
+        {
+            return await Get().ToListAsync(cancellationToken);
+        }
 
-        public async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken ct = default)
-            => await _set.AddRangeAsync(entities, ct);
+        public async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
+        {
+            await _set.AddRangeAsync(entities, cancellationToken);
+        }
+
+        public async Task AddAsync(T entity, CancellationToken cancellationToken = default)
+        {
+            await _set.AddAsync(entity, cancellationToken);
+        }
 
         public void Update(T entity)
-            => _set.Update(entity);
-
-        public void Delete(T entity)
-            => _set.Remove(entity);
+        {
+            _set.Update(entity);
+        }
 
         public void DeleteRange(IEnumerable<T> entities)
-            => _set.RemoveRange(entities);
+        {
+            _set.RemoveRange(entities);
+        }
+
+        public void Delete(T entity)
+        {
+            _set.Remove(entity);
+        }
+
+        public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        public void ClearChangeTracking()
+        {
+            _context.ChangeTracker.Clear();
+        }
+
+        public void BeginTransaction()
+        {
+            if (_transaction != null)
+            {
+                throw new InvalidOperationException("A transaction is already in progress.");
+            }
+            _transaction = _context.Database.BeginTransaction();
+        }
     }
 
 }
