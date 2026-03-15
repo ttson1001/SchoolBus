@@ -14,6 +14,7 @@ namespace BE_API.Database
         public DbSet<StudentBusAssignment> StudentBusAssignments => Set<StudentBusAssignment>();
 
         public DbSet<Bus> Buses => Set<Bus>();
+        public DbSet<BusDamageReport> BusDamageReports => Set<BusDamageReport>();
         public DbSet<BusStation> BusStations => Set<BusStation>();
         public DbSet<BusRoute> BusRoutes => Set<BusRoute>();
         public DbSet<BusRouteStation> BusRouteStations => Set<BusRouteStation>();
@@ -59,6 +60,12 @@ namespace BE_API.Database
                 .HasOne(x => x.Teacher)
                 .WithMany()
                 .HasForeignKey(x => x.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusDamageReport>()
+                .HasOne(x => x.Bus)
+                .WithMany(x => x.DamageReports)
+                .HasForeignKey(x => x.BusId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Order>()

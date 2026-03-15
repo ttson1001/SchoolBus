@@ -6,5 +6,7 @@
         public string LicensePlate { get; set; } = null!;
         public int Capacity { get; set; }
         public bool IsEnabled { get; set; } = true;
+
+        public ICollection<BusDamageReport> DamageReports { get; set; } = new List<BusDamageReport>();
     }
 }
