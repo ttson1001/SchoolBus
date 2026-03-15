@@ -1,4 +1,6 @@
-﻿using BE_API.Repository;
+using BE_API.Repository;
+using BE_API.Service;
+using BE_API.Service.IService;
 
 namespace BE_API.Extensions
 {
@@ -7,6 +9,11 @@ namespace BE_API.Extensions
         public static void Register(this IServiceCollection services)
         {
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+            services.AddScoped<IJwtService, JwtService>();
+            services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IStudentService, StudentService>();
+            services.AddScoped<IUserService, UserService>();
         }
     }
 }

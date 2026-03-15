@@ -40,7 +40,7 @@ namespace BE_API.Controllers
             {
                 response.Message = ex.Message;
                 return BadRequest(response);
-            }
+            }   
         }
 
         [HttpGet("[action]/{id}")]
