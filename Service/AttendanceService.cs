@@ -29,14 +29,14 @@ namespace BE_API.Service
 
         public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, int page, int pageSize)
         {
-            var query = _attendanceRepo.Get()
-                .Include(x => x.Student)
-                .Include(x => x.Bus);
+            var query = _attendanceRepo.Get();
+               
 
             if (date.HasValue)
             {
                 var selectedDate = date.Value.Date;
-                query = query.Where(x => x.Date.Date == selectedDate);
+                query = query.Where(x => x.Date.Date == selectedDate).Include(x => x.Student)
+                .Include(x => x.Bus);
             }
 
             if (!string.IsNullOrWhiteSpace(keyword))
@@ -44,7 +44,8 @@ namespace BE_API.Service
                 keyword = keyword.ToLower();
                 query = query.Where(x =>
                     x.Student.FullName.ToLower().Contains(keyword) ||
-                    x.Bus.LicensePlate.ToLower().Contains(keyword));
+                    x.Bus.LicensePlate.ToLower().Contains(keyword)).Include(x => x.Student)
+                .Include(x => x.Bus);
             }
 
             var totalItems = await query.CountAsync();

@@ -22,8 +22,8 @@ namespace BE_API.Service
 
         public async Task<PagedResult<BusDamageReportDto>> SearchBusDamageReportAsync(string? keyword, string? status, int page, int pageSize)
         {
-            var query = _reportRepo.Get()
-                .Include(x => x.Bus);
+            var query = _reportRepo.Get();
+                
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -31,13 +31,13 @@ namespace BE_API.Service
                 query = query.Where(x =>
                     x.Title.ToLower().Contains(keyword) ||
                     (x.Description != null && x.Description.ToLower().Contains(keyword)) ||
-                    x.Bus.LicensePlate.ToLower().Contains(keyword));
+                    x.Bus.LicensePlate.ToLower().Contains(keyword)).Include(x => x.Bus);
             }
 
             if (!string.IsNullOrWhiteSpace(status))
             {
                 status = status.ToLower();
-                query = query.Where(x => x.Status.ToLower() == status);
+                query = query.Where(x => x.Status.ToLower() == status).Include(x => x.Bus); ;
             }
 
             var totalItems = await query.CountAsync();
