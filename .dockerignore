@@ -1,0 +1,10 @@
+bin/
+obj/
+.git/
+.github/
+.vs/
+.dotnet/
+AppData/
+NuGet/
+*.user
+*.suo
