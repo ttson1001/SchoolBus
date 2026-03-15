@@ -12,6 +12,7 @@ namespace BE_API.Entites
         public AccountStatus Status { get; set; } = AccountStatus.ACTIVE;
         public long RoleId { get; set; }
         public Role Role { get; set; } = null!;
+        public Wallet? Wallet { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

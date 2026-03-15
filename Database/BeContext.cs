@@ -7,6 +7,7 @@ namespace BE_API.Database
     {
         public BeContext(DbContextOptions<BeContext> options) : base(options) { }
         public DbSet<User> Users => Set<User>();
+        public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<Role> Roles => Set<Role>();
 
         public DbSet<Student> Students => Set<Student>();
@@ -22,7 +23,9 @@ namespace BE_API.Database
         public DbSet<FaceRecognitionLog> FaceRecognitionLogs => Set<FaceRecognitionLog>();
 
         public DbSet<Order> Orders => Set<Order>();
+        public DbSet<Package> Packages => Set<Package>();
         public DbSet<Payment> Payments => Set<Payment>();
+        public DbSet<TransactionLog> TransactionLogs => Set<TransactionLog>();
 
         public DbSet<Notification> Notifications => Set<Notification>();
 
@@ -63,6 +66,24 @@ namespace BE_API.Database
                 .WithMany()
                 .HasForeignKey(x => x.GuardianId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Order>()
+                .HasOne(x => x.Package)
+                .WithMany(x => x.Orders)
+                .HasForeignKey(x => x.PackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TransactionLog>()
+                .HasOne(x => x.Order)
+                .WithMany(x => x.TransactionLogs)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Wallet>()
+                .HasOne(x => x.User)
+                .WithOne(x => x.Wallet)
+                .HasForeignKey<Wallet>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Student>()
                 .HasOne(s => s.Campus)

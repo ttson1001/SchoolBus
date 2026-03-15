@@ -15,7 +15,12 @@ namespace BE_API.Entites
         public long BusRouteId { get; set; }
         public BusRoute BusRoute { get; set; } = null!;
 
+        public long PackageId { get; set; }
+        public Package Package { get; set; } = null!;
+
         public OrderStatus Status { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public ICollection<TransactionLog> TransactionLogs { get; set; } = new List<TransactionLog>();
     }
 }
