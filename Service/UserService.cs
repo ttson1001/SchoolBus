@@ -109,95 +109,121 @@ namespace BE_API.Service
             return result;
         }
 
+        public async Task<UserDto> CreateUserAsync(UserCreateDto dto, CancellationToken cancellationToken = default)
+        {
+            var createdUser = await CreateUserInternalAsync(
+                dto.Email,
+                dto.Password,
+                dto.FullName,
+                dto.Phone,
+                dto.Role,
+                cancellationToken);
+
+            return MapToUserDto(createdUser.user, createdUser.role.Name);
+        }
+
         public async Task<TeacherDto> CreateTeacherAsync(TeacherCreateDto dto, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(dto.Email))
-                throw new Exception("Email không được để trống.");
-
-            if (string.IsNullOrWhiteSpace(dto.Password))
-                throw new Exception("Password không được để trống.");
-
-            var email = dto.Email.Trim().ToLower();
-
-            var existedUser = await _userRepo.Get()
-                .FirstOrDefaultAsync(x => x.Email.ToLower() == email, cancellationToken);
-
-            if (existedUser != null)
-                throw new Exception("Email đã tồn tại.");
-
-            var teacherRole = await _roleRepo.Get()
-                .FirstOrDefaultAsync(x => x.Name.ToLower() == "teacher", cancellationToken)
-                ?? throw new Exception("Không tìm thấy role Teacher.");
-
-            var teacher = new User
-            {
-                Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password.Trim()),
-                FullName = string.IsNullOrWhiteSpace(dto.FullName) ? null : dto.FullName.Trim(),
-                Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim(),
-                RoleId = teacherRole.Id,
-                Status = AccountStatus.ACTIVE,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _userRepo.AddAsync(teacher, cancellationToken);
-            await _userRepo.SaveChangesAsync(cancellationToken);
+            var createdUser = await CreateUserInternalAsync(
+                dto.Email,
+                dto.Password,
+                dto.FullName,
+                dto.Phone,
+                "teacher",
+                cancellationToken);
 
             return new TeacherDto
             {
-                Id = teacher.Id,
-                Email = teacher.Email,
-                FullName = teacher.FullName,
-                Phone = teacher.Phone,
-                RoleName = teacherRole.Name,
-                Status = teacher.Status.ToString(),
-                CreatedAt = teacher.CreatedAt
+                Id = createdUser.user.Id,
+                Email = createdUser.user.Email,
+                FullName = createdUser.user.FullName,
+                Phone = createdUser.user.Phone,
+                RoleName = createdUser.role.Name,
+                Status = createdUser.user.Status.ToString(),
+                CreatedAt = createdUser.user.CreatedAt
             };
         }
 
         public async Task<DriverDto> CreateDriverAsync(DriverCreateDto dto, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(dto.Email))
+            var createdUser = await CreateUserInternalAsync(
+                dto.Email,
+                dto.Password,
+                dto.FullName,
+                dto.Phone,
+                "driver",
+                cancellationToken);
+
+            return new DriverDto
+            {
+                Id = createdUser.user.Id,
+                Email = createdUser.user.Email,
+                FullName = createdUser.user.FullName,
+                Phone = createdUser.user.Phone,
+                RoleName = createdUser.role.Name,
+                Status = createdUser.user.Status.ToString(),
+                CreatedAt = createdUser.user.CreatedAt
+            };
+        }
+
+        private async Task<(User user, Role role)> CreateUserInternalAsync(
+            string email,
+            string password,
+            string? fullName,
+            string? phone,
+            string roleName,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
                 throw new Exception("Email không được để trống.");
 
-            if (string.IsNullOrWhiteSpace(dto.Password))
+            if (string.IsNullOrWhiteSpace(password))
                 throw new Exception("Password không được để trống.");
 
-            var email = dto.Email.Trim().ToLower();
+            if (string.IsNullOrWhiteSpace(roleName))
+                throw new Exception("Role không được để trống.");
+
+            var normalizedEmail = email.Trim().ToLower();
+            var normalizedRoleName = roleName.Trim().ToLower();
 
             var existedUser = await _userRepo.Get()
-                .FirstOrDefaultAsync(x => x.Email.ToLower() == email, cancellationToken);
+                .FirstOrDefaultAsync(x => x.Email.ToLower() == normalizedEmail, cancellationToken);
 
             if (existedUser != null)
                 throw new Exception("Email đã tồn tại.");
 
-            var driverRole = await _roleRepo.Get()
-                .FirstOrDefaultAsync(x => x.Name.ToLower() == "driver", cancellationToken)
-                ?? throw new Exception("Không tìm thấy role Driver.");
+            var role = await _roleRepo.Get()
+                .FirstOrDefaultAsync(x => x.Name.ToLower() == normalizedRoleName, cancellationToken)
+                ?? throw new Exception($"Không tìm thấy role '{roleName}'.");
 
-            var driver = new User
+            var user = new User
             {
-                Email = email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password.Trim()),
-                FullName = string.IsNullOrWhiteSpace(dto.FullName) ? null : dto.FullName.Trim(),
-                Phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim(),
-                RoleId = driverRole.Id,
+                Email = normalizedEmail,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password.Trim()),
+                FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
+                Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+                RoleId = role.Id,
                 Status = AccountStatus.ACTIVE,
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _userRepo.AddAsync(driver, cancellationToken);
+            await _userRepo.AddAsync(user, cancellationToken);
             await _userRepo.SaveChangesAsync(cancellationToken);
 
-            return new DriverDto
+            return (user, role);
+        }
+
+        private static UserDto MapToUserDto(User user, string roleName)
+        {
+            return new UserDto
             {
-                Id = driver.Id,
-                Email = driver.Email,
-                FullName = driver.FullName,
-                Phone = driver.Phone,
-                RoleName = driverRole.Name,
-                Status = driver.Status.ToString(),
-                CreatedAt = driver.CreatedAt
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                Phone = user.Phone,
+                RoleName = roleName,
+                Status = user.Status.ToString(),
+                CreatedAt = user.CreatedAt
             };
         }
 

@@ -13,6 +13,7 @@ namespace BE_API.Controllers
         private readonly IUserService _userService;
 
         private const string USER_IMPORT_SUCCESS = "Import user thành công";
+        private const string USER_CREATE_SUCCESS = "Tạo user thành công";
         private const string TEACHER_CREATE_SUCCESS = "Tạo teacher thành công";
         private const string DRIVER_CREATE_SUCCESS = "Tạo driver thành công";
 
@@ -32,6 +33,26 @@ namespace BE_API.Controllers
                 var data = await _userService.ImportAsync(dto, cancellationToken);
                 response.Data = data;
                 response.Message = USER_IMPORT_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        [SwaggerOperation(Summary = "Tạo user theo role truyền vào")]
+        public async Task<IActionResult> Create([FromBody] UserCreateDto dto, CancellationToken cancellationToken)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _userService.CreateUserAsync(dto, cancellationToken);
+                response.Data = data;
+                response.Message = USER_CREATE_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

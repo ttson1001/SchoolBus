@@ -11,6 +11,7 @@ namespace BE_API.Extensions
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IAttendanceService, AttendanceService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();
