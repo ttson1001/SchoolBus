@@ -48,7 +48,6 @@ namespace BE_API.Service
             var rowCount = worksheet.Dimension.Rows;
             var colCount = worksheet.Dimension.Columns;
 
-            // đọc header
             var headers = new List<string>();
 
             for (int col = 1; col <= colCount; col++)
@@ -58,7 +57,6 @@ namespace BE_API.Service
 
             ValidateHeader(headers);
 
-            // đọc data
             for (int row = 2; row <= rowCount; row++)
             {
                 result.TotalRows++;

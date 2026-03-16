@@ -40,7 +40,7 @@ namespace BE_API.Service
                 throw new Exception("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-                throw new Exception("");
+                throw new Exception("Sai mật khẩu cần kiểm tra lại mật khẩu");
 
             var token = _jwtService.GenerateToken(user, null);
 

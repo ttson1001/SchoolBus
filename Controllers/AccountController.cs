@@ -12,6 +12,11 @@ namespace BE_API.Controllers
     {
         private readonly IAccountService _accountService;
 
+        public AccountController(IAccountService accountService)
+        {
+            _accountService = accountService;
+        }
+
         [HttpPost("[action]")]
         [SwaggerOperation(Summary = "Đăng nhập tài khoản", Description = "Trả về JWT token khi đăng nhập thành công.")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)

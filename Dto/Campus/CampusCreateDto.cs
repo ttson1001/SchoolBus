@@ -6,5 +6,8 @@
         public string Name { get; set; } = null!;
         public string Address { get; set; } = null!;
         public string? Phone { get; set; }
+        public bool? IsActive { get; set; }
+        public string? ImageUrl { get; set; }
+        public long? BusId { get; set; }
     }
 }
