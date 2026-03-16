@@ -74,8 +74,7 @@ namespace BE_API.Service
                 Address = dto.Address.Trim(),
                 Phone = NormalizeOptional(dto.Phone),
                 IsActive = dto.IsActive ?? true,
-                ImageUrl = NormalizeOptional(dto.ImageUrl),
-                BusId = dto.BusId
+                ImageUrl = NormalizeOptional(dto.ImageUrl)
             };
 
             await _campusRepo.AddAsync(campus);
@@ -106,9 +105,6 @@ namespace BE_API.Service
             if (dto.ImageUrl != null)
                 campus.ImageUrl = NormalizeOptional(dto.ImageUrl);
 
-            if (dto.BusId.HasValue)
-                campus.BusId = dto.BusId.Value;
-
             _campusRepo.Update(campus);
             await _campusRepo.SaveChangesAsync();
 
@@ -135,8 +131,7 @@ namespace BE_API.Service
                 Address = campus.Address,
                 Phone = campus.Phone,
                 IsActive = campus.IsActive,
-                ImageUrl = campus.ImageUrl,
-                BusId = campus.BusId
+                ImageUrl = campus.ImageUrl
             };
         }
 

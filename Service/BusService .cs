@@ -10,16 +10,24 @@ namespace BE_API.Service
     public class BusService : IBusService
     {
         private readonly IRepository<Bus> _busRepo;
+        private readonly IRepository<BusAssignment> _busAssignmentRepo;
+        private readonly IRepository<Campus> _campusRepo;
 
-        public BusService(IRepository<Bus> busRepo)
+        public BusService(
+            IRepository<Bus> busRepo,
+            IRepository<BusAssignment> busAssignmentRepo,
+            IRepository<Campus> campusRepo)
         {
             _busRepo = busRepo;
+            _busAssignmentRepo = busAssignmentRepo;
+            _campusRepo = campusRepo;
         }
 
         public async Task CreateBusAsync(BusCreateDto dto)
         {
             var licensePlate = ValidateLicensePlate(dto.LicensePlate);
             var capacity = ValidateCapacity(dto.Capacity);
+            var status = NormalizeStatus(dto.Status);
             var busNumber = NormalizeOptional(dto.BusNumber);
             var imageUrl = NormalizeOptional(dto.ImageUrl);
             var color = NormalizeOptional(dto.Color);
@@ -32,7 +40,7 @@ namespace BE_API.Service
             {
                 LicensePlate = licensePlate,
                 Capacity = capacity,
-                IsEnabled = dto.IsEnabled ?? true,
+                Status = status,
                 BusNumber = busNumber,
                 ImageUrl = imageUrl,
                 Color = color,
@@ -52,6 +60,22 @@ namespace BE_API.Service
             return MapToDto(bus);
         }
 
+        public async Task<List<BusDto>> GetBusesByCampusIdAsync(long campusId)
+        {
+            await ValidateCampusAsync(campusId);
+
+            var buses = await _busAssignmentRepo.Get()
+                .Include(x => x.Route)
+                .Include(x => x.Bus)
+                .Where(x => x.Route.CampusId == campusId)
+                .Select(x => x.Bus)
+                .Distinct()
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
+            return buses.Select(MapToDto).ToList();
+        }
+
         public async Task<BusDto> UpdateBusAsync(long id, BusUpdateDto dto)
         {
             var bus = await _busRepo.Get()
@@ -68,8 +92,8 @@ namespace BE_API.Service
             if (dto.Capacity.HasValue)
                 bus.Capacity = ValidateCapacity(dto.Capacity.Value);
 
-            if (dto.IsEnabled.HasValue)
-                bus.IsEnabled = dto.IsEnabled.Value;
+            if (dto.Status != null)
+                bus.Status = NormalizeStatus(dto.Status);
 
             if (dto.BusNumber != null)
             {
@@ -112,6 +136,7 @@ namespace BE_API.Service
                 keyword = keyword.ToLower();
                 query = query.Where(x =>
                     x.LicensePlate.ToLower().Contains(keyword) ||
+                    x.Status.ToLower().Contains(keyword) ||
                     (x.BusNumber != null && x.BusNumber.ToLower().Contains(keyword)) ||
                     (x.Color != null && x.Color.ToLower().Contains(keyword)) ||
                     (x.BusType != null && x.BusType.ToLower().Contains(keyword)));
@@ -155,6 +180,19 @@ namespace BE_API.Service
                 throw new Exception("Số xe đã tồn tại");
         }
 
+        private async Task ValidateCampusAsync(long campusId)
+        {
+            if (campusId <= 0)
+                throw new Exception("CampusId phải lớn hơn 0");
+
+            var campus = await _campusRepo.Get()
+                .FirstOrDefaultAsync(x => x.Id == campusId)
+                ?? throw new Exception("Campus không tồn tại");
+
+            if (!campus.IsActive)
+                throw new Exception("Campus đang không hoạt động");
+        }
+
         private static string ValidateLicensePlate(string? licensePlate)
         {
             if (string.IsNullOrWhiteSpace(licensePlate))
@@ -179,6 +217,19 @@ namespace BE_API.Service
             return capacity;
         }
 
+        private static string NormalizeStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return "ACTIVE";
+
+            var normalized = status.Trim().ToUpper();
+
+            if (normalized != "ACTIVE" && normalized != "DISABLED" && normalized != "MAINTENANCE")
+                throw new Exception("Status bus không hợp lệ");
+
+            return normalized;
+        }
+
         private static BusDto MapToDto(Bus bus)
         {
             return new BusDto
@@ -186,7 +237,7 @@ namespace BE_API.Service
                 Id = bus.Id,
                 LicensePlate = bus.LicensePlate,
                 Capacity = bus.Capacity,
-                IsEnabled = bus.IsEnabled,
+                Status = bus.Status,
                 BusNumber = bus.BusNumber,
                 ImageUrl = bus.ImageUrl,
                 Color = bus.Color,

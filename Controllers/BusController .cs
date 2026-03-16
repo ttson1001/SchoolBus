@@ -63,6 +63,26 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]/{campusId}")]
+        [SwaggerOperation(Summary = "Lấy danh sách bus theo campus")]
+        public async Task<IActionResult> GetByCampus(long campusId)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _busService.GetBusesByCampusIdAsync(campusId);
+                response.Data = data;
+                response.Message = BUS_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPost("[action]")]
         [SwaggerOperation(Summary = "Tạo bus mới")]
         public async Task<IActionResult> Create([FromBody] BusCreateDto dto)

@@ -4,7 +4,7 @@
     {
         public string? LicensePlate { get; set; }
         public int? Capacity { get; set; }
-        public bool? IsEnabled { get; set; }
+        public string? Status { get; set; }
         public string? BusNumber { get; set; }
         public string? ImageUrl { get; set; }
         public string? Color { get; set; }

@@ -1,3 +1,4 @@
+using BE_API.Dto.Common;
 using BE_API.Dto.User;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
@@ -18,6 +19,63 @@ namespace BE_API.Service
             _userRepo = userRepo;
             _roleRepo = roleRepo;
         }
+
+        public async Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, int page, int pageSize)
+        {
+            var query = _userRepo.Get()
+                ;
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                keyword = keyword.ToLower();
+                query = query.Where(x =>
+                    x.Email.ToLower().Contains(keyword) ||
+                    (x.FullName != null && x.FullName.ToLower().Contains(keyword)) ||
+                    (x.Phone != null && x.Phone.ToLower().Contains(keyword)) ||
+                    x.Role.Name.ToLower().Contains(keyword));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                role = role.ToLower();
+                query = query.Where(x => x.Role.Name.ToLower() == role);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (!Enum.TryParse<AccountStatus>(status, true, out var accountStatus))
+                    throw new Exception($"Status '{status}' không hợp lệ.");
+
+                query = query.Where(x => x.Status == accountStatus);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var users = await query.Include(x => x.Role)
+                .OrderByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<UserDto>
+            {
+                Items = users.Select(x => MapToUserDto(x, x.Role.Name)).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        public async Task<UserDto> GetUserByIdAsync(long id)
+        {
+            var user = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == id)
+                ?? throw new Exception("User không tồn tại.");
+
+            return MapToUserDto(user, user.Role.Name);
+        }
+
         public async Task<UserImportResultDto> ImportAsync(UserImportRequestDto dto, CancellationToken cancellationToken = default)
         {
             if (dto.File == null || dto.File.Length == 0)
@@ -26,14 +84,11 @@ namespace BE_API.Service
             if (!Path.GetExtension(dto.File.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new Exception("Chỉ hỗ trợ file Excel (.xlsx).");
 
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            ExcelPackage.License.SetNonCommercialPersonal("SchoolBus");
 
             var roles = await _roleRepo.Get().ToListAsync(cancellationToken);
             var users = await _userRepo.Get().ToListAsync(cancellationToken);
-
-            var existingEmails = users
-                .Select(x => x.Email.Trim().ToLower())
-                .ToHashSet();
+            var existingEmails = users.Select(x => x.Email.Trim().ToLower()).ToHashSet();
 
             var result = new UserImportResultDto();
             var newUsers = new List<User>();
@@ -42,12 +97,11 @@ namespace BE_API.Service
             using var package = new ExcelPackage(stream);
 
             var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-            if (worksheet == null)
+            if (worksheet?.Dimension == null)
                 throw new Exception("File Excel không có dữ liệu.");
 
             var rowCount = worksheet.Dimension.Rows;
             var colCount = worksheet.Dimension.Columns;
-
             var headers = new List<string>();
 
             for (int col = 1; col <= colCount; col++)
@@ -72,7 +126,7 @@ namespace BE_API.Service
 
                     var email = GetRequiredValue(data, "email", row).ToLower();
                     var password = GetRequiredValue(data, "password", row);
-                    var role = FindRole(data, roles, row);
+                    var currentRole = FindRole(data, roles, row);
 
                     if (existingEmails.Contains(email))
                         throw new Exception($"Dòng {row}: email '{email}' đã tồn tại.");
@@ -83,14 +137,13 @@ namespace BE_API.Service
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                         FullName = GetOptionalValue(data, "fullname"),
                         Phone = GetOptionalValue(data, "phone"),
-                        RoleId = role.Id,
+                        RoleId = currentRole.Id,
                         Status = ParseStatus(GetOptionalValue(data, "status"), row),
                         CreatedAt = DateTime.UtcNow
                     };
 
                     newUsers.Add(user);
                     existingEmails.Add(email);
-
                     result.SuccessRows++;
                 }
                 catch (Exception ex)
@@ -120,6 +173,62 @@ namespace BE_API.Service
                 cancellationToken);
 
             return MapToUserDto(createdUser.user, createdUser.role.Name);
+        }
+
+        public async Task<UserDto> UpdateUserAsync(long id, UserUpdateDto dto, CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+                ?? throw new Exception("User không tồn tại.");
+
+            if (dto.Email != null)
+            {
+                var normalizedEmail = NormalizeRequiredEmail(dto.Email);
+                var existedUser = await _userRepo.Get()
+                    .FirstOrDefaultAsync(x => x.Email.ToLower() == normalizedEmail && x.Id != id, cancellationToken);
+
+                if (existedUser != null)
+                    throw new Exception("Email đã tồn tại.");
+
+                user.Email = normalizedEmail;
+            }
+
+            if (dto.Password != null)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Password))
+                    throw new Exception("Password không được để trống.");
+
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password.Trim());
+            }
+
+            if (dto.FullName != null)
+                user.FullName = NormalizeOptional(dto.FullName);
+
+            if (dto.Phone != null)
+                user.Phone = NormalizeOptional(dto.Phone);
+
+            if (dto.Role != null)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Role))
+                    throw new Exception("Role không được để trống.");
+
+                var normalizedRoleName = dto.Role.Trim().ToLower();
+                var currentRole = await _roleRepo.Get()
+                    .FirstOrDefaultAsync(x => x.Name.ToLower() == normalizedRoleName, cancellationToken)
+                    ?? throw new Exception($"Không tìm thấy role '{dto.Role}'.");
+
+                user.RoleId = currentRole.Id;
+                user.Role = currentRole;
+            }
+
+            if (dto.Status != null)
+                user.Status = ParseStatus(dto.Status, 0);
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync(cancellationToken);
+
+            return MapToUserDto(user, user.Role.Name);
         }
 
         public async Task<TeacherDto> CreateTeacherAsync(TeacherCreateDto dto, CancellationToken cancellationToken = default)
@@ -174,16 +283,13 @@ namespace BE_API.Service
             string roleName,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(email))
-                throw new Exception("Email không được để trống.");
-
             if (string.IsNullOrWhiteSpace(password))
                 throw new Exception("Password không được để trống.");
 
             if (string.IsNullOrWhiteSpace(roleName))
                 throw new Exception("Role không được để trống.");
 
-            var normalizedEmail = email.Trim().ToLower();
+            var normalizedEmail = NormalizeRequiredEmail(email);
             var normalizedRoleName = roleName.Trim().ToLower();
 
             var existedUser = await _userRepo.Get()
@@ -192,7 +298,7 @@ namespace BE_API.Service
             if (existedUser != null)
                 throw new Exception("Email đã tồn tại.");
 
-            var role = await _roleRepo.Get()
+            var currentRole = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Name.ToLower() == normalizedRoleName, cancellationToken)
                 ?? throw new Exception($"Không tìm thấy role '{roleName}'.");
 
@@ -200,9 +306,9 @@ namespace BE_API.Service
             {
                 Email = normalizedEmail,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password.Trim()),
-                FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
-                Phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
-                RoleId = role.Id,
+                FullName = NormalizeOptional(fullName),
+                Phone = NormalizeOptional(phone),
+                RoleId = currentRole.Id,
                 Status = AccountStatus.ACTIVE,
                 CreatedAt = DateTime.UtcNow
             };
@@ -210,7 +316,7 @@ namespace BE_API.Service
             await _userRepo.AddAsync(user, cancellationToken);
             await _userRepo.SaveChangesAsync(cancellationToken);
 
-            return (user, role);
+            return (user, currentRole);
         }
 
         private static UserDto MapToUserDto(User user, string roleName)
@@ -285,7 +391,23 @@ namespace BE_API.Service
             if (Enum.TryParse<AccountStatus>(status, true, out var accountStatus))
                 return accountStatus;
 
-            throw new Exception($"Dòng {rowIndex}: status '{status}' không hợp lệ.");
+            if (rowIndex > 0)
+                throw new Exception($"Dòng {rowIndex}: status '{status}' không hợp lệ.");
+
+            throw new Exception($"Status '{status}' không hợp lệ.");
+        }
+
+        private static string NormalizeRequiredEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                throw new Exception("Email không được để trống.");
+
+            return email.Trim().ToLower();
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
     }
 }

@@ -11,7 +11,6 @@
 
         public bool IsActive { get; set; } = true;
         public string? ImageUrl { get; set; }
-        public long? BusId { get; set; }
 
         public ICollection<Student> Students { get; set; } = new List<Student>();
         public ICollection<BusRoute> BusRoutes { get; set; } = new List<BusRoute>();

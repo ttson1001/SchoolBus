@@ -169,8 +169,8 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == dto.BusId)
                 ?? throw new Exception("Bus khong ton tai");
 
-            if (!bus.IsEnabled)
-                throw new Exception("Bus da bi vo hieu hoa");
+            if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Bus không ở trạng thái hoạt động");
 
             var hasAssignment = await _assignmentRepo.Get()
                 .AnyAsync(x => x.StudentId == dto.StudentId && x.BusId == dto.BusId);

@@ -7,6 +7,7 @@ namespace BE_API.Service.IService
     {
         Task CreateBusAsync(BusCreateDto dto);
         Task<BusDto> GetBusByIdAsync(long id);
+        Task<List<BusDto>> GetBusesByCampusIdAsync(long campusId);
         Task<BusDto> UpdateBusAsync(long id, BusUpdateDto dto);
         Task DeleteBusAsync(long id);
         Task<PagedResult<BusDto>> SearchBusAsync(string? keyword, int page, int pageSize);

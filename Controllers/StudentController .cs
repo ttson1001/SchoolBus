@@ -60,8 +60,46 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]/{campusId}")]
+        public async Task<IActionResult> GetByCampus(long campusId)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _studentService.GetStudentsByCampusIdAsync(campusId);
+                response.Data = data;
+                response.Message = STUDENT_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{guardianId}")]
+        public async Task<IActionResult> GetByGuardian(long guardianId)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _studentService.GetStudentsByGuardianIdAsync(guardianId);
+                response.Data = data;
+                response.Message = STUDENT_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPost("[action]")]
-        public async Task<IActionResult> Create(StudentCreateDto dto)
+        public async Task<IActionResult> Create([FromBody] StudentCreateDto dto)
         {
             var response = new ResponseDto();
 
