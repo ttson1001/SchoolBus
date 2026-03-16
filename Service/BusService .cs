@@ -224,7 +224,7 @@ namespace BE_API.Service
 
             var normalized = status.Trim().ToUpper();
 
-            if (normalized != "ACTIVE" && normalized != "DISABLED" && normalized != "MAINTENANCE")
+            if (normalized != "ACTIVE" && normalized != "DEACTIVE" && normalized != "MAINTENANCE")
                 throw new Exception("Status bus không hợp lệ");
 
             return normalized;

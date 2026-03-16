@@ -19,6 +19,7 @@ namespace BE_API.Extensions
             services.AddScoped<IBusService, BusService>();
             services.AddScoped<IBusStationService, BusStationService>();
             services.AddScoped<ICampusService, CampusService>();
+            services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();

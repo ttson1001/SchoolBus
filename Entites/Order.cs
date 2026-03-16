@@ -1,4 +1,4 @@
-﻿using BE_API.Entites.Enums;
+using BE_API.Entites.Enums;
 
 namespace BE_API.Entites
 {
@@ -19,6 +19,10 @@ namespace BE_API.Entites
         public Package Package { get; set; } = null!;
 
         public OrderStatus Status { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public DateTime? ExpiredAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<TransactionLog> TransactionLogs { get; set; } = new List<TransactionLog>();

@@ -66,10 +66,14 @@ namespace BE_API.Service
             if (string.IsNullOrWhiteSpace(dto.Status))
                 throw new Exception("Status không được để trống");
 
+            if (dto.DurationDays <= 0)
+                throw new Exception("DurationDays phải lớn hơn 0");
+
             var package = new Package
             {
                 Name = dto.Name.Trim(),
                 Price = dto.Price,
+                DurationDays = dto.DurationDays,
                 Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 Status = dto.Status.Trim(),
                 Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim(),
@@ -92,6 +96,14 @@ namespace BE_API.Service
 
             if (dto.Price.HasValue)
                 package.Price = dto.Price.Value;
+
+            if (dto.DurationDays.HasValue)
+            {
+                if (dto.DurationDays.Value <= 0)
+                    throw new Exception("DurationDays phải lớn hơn 0");
+
+                package.DurationDays = dto.DurationDays.Value;
+            }
 
             if (dto.Description != null)
                 package.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
@@ -128,6 +140,7 @@ namespace BE_API.Service
                 Id = package.Id,
                 Name = package.Name,
                 Price = package.Price,
+                DurationDays = package.DurationDays,
                 Description = package.Description,
                 Status = package.Status,
                 CreatedAt = package.CreatedAt,
