@@ -1,10 +1,10 @@
-using System.Text;
 using BE_API.Dto.User;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
 using BE_API.Repository;
 using BE_API.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
 
 namespace BE_API.Service
 {
@@ -18,65 +18,66 @@ namespace BE_API.Service
             _userRepo = userRepo;
             _roleRepo = roleRepo;
         }
-
         public async Task<UserImportResultDto> ImportAsync(UserImportRequestDto dto, CancellationToken cancellationToken = default)
         {
             if (dto.File == null || dto.File.Length == 0)
                 throw new Exception("Vui lòng chọn file import.");
 
-            if (!Path.GetExtension(dto.File.FileName).Equals(".csv", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Chỉ hỗ trợ file CSV.");
+            if (!Path.GetExtension(dto.File.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Chỉ hỗ trợ file Excel (.xlsx).");
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             var roles = await _roleRepo.Get().ToListAsync(cancellationToken);
             var users = await _userRepo.Get().ToListAsync(cancellationToken);
+
             var existingEmails = users
                 .Select(x => x.Email.Trim().ToLower())
                 .ToHashSet();
 
+            var result = new UserImportResultDto();
+            var newUsers = new List<User>();
+
             using var stream = dto.File.OpenReadStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8);
+            using var package = new ExcelPackage(stream);
 
-            var headerLine = await reader.ReadLineAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(headerLine))
-                throw new Exception("File import không có dữ liệu.");
+            var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+            if (worksheet == null)
+                throw new Exception("File Excel không có dữ liệu.");
 
-            var headers = headerLine.Split(',')
-                .Select(x => x.Trim().ToLower())
-                .ToList();
+            var rowCount = worksheet.Dimension.Rows;
+            var colCount = worksheet.Dimension.Columns;
+
+            // đọc header
+            var headers = new List<string>();
+
+            for (int col = 1; col <= colCount; col++)
+            {
+                headers.Add(worksheet.Cells[1, col].Text.Trim().ToLower());
+            }
 
             ValidateHeader(headers);
 
-            var result = new UserImportResultDto();
-            var newUsers = new List<User>();
-            var rowIndex = 1;
-
-            while (!reader.EndOfStream)
+            // đọc data
+            for (int row = 2; row <= rowCount; row++)
             {
-                rowIndex++;
-                var line = await reader.ReadLineAsync(cancellationToken);
-
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-
                 result.TotalRows++;
 
                 try
                 {
-                    var values = line.Split(',').Select(x => x.Trim()).ToList();
+                    var data = new Dictionary<string, string>();
 
-                    if (values.Count != headers.Count)
-                        throw new Exception($"Dòng {rowIndex}: số cột không hợp lệ.");
+                    for (int col = 1; col <= colCount; col++)
+                    {
+                        data[headers[col - 1]] = worksheet.Cells[row, col].Text.Trim();
+                    }
 
-                    var data = headers
-                        .Select((header, index) => new { header, value = values[index] })
-                        .ToDictionary(x => x.header, x => x.value);
-
-                    var email = GetRequiredValue(data, "email", rowIndex).ToLower();
-                    var password = GetRequiredValue(data, "password", rowIndex);
-                    var role = FindRole(data, roles, rowIndex);
+                    var email = GetRequiredValue(data, "email", row).ToLower();
+                    var password = GetRequiredValue(data, "password", row);
+                    var role = FindRole(data, roles, row);
 
                     if (existingEmails.Contains(email))
-                        throw new Exception($"Dòng {rowIndex}: email '{email}' đã tồn tại.");
+                        throw new Exception($"Dòng {row}: email '{email}' đã tồn tại.");
 
                     var user = new User
                     {
@@ -85,12 +86,13 @@ namespace BE_API.Service
                         FullName = GetOptionalValue(data, "fullname"),
                         Phone = GetOptionalValue(data, "phone"),
                         RoleId = role.Id,
-                        Status = ParseStatus(GetOptionalValue(data, "status"), rowIndex),
+                        Status = ParseStatus(GetOptionalValue(data, "status"), row),
                         CreatedAt = DateTime.UtcNow
                     };
 
                     newUsers.Add(user);
                     existingEmails.Add(email);
+
                     result.SuccessRows++;
                 }
                 catch (Exception ex)
