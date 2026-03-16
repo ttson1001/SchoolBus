@@ -9,11 +9,16 @@ namespace BE_API.Extensions
         public static void Register(this IServiceCollection services)
         {
             services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IAccountService, AccountService>();
+
             services.AddScoped<IAttendanceService, AttendanceService>();
             services.AddScoped<IBusDamageReportService, BusDamageReportService>();
             services.AddScoped<IBusRouteService, BusRouteService>();
+            services.AddScoped<IBusService, BusService>();
+            services.AddScoped<IBusStationService, BusStationService>();
+            services.AddScoped<ICampusService, CampusService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();
