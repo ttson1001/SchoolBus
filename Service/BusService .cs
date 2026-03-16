@@ -18,18 +18,25 @@ namespace BE_API.Service
 
         public async Task CreateBusAsync(BusCreateDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.LicensePlate))
-                throw new Exception("Biển số xe không được để trống");
+            var licensePlate = ValidateLicensePlate(dto.LicensePlate);
+            var capacity = ValidateCapacity(dto.Capacity);
+            var busNumber = NormalizeOptional(dto.BusNumber);
+            var imageUrl = NormalizeOptional(dto.ImageUrl);
+            var color = NormalizeOptional(dto.Color);
+            var busType = NormalizeOptional(dto.BusType);
+
+            await EnsureLicensePlateUniqueAsync(licensePlate);
+            await EnsureBusNumberUniqueAsync(busNumber);
 
             var bus = new Bus
             {
-                LicensePlate = dto.LicensePlate.Trim(),
-                Capacity = dto.Capacity,
+                LicensePlate = licensePlate,
+                Capacity = capacity,
                 IsEnabled = dto.IsEnabled ?? true,
-                BusNumber = NormalizeOptional(dto.BusNumber),
-                ImageUrl = NormalizeOptional(dto.ImageUrl),
-                Color = NormalizeOptional(dto.Color),
-                BusType = NormalizeOptional(dto.BusType)
+                BusNumber = busNumber,
+                ImageUrl = imageUrl,
+                Color = color,
+                BusType = busType
             };
 
             await _busRepo.AddAsync(bus);
@@ -51,17 +58,25 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Bus không tồn tại");
 
-            if (!string.IsNullOrWhiteSpace(dto.LicensePlate))
-                bus.LicensePlate = dto.LicensePlate.Trim();
+            if (dto.LicensePlate != null)
+            {
+                var licensePlate = ValidateLicensePlate(dto.LicensePlate);
+                await EnsureLicensePlateUniqueAsync(licensePlate, id);
+                bus.LicensePlate = licensePlate;
+            }
 
             if (dto.Capacity.HasValue)
-                bus.Capacity = dto.Capacity.Value;
+                bus.Capacity = ValidateCapacity(dto.Capacity.Value);
 
             if (dto.IsEnabled.HasValue)
                 bus.IsEnabled = dto.IsEnabled.Value;
 
             if (dto.BusNumber != null)
-                bus.BusNumber = NormalizeOptional(dto.BusNumber);
+            {
+                var busNumber = NormalizeOptional(dto.BusNumber);
+                await EnsureBusNumberUniqueAsync(busNumber, id);
+                bus.BusNumber = busNumber;
+            }
 
             if (dto.ImageUrl != null)
                 bus.ImageUrl = NormalizeOptional(dto.ImageUrl);
@@ -110,15 +125,58 @@ namespace BE_API.Service
                 .Take(pageSize)
                 .ToListAsync();
 
-            var items = buses.Select(MapToDto).ToList();
-
             return new PagedResult<BusDto>
             {
-                Items = items,
+                Items = buses.Select(MapToDto).ToList(),
                 TotalItems = totalItems,
                 Page = page,
                 PageSize = pageSize
             };
+        }
+
+        private async Task EnsureLicensePlateUniqueAsync(string licensePlate, long? excludeId = null)
+        {
+            var exists = await _busRepo.Get()
+                .AnyAsync(x => x.LicensePlate.ToLower() == licensePlate.ToLower() && (!excludeId.HasValue || x.Id != excludeId.Value));
+
+            if (exists)
+                throw new Exception("Biển số xe đã tồn tại");
+        }
+
+        private async Task EnsureBusNumberUniqueAsync(string? busNumber, long? excludeId = null)
+        {
+            if (string.IsNullOrWhiteSpace(busNumber))
+                return;
+
+            var exists = await _busRepo.Get()
+                .AnyAsync(x => x.BusNumber != null && x.BusNumber.ToLower() == busNumber.ToLower() && (!excludeId.HasValue || x.Id != excludeId.Value));
+
+            if (exists)
+                throw new Exception("Số xe đã tồn tại");
+        }
+
+        private static string ValidateLicensePlate(string? licensePlate)
+        {
+            if (string.IsNullOrWhiteSpace(licensePlate))
+                throw new Exception("Biển số xe không được để trống");
+
+            licensePlate = licensePlate.Trim();
+
+            if (licensePlate.Length < 5 || licensePlate.Length > 20)
+                throw new Exception("Biển số xe không hợp lệ");
+
+            return licensePlate;
+        }
+
+        private static int ValidateCapacity(int capacity)
+        {
+            if (capacity <= 0)
+                throw new Exception("Sức chứa phải lớn hơn 0");
+
+            if (capacity > 100)
+                throw new Exception("Sức chứa không hợp lệ");
+
+            return capacity;
         }
 
         private static BusDto MapToDto(Bus bus)
