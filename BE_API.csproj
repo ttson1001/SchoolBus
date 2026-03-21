@@ -28,6 +28,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.6" />
     <PackageReference Include="Swashbuckle.AspNetCore.Filters" Version="9.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
   </ItemGroup>
 
 </Project>

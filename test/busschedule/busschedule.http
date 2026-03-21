@@ -1,0 +1,56 @@
+@host = http://localhost:5031
+
+### Get bus schedule by id
+GET {{host}}/api/BusSchedule/Get/1
+Accept: application/json
+
+### Get bus schedules by bus
+GET {{host}}/api/BusSchedule/GetByBus/1
+Accept: application/json
+
+### Get bus schedules by route
+GET {{host}}/api/BusSchedule/GetByRoute/1
+Accept: application/json
+
+### Get bus schedules by campus
+GET {{host}}/api/BusSchedule/GetByCampus/1
+Accept: application/json
+
+### Get bus schedules at time
+GET {{host}}/api/BusSchedule/GetAtTime?atTime=2026-03-23T07:30:00&campusId=1
+Accept: application/json
+
+### Create bus schedule
+POST {{host}}/api/BusSchedule/Create
+Content-Type: application/json
+
+{
+  "busId": 1,
+  "routeId": 1,
+  "startDate": "2026-03-23T00:00:00",
+  "endDate": "2026-12-31T00:00:00",
+  "startTime": "07:00:00",
+  "endTime": "08:00:00",
+  "dayOfWeek": 1,
+  "shiftType": "PICKUP"
+}
+
+### Update bus schedule
+PUT {{host}}/api/BusSchedule/Update/1
+Content-Type: application/json
+
+{
+  "busId": 1,
+  "routeId": 1,
+  "startDate": "2026-03-23T00:00:00",
+  "endDate": "2026-12-31T00:00:00",
+  "startTime": "16:00:00",
+  "endTime": "17:00:00",
+  "dayOfWeek": 1,
+  "shiftType": "DROPOFF",
+  "isActive": true
+}
+
+### Delete bus schedule
+DELETE {{host}}/api/BusSchedule/Delete/1
+Accept: application/json

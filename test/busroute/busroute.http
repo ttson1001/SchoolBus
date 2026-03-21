@@ -1,0 +1,34 @@
+@host = http://localhost:5031
+
+### Search bus routes
+GET {{host}}/api/BusRoute/Search?keyword=&page=1&pageSize=10
+Accept: application/json
+
+### Get bus route by id
+GET {{host}}/api/BusRoute/Get/1
+Accept: application/json
+
+### Create bus route
+POST {{host}}/api/BusRoute/Create
+Content-Type: application/json
+
+{
+  "name": "Tuyen Campus Quan 1 - Thu nghiem",
+  "campusId": 1,
+  "stationIds": [1, 2, 3]
+}
+
+### Update bus route
+PUT {{host}}/api/BusRoute/Update/1
+Content-Type: application/json
+
+{
+  "name": "Tuyen Campus Quan 1 - Cap nhat",
+  "isEnabled": true,
+  "campusId": 1,
+  "stationIds": [2, 3, 4]
+}
+
+### Delete bus route
+DELETE {{host}}/api/BusRoute/Delete/1
+Accept: application/json

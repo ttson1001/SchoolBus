@@ -1,4 +1,4 @@
-﻿namespace BE_API.Entites
+namespace BE_API.Entites
 {
     public class Bus : IEntity
     {
@@ -12,5 +12,6 @@
         public string? BusType { get; set; }
 
         public ICollection<BusDamageReport> DamageReports { get; set; } = new List<BusDamageReport>();
+        public ICollection<BusSchedule> Schedules { get; set; } = new List<BusSchedule>();
     }
 }

@@ -1,0 +1,6 @@
+{
+  "name": "Tuyen Campus Quan 1 - Cap nhat",
+  "isEnabled": true,
+  "campusId": 1,
+  "stationIds": [2, 3, 4]
+}

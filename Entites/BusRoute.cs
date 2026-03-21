@@ -1,4 +1,4 @@
-﻿namespace BE_API.Entites
+namespace BE_API.Entites
 {
     public class BusRoute : IEntity
     {
@@ -8,5 +8,6 @@
         public long CampusId { get; set; }
         public Campus Campus { get; set; } = null!;
         public ICollection<BusRouteStation> Stations { get; set; } = new List<BusRouteStation>();
+        public ICollection<BusSchedule> Schedules { get; set; } = new List<BusSchedule>();
     }
 }

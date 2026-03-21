@@ -1,4 +1,4 @@
-﻿using BE_API.Entites;
+using BE_API.Entites;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_API.Database
@@ -19,6 +19,7 @@ namespace BE_API.Database
         public DbSet<BusRoute> BusRoutes => Set<BusRoute>();
         public DbSet<BusRouteStation> BusRouteStations => Set<BusRouteStation>();
         public DbSet<BusAssignment> BusAssignments => Set<BusAssignment>();
+        public DbSet<BusSchedule> BusSchedules => Set<BusSchedule>();
 
         public DbSet<Attendance> Attendances => Set<Attendance>();
         public DbSet<FaceRecognitionLog> FaceRecognitionLogs => Set<FaceRecognitionLog>();
@@ -66,6 +67,18 @@ namespace BE_API.Database
                 .HasOne(x => x.Bus)
                 .WithMany(x => x.DamageReports)
                 .HasForeignKey(x => x.BusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusSchedule>()
+                .HasOne(x => x.Bus)
+                .WithMany(x => x.Schedules)
+                .HasForeignKey(x => x.BusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusSchedule>()
+                .HasOne(x => x.Route)
+                .WithMany(x => x.Schedules)
+                .HasForeignKey(x => x.RouteId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Order>()
