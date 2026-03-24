@@ -1,10 +1,13 @@
+using BE_API.Configuration;
 using BE_API.Database;
 using BE_API.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using OfficeOpenXml;
+using PayOS;
 using Swashbuckle.AspNetCore.Filters;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -31,6 +34,14 @@ builder.Services.AddControllers()
     {
         o.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
     });
+
+builder.Services.Configure<PayOsSettings>(builder.Configuration.GetSection("PayOS"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<PayOSClient>(serviceProvider =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<PayOsSettings>>().Value;
+    return new PayOSClient(settings.ClientId, settings.ApiKey, settings.ChecksumKey);
+});
 
 builder.Services.AddDbContext<BeContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));

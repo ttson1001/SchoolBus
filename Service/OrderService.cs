@@ -13,20 +13,26 @@ namespace BE_API.Service
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<Package> _packageRepo;
-        private readonly IRepository<BusRoute> _busRouteRepo;
+        private readonly IRepository<Wallet> _walletRepo;
+        private readonly IRepository<Payment> _paymentRepo;
+        private readonly IRepository<TransactionLog> _transactionLogRepo;
 
         public OrderService(
             IRepository<Order> orderRepo,
             IRepository<User> userRepo,
             IRepository<Student> studentRepo,
             IRepository<Package> packageRepo,
-            IRepository<BusRoute> busRouteRepo)
+            IRepository<Wallet> walletRepo,
+            IRepository<Payment> paymentRepo,
+            IRepository<TransactionLog> transactionLogRepo)
         {
             _orderRepo = orderRepo;
             _userRepo = userRepo;
             _studentRepo = studentRepo;
             _packageRepo = packageRepo;
-            _busRouteRepo = busRouteRepo;
+            _walletRepo = walletRepo;
+            _paymentRepo = paymentRepo;
+            _transactionLogRepo = transactionLogRepo;
         }
 
         public async Task<OrderDto> CreateOrderAsync(OrderCreateDto dto)
@@ -34,7 +40,6 @@ namespace BE_API.Service
             var guardian = await ValidateGuardianAsync(dto.GuardianId);
             var student = await ValidateStudentAsync(dto.StudentId, dto.GuardianId);
             var package = await ValidatePackageAsync(dto.PackageId);
-            var busRoute = await ValidateBusRouteAsync(dto.BusRouteId);
 
             await ExpireOrdersAsync(dto.StudentId);
 
@@ -46,30 +51,70 @@ namespace BE_API.Service
                     x.EndDate.Value >= DateTime.UtcNow);
 
             if (hasActiveOrder)
-                throw new Exception("Student đang có gói còn hiệu lực");
+                throw new Exception("Student dang co goi con hieu luc");
 
-            var startDate = DateTime.UtcNow;
-            var endDate = startDate.AddDays(package.DurationDays);
+            var wallet = await _walletRepo.Get()
+                .FirstOrDefaultAsync(x => x.UserId == guardian.Id);
+
+            if (wallet == null)
+                throw new Exception("Guardian chua co vi. Vui long nap tien truoc");
+
+            if (wallet.Balance < package.Price)
+                throw new Exception("So du khong du de mua goi");
+
+            var now = DateTime.UtcNow;
+            var oldBalance = wallet.Balance;
+            var endDate = now.AddDays(package.DurationDays);
+
+            wallet.Balance -= package.Price;
+            _walletRepo.Update(wallet);
 
             var order = new Order
             {
                 GuardianId = guardian.Id,
                 StudentId = student.Id,
-                BusRouteId = busRoute.Id,
                 PackageId = package.Id,
                 Status = OrderStatus.PAID,
-                StartDate = startDate,
+                StartDate = now,
                 EndDate = endDate,
-                PaidAt = startDate,
-                CreatedAt = DateTime.UtcNow
+                PaidAt = now,
+                CreatedAt = now
             };
 
             await _orderRepo.AddAsync(order);
+
+            var payment = new Payment
+            {
+                Order = order,
+                Method = "WALLET",
+                Amount = package.Price,
+                Status = PaymentStatus.SUCCESS,
+                PaidAt = now
+            };
+
+            await _paymentRepo.AddAsync(payment);
+
+            var transactionLog = new TransactionLog
+            {
+                Order = order,
+                Method = "WALLET",
+                Amount = package.Price,
+                Status = PaymentStatus.SUCCESS.ToString(),
+                PaidAt = now,
+                OldBalance = oldBalance,
+                NewBalance = wallet.Balance,
+                Sender = guardian.Email,
+                Receiver = "SYSTEM",
+                Description = $"Thanh toan goi {package.Name} bang vi",
+                Code = $"WALLET-{Guid.NewGuid():N}".ToUpperInvariant()
+            };
+
+            await _transactionLogRepo.AddAsync(transactionLog);
             await _orderRepo.SaveChangesAsync();
 
             var createdOrder = await GetOrderQueryable()
                 .FirstOrDefaultAsync(x => x.Id == order.Id)
-                ?? throw new Exception("Order không tồn tại");
+                ?? throw new Exception("Order khong ton tai");
 
             return MapToDto(createdOrder);
         }
@@ -78,13 +123,13 @@ namespace BE_API.Service
         {
             var order = await GetOrderQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Order không tồn tại");
+                ?? throw new Exception("Order khong ton tai");
 
             await ExpireOrdersAsync(order.StudentId);
 
             order = await GetOrderQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Order không tồn tại");
+                ?? throw new Exception("Order khong ton tai");
 
             return MapToDto(order);
         }
@@ -160,18 +205,18 @@ namespace BE_API.Service
         private async Task<User> ValidateGuardianAsync(long guardianId)
         {
             if (guardianId <= 0)
-                throw new Exception("GuardianId phải lớn hơn 0");
+                throw new Exception("GuardianId phai lon hon 0");
 
             var guardian = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == guardianId)
-                ?? throw new Exception("Guardian không tồn tại");
+                ?? throw new Exception("Guardian khong ton tai");
 
             if (!string.Equals(guardian.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("User được chọn không phải guardian");
+                throw new Exception("User duoc chon khong phai guardian");
 
             if (guardian.Status != AccountStatus.ACTIVE)
-                throw new Exception("Guardian đang không hoạt động");
+                throw new Exception("Guardian dang khong hoat dong");
 
             return guardian;
         }
@@ -179,14 +224,14 @@ namespace BE_API.Service
         private async Task<Student> ValidateStudentAsync(long studentId, long guardianId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phải lớn hơn 0");
+                throw new Exception("StudentId phai lon hon 0");
 
             var student = await _studentRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == studentId)
-                ?? throw new Exception("Student không tồn tại");
+                ?? throw new Exception("Student khong ton tai");
 
             if (student.GuardianId != guardianId)
-                throw new Exception("Student không thuộc guardian này");
+                throw new Exception("Student khong thuoc guardian nay");
 
             return student;
         }
@@ -194,46 +239,34 @@ namespace BE_API.Service
         private async Task ValidateStudentExistsAsync(long studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phải lớn hơn 0");
+                throw new Exception("StudentId phai lon hon 0");
 
             var exists = await _studentRepo.Get()
                 .AnyAsync(x => x.Id == studentId);
 
             if (!exists)
-                throw new Exception("Student không tồn tại");
+                throw new Exception("Student khong ton tai");
         }
 
         private async Task<Package> ValidatePackageAsync(long packageId)
         {
             if (packageId <= 0)
-                throw new Exception("PackageId phải lớn hơn 0");
+                throw new Exception("PackageId phai lon hon 0");
 
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == packageId)
-                ?? throw new Exception("Package không tồn tại");
+                ?? throw new Exception("Package khong ton tai");
 
             if (!string.Equals(package.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Package đang không hoạt động");
+                throw new Exception("Package dang khong hoat dong");
 
             if (package.DurationDays <= 0)
-                throw new Exception("Package phải có DurationDays lớn hơn 0");
+                throw new Exception("Package phai co DurationDays lon hon 0");
+
+            if (package.Price <= 0)
+                throw new Exception("Package phai co gia lon hon 0");
 
             return package;
-        }
-
-        private async Task<BusRoute> ValidateBusRouteAsync(long busRouteId)
-        {
-            if (busRouteId <= 0)
-                throw new Exception("BusRouteId phải lớn hơn 0");
-
-            var busRoute = await _busRouteRepo.Get()
-                .FirstOrDefaultAsync(x => x.Id == busRouteId)
-                ?? throw new Exception("BusRoute không tồn tại");
-
-            if (!busRoute.IsEnabled)
-                throw new Exception("BusRoute đang không hoạt động");
-
-            return busRoute;
         }
 
         private static OrderDto MapToDto(Order order)
@@ -246,7 +279,7 @@ namespace BE_API.Service
                 StudentId = order.StudentId,
                 StudentName = order.Student.FullName,
                 BusRouteId = order.BusRouteId,
-                BusRouteName = order.BusRoute.Name,
+                BusRouteName = order.BusRoute?.Name,
                 PackageId = order.PackageId,
                 PackageName = order.Package.Name,
                 PackagePrice = order.Package.Price,

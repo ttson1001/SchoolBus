@@ -1,0 +1,9 @@
+{
+  "email": "driver01@schoolbus.local",
+  "password": "123456",
+  "fullName": "Nguyen Van Driver 01",
+  "phone": "0901234567",
+  "driverLicenseNumber": "79B2-123456",
+  "driverLicenseClass": "D",
+  "driverLicenseExpiryDate": "2028-12-31"
+}

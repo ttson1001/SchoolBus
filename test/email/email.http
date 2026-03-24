@@ -1,0 +1,7 @@
+@host = http://localhost:5031
+
+### Send email
+POST {{host}}/api/Account/SendEmail
+Content-Type: application/json
+
+< ./send_email_sample.json

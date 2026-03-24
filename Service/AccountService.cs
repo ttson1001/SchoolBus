@@ -1,9 +1,15 @@
-﻿using BE_API.Dto.Account;
+using BE_API.Configuration;
+using BE_API.Dto.Account;
+using BE_API.Dto.Common;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
 using BE_API.Repository;
 using BE_API.Service.IService;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using MimeKit;
 
 namespace BE_API.Service
 {
@@ -12,16 +18,18 @@ namespace BE_API.Service
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Role> _roleRepo;
         private readonly IJwtService _jwtService;
+        private readonly EmailSettings _emailSettings;
 
         public AccountService(
             IJwtService jwtService,
             IRepository<User> userRepo,
-            IRepository<Role> roleRepo)
+            IRepository<Role> roleRepo,
+            IOptions<EmailSettings> emailOptions)
         {
             _roleRepo = roleRepo;
             _userRepo = userRepo;
             _jwtService = jwtService;
-            
+            _emailSettings = emailOptions.Value;
         }
 
         private string GenerateOtp()
@@ -48,6 +56,57 @@ namespace BE_API.Service
             {
                 Token = token
             };
+        }
+
+        public async Task SendEmailAsync(SendEmailRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.To))
+                throw new Exception("Email nguoi nhan khong duoc de trong");
+
+            if (string.IsNullOrWhiteSpace(request.Subject))
+                throw new Exception("Tieu de email khong duoc de trong");
+
+            if (string.IsNullOrWhiteSpace(request.Body))
+                throw new Exception("Noi dung email khong duoc de trong");
+
+            ValidateEmailSettings();
+
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(_emailSettings.DisplayName, _emailSettings.FromEmail));
+            message.To.Add(MailboxAddress.Parse(request.To.Trim()));
+            message.Subject = request.Subject.Trim();
+            message.Body = new BodyBuilder
+            {
+                HtmlBody = request.Body,
+                TextBody = request.Body
+            }.ToMessageBody();
+
+            using var smtpClient = new SmtpClient();
+            var secureSocketOptions = _emailSettings.UseSsl
+                ? SecureSocketOptions.Auto
+                : SecureSocketOptions.None;
+            await smtpClient.ConnectAsync(_emailSettings.Host, _emailSettings.Port, secureSocketOptions);
+            await smtpClient.AuthenticateAsync(_emailSettings.Username, _emailSettings.Password);
+            await smtpClient.SendAsync(message);
+            await smtpClient.DisconnectAsync(true);
+        }
+
+        private void ValidateEmailSettings()
+        {
+            if (string.IsNullOrWhiteSpace(_emailSettings.Host))
+                throw new Exception("Chua cau hinh Email:Host");
+
+            if (_emailSettings.Port <= 0)
+                throw new Exception("Chua cau hinh Email:Port hop le");
+
+            if (string.IsNullOrWhiteSpace(_emailSettings.FromEmail))
+                throw new Exception("Chua cau hinh Email:FromEmail");
+
+            if (string.IsNullOrWhiteSpace(_emailSettings.Username))
+                throw new Exception("Chua cau hinh Email:Username");
+
+            if (string.IsNullOrWhiteSpace(_emailSettings.Password))
+                throw new Exception("Chua cau hinh Email:Password");
         }
     }
 }

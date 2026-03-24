@@ -1,0 +1,8 @@
+{
+  "studentId": 2,
+  "busId": 1,
+  "routeId": 1,
+  "rideDate": "2026-03-25T00:00:00",
+  "pickupStationId": 1,
+  "dropOffStationId": 2
+}

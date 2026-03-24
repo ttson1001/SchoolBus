@@ -1,0 +1,47 @@
+@host = http://localhost:5031
+
+### Get guardian wallet
+GET {{host}}/api/Wallet/GetByUser/5
+Accept: application/json
+
+### Top up guardian wallet
+POST {{host}}/api/Wallet/TopUp
+Content-Type: application/json
+
+{
+  "userId": 5,
+  "amount": 500000
+}
+
+### Create payOS top up link
+POST {{host}}/api/Wallet/CreatePayOsTopUpLink
+Content-Type: application/json
+
+{
+  "userId": 5,
+  "amount": 50000,
+  "returnUrl": "https://your-frontend.com/wallet/payos-return",
+  "cancelUrl": "https://your-frontend.com/wallet/payos-cancel"
+}
+
+### Get payOS top up status
+GET {{host}}/api/Wallet/GetPayOsTopUpStatus/1742800000000
+Accept: application/json
+
+### Buy package by wallet
+POST {{host}}/api/Order/Create
+Content-Type: application/json
+
+{
+  "guardianId": 5,
+  "studentId": 2,
+  "packageId": 1
+}
+
+### Get orders by guardian
+GET {{host}}/api/Order/GetByGuardian/5
+Accept: application/json
+
+### Get active package by student
+GET {{host}}/api/Order/GetActiveByStudent/2
+Accept: application/json

@@ -6,6 +6,9 @@ namespace BE_API.Dto.User
         public string Email { get; set; } = null!;
         public string? FullName { get; set; }
         public string? Phone { get; set; }
+        public string? DriverLicenseNumber { get; set; }
+        public string? DriverLicenseClass { get; set; }
+        public DateTime? DriverLicenseExpiryDate { get; set; }
         public string RoleName { get; set; } = null!;
         public string Status { get; set; } = null!;
         public DateTime CreatedAt { get; set; }

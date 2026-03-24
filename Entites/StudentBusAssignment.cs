@@ -12,6 +12,14 @@
 
         public long RouteId { get; set; }
         public BusRoute Route { get; set; } = null!;
+
+        public DateTime? RideDate { get; set; }
+
+        public long? PickupStationId { get; set; }
+        public BusStation? PickupStation { get; set; }
+
+        public long? DropOffStationId { get; set; }
+        public BusStation? DropOffStation { get; set; }
     }
 
 }

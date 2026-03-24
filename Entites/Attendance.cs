@@ -15,6 +15,10 @@ namespace BE_API.Entites
         public DateTime Date { get; set; }
         public TimeSpan? CheckInTime { get; set; }
         public TimeSpan? CheckOutTime { get; set; }
+        public long? CheckInStationId { get; set; }
+        public BusStation? CheckInStation { get; set; }
+        public long? CheckOutStationId { get; set; }
+        public BusStation? CheckOutStation { get; set; }
 
         public AttendanceMethod Method { get; set; }
         public AttendanceStatus Status { get; set; }

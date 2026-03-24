@@ -22,8 +22,7 @@ namespace BE_API.Service
 
         public async Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, int page, int pageSize)
         {
-            var query = _userRepo.Get()
-                ;
+            var query = _userRepo.Get();
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -32,6 +31,8 @@ namespace BE_API.Service
                     x.Email.ToLower().Contains(keyword) ||
                     (x.FullName != null && x.FullName.ToLower().Contains(keyword)) ||
                     (x.Phone != null && x.Phone.ToLower().Contains(keyword)) ||
+                    (x.DriverLicenseNumber != null && x.DriverLicenseNumber.ToLower().Contains(keyword)) ||
+                    (x.DriverLicenseClass != null && x.DriverLicenseClass.ToLower().Contains(keyword)) ||
                     x.Role.Name.ToLower().Contains(keyword));
             }
 
@@ -44,7 +45,7 @@ namespace BE_API.Service
             if (!string.IsNullOrWhiteSpace(status))
             {
                 if (!Enum.TryParse<AccountStatus>(status, true, out var accountStatus))
-                    throw new Exception($"Status '{status}' không hợp lệ.");
+                    throw new Exception($"Status '{status}' khong hop le.");
 
                 query = query.Where(x => x.Status == accountStatus);
             }
@@ -71,7 +72,7 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("User không tồn tại.");
+                ?? throw new Exception("User khong ton tai.");
 
             return MapToUserDto(user, user.Role.Name);
         }
@@ -79,10 +80,10 @@ namespace BE_API.Service
         public async Task<UserImportResultDto> ImportAsync(UserImportRequestDto dto, CancellationToken cancellationToken = default)
         {
             if (dto.File == null || dto.File.Length == 0)
-                throw new Exception("Vui lòng chọn file import.");
+                throw new Exception("Vui long chon file import.");
 
             if (!Path.GetExtension(dto.File.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Chỉ hỗ trợ file Excel (.xlsx).");
+                throw new Exception("Chi ho tro file Excel (.xlsx).");
 
             ExcelPackage.License.SetNonCommercialPersonal("SchoolBus");
 
@@ -98,16 +99,14 @@ namespace BE_API.Service
 
             var worksheet = package.Workbook.Worksheets.FirstOrDefault();
             if (worksheet?.Dimension == null)
-                throw new Exception("File Excel không có dữ liệu.");
+                throw new Exception("File Excel khong co du lieu.");
 
             var rowCount = worksheet.Dimension.Rows;
             var colCount = worksheet.Dimension.Columns;
             var headers = new List<string>();
 
             for (int col = 1; col <= colCount; col++)
-            {
                 headers.Add(worksheet.Cells[1, col].Text.Trim().ToLower());
-            }
 
             ValidateHeader(headers);
 
@@ -120,16 +119,14 @@ namespace BE_API.Service
                     var data = new Dictionary<string, string>();
 
                     for (int col = 1; col <= colCount; col++)
-                    {
                         data[headers[col - 1]] = worksheet.Cells[row, col].Text.Trim();
-                    }
 
                     var email = GetRequiredValue(data, "email", row).ToLower();
                     var password = GetRequiredValue(data, "password", row);
                     var currentRole = FindRole(data, roles, row);
 
                     if (existingEmails.Contains(email))
-                        throw new Exception($"Dòng {row}: email '{email}' đã tồn tại.");
+                        throw new Exception($"Dong {row}: email '{email}' da ton tai.");
 
                     var user = new User
                     {
@@ -169,6 +166,9 @@ namespace BE_API.Service
                 dto.Password,
                 dto.FullName,
                 dto.Phone,
+                null,
+                null,
+                null,
                 dto.Role,
                 cancellationToken);
 
@@ -180,7 +180,7 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
-                ?? throw new Exception("User không tồn tại.");
+                ?? throw new Exception("User khong ton tai.");
 
             if (dto.Email != null)
             {
@@ -189,7 +189,7 @@ namespace BE_API.Service
                     .FirstOrDefaultAsync(x => x.Email.ToLower() == normalizedEmail && x.Id != id, cancellationToken);
 
                 if (existedUser != null)
-                    throw new Exception("Email đã tồn tại.");
+                    throw new Exception("Email da ton tai.");
 
                 user.Email = normalizedEmail;
             }
@@ -197,7 +197,7 @@ namespace BE_API.Service
             if (dto.Password != null)
             {
                 if (string.IsNullOrWhiteSpace(dto.Password))
-                    throw new Exception("Password không được để trống.");
+                    throw new Exception("Password khong duoc de trong.");
 
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password.Trim());
             }
@@ -208,15 +208,48 @@ namespace BE_API.Service
             if (dto.Phone != null)
                 user.Phone = NormalizeOptional(dto.Phone);
 
+            if (dto.DriverLicenseNumber != null)
+            {
+                var normalizedDriverLicenseNumber = NormalizeOptional(dto.DriverLicenseNumber);
+
+                if (!string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
+                {
+                    var existedDriverLicense = await _userRepo.Get()
+                        .FirstOrDefaultAsync(x =>
+                            x.DriverLicenseNumber != null &&
+                            x.DriverLicenseNumber.ToLower() == normalizedDriverLicenseNumber.ToLower() &&
+                            x.Id != id, cancellationToken);
+
+                    if (existedDriverLicense != null)
+                        throw new Exception("So bang lai da ton tai.");
+                }
+
+                user.DriverLicenseNumber = normalizedDriverLicenseNumber;
+            }
+
+            if (dto.DriverLicenseClass != null)
+                user.DriverLicenseClass = NormalizeOptional(dto.DriverLicenseClass);
+
+            if (dto.DriverLicenseExpiryDate.HasValue)
+            {
+                if (dto.DriverLicenseExpiryDate.Value.Date <= DateTime.UtcNow.Date)
+                    throw new Exception("Han bang lai phai lon hon ngay hien tai.");
+
+                user.DriverLicenseExpiryDate = dto.DriverLicenseExpiryDate.Value.Date;
+            }
+
             if (dto.Role != null)
             {
                 if (string.IsNullOrWhiteSpace(dto.Role))
-                    throw new Exception("Role không được để trống.");
+                    throw new Exception("Role khong duoc de trong.");
 
                 var normalizedRoleName = dto.Role.Trim().ToLower();
                 var currentRole = await _roleRepo.Get()
                     .FirstOrDefaultAsync(x => x.Name.ToLower() == normalizedRoleName, cancellationToken)
-                    ?? throw new Exception($"Không tìm thấy role '{dto.Role}'.");
+                    ?? throw new Exception($"Khong tim thay role '{dto.Role}'.");
+
+                if (normalizedRoleName == "driver" && string.IsNullOrWhiteSpace(user.DriverLicenseNumber))
+                    throw new Exception("Driver phai co so bang lai.");
 
                 user.RoleId = currentRole.Id;
                 user.Role = currentRole;
@@ -238,6 +271,9 @@ namespace BE_API.Service
                 dto.Password,
                 dto.FullName,
                 dto.Phone,
+                null,
+                null,
+                null,
                 "teacher",
                 cancellationToken);
 
@@ -260,6 +296,9 @@ namespace BE_API.Service
                 dto.Password,
                 dto.FullName,
                 dto.Phone,
+                dto.DriverLicenseNumber,
+                dto.DriverLicenseClass,
+                dto.DriverLicenseExpiryDate,
                 "driver",
                 cancellationToken);
 
@@ -269,6 +308,9 @@ namespace BE_API.Service
                 Email = createdUser.user.Email,
                 FullName = createdUser.user.FullName,
                 Phone = createdUser.user.Phone,
+                DriverLicenseNumber = createdUser.user.DriverLicenseNumber,
+                DriverLicenseClass = createdUser.user.DriverLicenseClass,
+                DriverLicenseExpiryDate = createdUser.user.DriverLicenseExpiryDate,
                 RoleName = createdUser.role.Name,
                 Status = createdUser.user.Status.ToString(),
                 CreatedAt = createdUser.user.CreatedAt
@@ -280,27 +322,49 @@ namespace BE_API.Service
             string password,
             string? fullName,
             string? phone,
+            string? driverLicenseNumber,
+            string? driverLicenseClass,
+            DateTime? driverLicenseExpiryDate,
             string roleName,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(password))
-                throw new Exception("Password không được để trống.");
+                throw new Exception("Password khong duoc de trong.");
 
             if (string.IsNullOrWhiteSpace(roleName))
-                throw new Exception("Role không được để trống.");
+                throw new Exception("Role khong duoc de trong.");
 
             var normalizedEmail = NormalizeRequiredEmail(email);
             var normalizedRoleName = roleName.Trim().ToLower();
+            var normalizedDriverLicenseNumber = NormalizeOptional(driverLicenseNumber);
+            var normalizedDriverLicenseClass = NormalizeOptional(driverLicenseClass);
 
             var existedUser = await _userRepo.Get()
                 .FirstOrDefaultAsync(x => x.Email.ToLower() == normalizedEmail, cancellationToken);
 
             if (existedUser != null)
-                throw new Exception("Email đã tồn tại.");
+                throw new Exception("Email da ton tai.");
+
+            if (!string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
+            {
+                var existedDriverLicense = await _userRepo.Get()
+                    .FirstOrDefaultAsync(x =>
+                        x.DriverLicenseNumber != null &&
+                        x.DriverLicenseNumber.ToLower() == normalizedDriverLicenseNumber.ToLower(), cancellationToken);
+
+                if (existedDriverLicense != null)
+                    throw new Exception("So bang lai da ton tai.");
+            }
 
             var currentRole = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Name.ToLower() == normalizedRoleName, cancellationToken)
-                ?? throw new Exception($"Không tìm thấy role '{roleName}'.");
+                ?? throw new Exception($"Khong tim thay role '{roleName}'.");
+
+            if (normalizedRoleName == "driver" && string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
+                throw new Exception("Driver phai co so bang lai.");
+
+            if (driverLicenseExpiryDate.HasValue && driverLicenseExpiryDate.Value.Date <= DateTime.UtcNow.Date)
+                throw new Exception("Han bang lai phai lon hon ngay hien tai.");
 
             var user = new User
             {
@@ -308,6 +372,9 @@ namespace BE_API.Service
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password.Trim()),
                 FullName = NormalizeOptional(fullName),
                 Phone = NormalizeOptional(phone),
+                DriverLicenseNumber = normalizedDriverLicenseNumber,
+                DriverLicenseClass = normalizedDriverLicenseClass,
+                DriverLicenseExpiryDate = driverLicenseExpiryDate?.Date,
                 RoleId = currentRole.Id,
                 Status = AccountStatus.ACTIVE,
                 CreatedAt = DateTime.UtcNow
@@ -327,6 +394,9 @@ namespace BE_API.Service
                 Email = user.Email,
                 FullName = user.FullName,
                 Phone = user.Phone,
+                DriverLicenseNumber = user.DriverLicenseNumber,
+                DriverLicenseClass = user.DriverLicenseClass,
+                DriverLicenseExpiryDate = user.DriverLicenseExpiryDate,
                 RoleName = roleName,
                 Status = user.Status.ToString(),
                 CreatedAt = user.CreatedAt
@@ -336,19 +406,19 @@ namespace BE_API.Service
         private static void ValidateHeader(List<string> headers)
         {
             if (!headers.Contains("email"))
-                throw new Exception("File import thiếu cột email.");
+                throw new Exception("File import thieu cot email.");
 
             if (!headers.Contains("password"))
-                throw new Exception("File import thiếu cột password.");
+                throw new Exception("File import thieu cot password.");
 
             if (!headers.Contains("roleid") && !headers.Contains("rolename"))
-                throw new Exception("File import cần có roleId hoặc roleName.");
+                throw new Exception("File import can co roleId hoac roleName.");
         }
 
         private static string GetRequiredValue(Dictionary<string, string> data, string key, int rowIndex)
         {
             if (!data.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
-                throw new Exception($"Dòng {rowIndex}: {key} không được để trống.");
+                throw new Exception($"Dong {rowIndex}: {key} khong duoc de trong.");
 
             return value.Trim();
         }
@@ -367,20 +437,20 @@ namespace BE_API.Service
             if (!string.IsNullOrWhiteSpace(roleIdText))
             {
                 if (!long.TryParse(roleIdText, out var roleId))
-                    throw new Exception($"Dòng {rowIndex}: roleId không hợp lệ.");
+                    throw new Exception($"Dong {rowIndex}: roleId khong hop le.");
 
                 return roles.FirstOrDefault(x => x.Id == roleId)
-                    ?? throw new Exception($"Dòng {rowIndex}: không tìm thấy roleId {roleId}.");
+                    ?? throw new Exception($"Dong {rowIndex}: khong tim thay roleId {roleId}.");
             }
 
             var roleName = GetOptionalValue(data, "rolename");
             if (!string.IsNullOrWhiteSpace(roleName))
             {
                 return roles.FirstOrDefault(x => x.Name.ToLower() == roleName.ToLower())
-                    ?? throw new Exception($"Dòng {rowIndex}: không tìm thấy roleName '{roleName}'.");
+                    ?? throw new Exception($"Dong {rowIndex}: khong tim thay roleName '{roleName}'.");
             }
 
-            throw new Exception($"Dòng {rowIndex}: thiếu roleId hoặc roleName.");
+            throw new Exception($"Dong {rowIndex}: thieu roleId hoac roleName.");
         }
 
         private static AccountStatus ParseStatus(string? status, int rowIndex)
@@ -392,15 +462,15 @@ namespace BE_API.Service
                 return accountStatus;
 
             if (rowIndex > 0)
-                throw new Exception($"Dòng {rowIndex}: status '{status}' không hợp lệ.");
+                throw new Exception($"Dong {rowIndex}: status '{status}' khong hop le.");
 
-            throw new Exception($"Status '{status}' không hợp lệ.");
+            throw new Exception($"Status '{status}' khong hop le.");
         }
 
         private static string NormalizeRequiredEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
-                throw new Exception("Email không được để trống.");
+                throw new Exception("Email khong duoc de trong.");
 
             return email.Trim().ToLower();
         }

@@ -12,8 +12,8 @@ namespace BE_API.Entites
         public long StudentId { get; set; }
         public Student Student { get; set; } = null!;
 
-        public long BusRouteId { get; set; }
-        public BusRoute BusRoute { get; set; } = null!;
+        public long? BusRouteId { get; set; }
+        public BusRoute? BusRoute { get; set; }
 
         public long PackageId { get; set; }
         public Package Package { get; set; } = null!;

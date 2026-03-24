@@ -5,4 +5,5 @@ namespace BE_API.Entites.Enums
     public enum AttendanceStatus { PRESENT, ABSENT }
     public enum OrderStatus { PENDING, PAID, CANCELLED, EXPIRED }
     public enum PaymentStatus { SUCCESS, FAILED }
+    public enum WalletTopUpStatus { PENDING, PAID, CANCELLED, FAILED }
 }

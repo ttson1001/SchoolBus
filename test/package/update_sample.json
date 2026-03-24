@@ -1,0 +1,9 @@
+{
+  "name": "Goi Tieu Chuan 30 Ngay - Cap Nhat",
+  "price": 390000,
+  "durationDays": 30,
+  "description": "Goi da cap nhat de test update",
+  "status": "ACTIVE",
+  "type": "MONTHLY",
+  "imageUrl": "https://example.com/package-standard-updated.png"
+}

@@ -24,7 +24,9 @@ namespace BE_API.Extensions
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();
+            services.AddScoped<IStudentBusAssignmentService, StudentBusAssignmentService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IWalletService, WalletService>();
         }
     }
 }

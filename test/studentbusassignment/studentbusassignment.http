@@ -1,0 +1,40 @@
+@host = http://localhost:5031
+
+### Get assignment by id
+GET {{host}}/api/StudentBusAssignment/Get/1
+Accept: application/json
+
+### Get assignments by student
+GET {{host}}/api/StudentBusAssignment/GetByStudent/2?rideDate=2026-03-25
+Accept: application/json
+
+### Get assignments by guardian
+GET {{host}}/api/StudentBusAssignment/GetByGuardian/5?rideDate=2026-03-25
+Accept: application/json
+
+### Create student bus assignment by day
+POST {{host}}/api/StudentBusAssignment/Create
+Content-Type: application/json
+
+{
+  "studentId": 2,
+  "busId": 1,
+  "routeId": 1,
+  "rideDate": "2026-03-25T00:00:00",
+  "pickupStationId": 1,
+  "dropOffStationId": 2
+}
+
+### Update student bus assignment
+PUT {{host}}/api/StudentBusAssignment/Update/1
+Content-Type: application/json
+
+{
+  "rideDate": "2026-03-25T00:00:00",
+  "pickupStationId": 1,
+  "dropOffStationId": 3
+}
+
+### Delete student bus assignment
+DELETE {{host}}/api/StudentBusAssignment/Delete/1
+Accept: application/json

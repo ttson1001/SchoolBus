@@ -7,8 +7,8 @@ namespace BE_API.Dto.Order
         public string GuardianName { get; set; } = null!;
         public long StudentId { get; set; }
         public string StudentName { get; set; } = null!;
-        public long BusRouteId { get; set; }
-        public string BusRouteName { get; set; } = null!;
+        public long? BusRouteId { get; set; }
+        public string? BusRouteName { get; set; }
         public long PackageId { get; set; }
         public string PackageName { get; set; } = null!;
         public decimal PackagePrice { get; set; }

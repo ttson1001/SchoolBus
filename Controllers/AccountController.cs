@@ -1,4 +1,4 @@
-﻿using BE_API.Dto.Account;
+using BE_API.Dto.Account;
 using BE_API.Dto.Common;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +26,23 @@ namespace BE_API.Controllers
             {
                 var data = await _accountService.LoginAsync(dto);
                 return Ok(new ResponseDto { Data = data, Message = "Đăng nhập thành công." });
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        [SwaggerOperation(Summary = "Gui email", Description = "Gui email bang cau hinh SMTP trong appsettings.")]
+        public async Task<IActionResult> SendEmail([FromBody] SendEmailRequest request)
+        {
+            var response = new ResponseDto();
+            try
+            {
+                await _accountService.SendEmailAsync(request);
+                return Ok(new ResponseDto { Message = "Gui email thanh cong." });
             }
             catch (Exception ex)
             {

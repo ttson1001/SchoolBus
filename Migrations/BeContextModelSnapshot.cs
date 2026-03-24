@@ -33,8 +33,14 @@ namespace BE_API.Migrations
                     b.Property<long>("BusId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("CheckInStationId")
+                        .HasColumnType("bigint");
+
                     b.Property<TimeSpan?>("CheckInTime")
                         .HasColumnType("time");
+
+                    b.Property<long?>("CheckOutStationId")
+                        .HasColumnType("bigint");
 
                     b.Property<TimeSpan?>("CheckOutTime")
                         .HasColumnType("time");
@@ -54,6 +60,10 @@ namespace BE_API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BusId");
+
+                    b.HasIndex("CheckInStationId");
+
+                    b.HasIndex("CheckOutStationId");
 
                     b.HasIndex("StudentId");
 
@@ -423,7 +433,7 @@ namespace BE_API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<long>("BusRouteId")
+                    b.Property<long?>("BusRouteId")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime>("CreatedAt")
@@ -600,6 +610,15 @@ namespace BE_API.Migrations
                     b.Property<long>("BusId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("DropOffStationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("PickupStationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("RideDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<long>("RouteId")
                         .HasColumnType("bigint");
 
@@ -609,6 +628,10 @@ namespace BE_API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BusId");
+
+                    b.HasIndex("DropOffStationId");
+
+                    b.HasIndex("PickupStationId");
 
                     b.HasIndex("RouteId");
 
@@ -644,7 +667,7 @@ namespace BE_API.Migrations
                     b.Property<decimal>("OldBalance")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<long>("OrderId")
+                    b.Property<long?>("OrderId")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime?>("PaidAt")
@@ -677,6 +700,15 @@ namespace BE_API.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DriverLicenseClass")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DriverLicenseExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DriverLicenseNumber")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -735,6 +767,16 @@ namespace BE_API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("BE_API.Entites.BusStation", "CheckInStation")
+                        .WithMany()
+                        .HasForeignKey("CheckInStationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BE_API.Entites.BusStation", "CheckOutStation")
+                        .WithMany()
+                        .HasForeignKey("CheckOutStationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BE_API.Entites.Student", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
@@ -742,6 +784,10 @@ namespace BE_API.Migrations
                         .IsRequired();
 
                     b.Navigation("Bus");
+
+                    b.Navigation("CheckInStation");
+
+                    b.Navigation("CheckOutStation");
 
                     b.Navigation("Student");
                 });
@@ -878,9 +924,7 @@ namespace BE_API.Migrations
                 {
                     b.HasOne("BE_API.Entites.BusRoute", "BusRoute")
                         .WithMany()
-                        .HasForeignKey("BusRouteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("BusRouteId");
 
                     b.HasOne("BE_API.Entites.User", "Guardian")
                         .WithMany()
@@ -947,6 +991,16 @@ namespace BE_API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("BE_API.Entites.BusStation", "DropOffStation")
+                        .WithMany()
+                        .HasForeignKey("DropOffStationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BE_API.Entites.BusStation", "PickupStation")
+                        .WithMany()
+                        .HasForeignKey("PickupStationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BE_API.Entites.BusRoute", "Route")
                         .WithMany()
                         .HasForeignKey("RouteId")
@@ -961,6 +1015,10 @@ namespace BE_API.Migrations
 
                     b.Navigation("Bus");
 
+                    b.Navigation("DropOffStation");
+
+                    b.Navigation("PickupStation");
+
                     b.Navigation("Route");
 
                     b.Navigation("Student");
@@ -971,8 +1029,7 @@ namespace BE_API.Migrations
                     b.HasOne("BE_API.Entites.Order", "Order")
                         .WithMany("TransactionLogs")
                         .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Order");
                 });

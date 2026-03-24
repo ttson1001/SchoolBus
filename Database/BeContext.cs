@@ -93,11 +93,36 @@ namespace BE_API.Database
                 .HasForeignKey(x => x.PackageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<StudentBusAssignment>()
+                .HasOne(x => x.PickupStation)
+                .WithMany()
+                .HasForeignKey(x => x.PickupStationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StudentBusAssignment>()
+                .HasOne(x => x.DropOffStation)
+                .WithMany()
+                .HasForeignKey(x => x.DropOffStationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Attendance>()
+                .HasOne(x => x.CheckInStation)
+                .WithMany()
+                .HasForeignKey(x => x.CheckInStationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Attendance>()
+                .HasOne(x => x.CheckOutStation)
+                .WithMany()
+                .HasForeignKey(x => x.CheckOutStationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<TransactionLog>()
                 .HasOne(x => x.Order)
                 .WithMany(x => x.TransactionLogs)
                 .HasForeignKey(x => x.OrderId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
 
             modelBuilder.Entity<Wallet>()
                 .HasOne(x => x.User)
