@@ -1,0 +1,25 @@
+@host = http://localhost:5031
+
+### Buy package by wallet
+POST {{host}}/api/Order/Create
+Content-Type: application/json
+
+< ./create_by_wallet_sample.json
+
+### Create direct payOS order link
+POST {{host}}/api/Order/CreatePayOsLink
+Content-Type: application/json
+
+< ./create_by_payos_sample.json
+
+### Get direct payOS order status
+GET {{host}}/api/Order/GetPayOsStatus/1742800000000
+Accept: application/json
+
+### Get orders by guardian
+GET {{host}}/api/Order/GetByGuardian/5
+Accept: application/json
+
+### Get active package by student
+GET {{host}}/api/Order/GetActiveByStudent/2
+Accept: application/json

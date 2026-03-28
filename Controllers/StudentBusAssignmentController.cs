@@ -12,11 +12,11 @@ namespace BE_API.Controllers
     {
         private readonly IStudentBusAssignmentService _assignmentService;
 
-        private const string ASSIGNMENT_GET_SUCCESS = "Lay student bus assignment thanh cong";
-        private const string ASSIGNMENT_LIST_SUCCESS = "Lay danh sach student bus assignment thanh cong";
-        private const string ASSIGNMENT_CREATE_SUCCESS = "Set diem don tra cho hoc sinh thanh cong";
-        private const string ASSIGNMENT_UPDATE_SUCCESS = "Cap nhat student bus assignment thanh cong";
-        private const string ASSIGNMENT_DELETE_SUCCESS = "Xoa student bus assignment thanh cong";
+        private const string ASSIGNMENT_GET_SUCCESS = "Lấy student bus assignment thành công";
+        private const string ASSIGNMENT_LIST_SUCCESS = "Lấy danh sách student bus assignment thành công";
+        private const string ASSIGNMENT_CREATE_SUCCESS = "Thiết lập điểm đón trả cho học sinh thành công";
+        private const string ASSIGNMENT_UPDATE_SUCCESS = "Cập nhật student bus assignment thành công";
+        private const string ASSIGNMENT_DELETE_SUCCESS = "Xóa student bus assignment thành công";
 
         public StudentBusAssignmentController(IStudentBusAssignmentService assignmentService)
         {
@@ -24,7 +24,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{id}")]
-        [SwaggerOperation(Summary = "Lay student bus assignment theo id")]
+        [SwaggerOperation(Summary = "Lấy student bus assignment theo id")]
         public async Task<IActionResult> Get(long id)
         {
             var response = new ResponseDto();
@@ -44,7 +44,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{studentId}")]
-        [SwaggerOperation(Summary = "Lay assignment theo student")]
+        [SwaggerOperation(Summary = "Lấy assignment theo student")]
         public async Task<IActionResult> GetByStudent(long studentId, DateTime? rideDate)
         {
             var response = new ResponseDto();
@@ -64,7 +64,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{guardianId}")]
-        [SwaggerOperation(Summary = "Lay assignment theo guardian")]
+        [SwaggerOperation(Summary = "Lấy assignment theo guardian")]
         public async Task<IActionResult> GetByGuardian(long guardianId, DateTime? rideDate)
         {
             var response = new ResponseDto();
@@ -84,7 +84,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Set diem don tra theo ngay cho hoc sinh")]
+        [SwaggerOperation(Summary = "Thiết lập điểm đón trả theo ngày cho học sinh")]
         public async Task<IActionResult> Create([FromBody] StudentBusAssignmentCreateDto dto)
         {
             var response = new ResponseDto();
@@ -104,7 +104,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPut("[action]/{id}")]
-        [SwaggerOperation(Summary = "Cap nhat student bus assignment")]
+        [SwaggerOperation(Summary = "Cập nhật student bus assignment")]
         public async Task<IActionResult> Update(long id, [FromBody] StudentBusAssignmentUpdateDto dto)
         {
             var response = new ResponseDto();
@@ -124,7 +124,7 @@ namespace BE_API.Controllers
         }
 
         [HttpDelete("[action]/{id}")]
-        [SwaggerOperation(Summary = "Xoa student bus assignment")]
+        [SwaggerOperation(Summary = "Xóa student bus assignment")]
         public async Task<IActionResult> Delete(long id)
         {
             var response = new ResponseDto();

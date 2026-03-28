@@ -1,7 +1,9 @@
-﻿using BE_API.Dto.Common;
+using BE_API.Dto.Common;
 using BE_API.Dto.Student;
 using BE_API.Service.IService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BE_API.Controllers
 {
@@ -98,6 +100,32 @@ namespace BE_API.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetMyStudents()
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var userId = GetCurrentUserId();
+                var role = GetCurrentRole();
+
+                if (!string.Equals(role, "guardian", StringComparison.OrdinalIgnoreCase))
+                    throw new Exception("Tài khoản hiện tại không phải guardian");
+
+                var data = await _studentService.GetStudentsByGuardianIdAsync(userId);
+                response.Data = data;
+                response.Message = STUDENT_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPost("[action]")]
         public async Task<IActionResult> Create([FromBody] StudentCreateDto dto)
         {
@@ -151,6 +179,26 @@ namespace BE_API.Controllers
                 response.Message = ex.Message;
                 return BadRequest(response);
             }
+        }
+
+        private long GetCurrentUserId()
+        {
+            var userIdValue = User.FindFirstValue("UserId");
+
+            if (string.IsNullOrWhiteSpace(userIdValue) || !long.TryParse(userIdValue, out var userId))
+                throw new Exception("Không đọc được UserId từ token");
+
+            return userId;
+        }
+
+        private string GetCurrentRole()
+        {
+            var role = User.FindFirstValue("Role");
+
+            if (string.IsNullOrWhiteSpace(role))
+                throw new Exception("Không đọc được Role từ token");
+
+            return role;
         }
     }
 }

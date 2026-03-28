@@ -42,19 +42,42 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(u => u.Email == dto.Email)
-                ?? throw new KeyNotFoundException("Không tìm thấy tài khoản");
+                ?? throw new KeyNotFoundException("Khong tim thay tai khoan");
 
             if (user.Status == AccountStatus.DISABLED)
-                throw new Exception("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+                throw new Exception("Tai khoan da bi vo hieu hoa. Vui long lien he quan tri vien.");
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-                throw new Exception("Sai mật khẩu cần kiểm tra lại mật khẩu");
+                throw new Exception("Sai mat khau can kiem tra lai mat khau");
 
             var token = _jwtService.GenerateToken(user, null);
 
             return new LoginReponseDto
             {
                 Token = token
+            };
+        }
+
+        public async Task<AccountDto> GetMeAsync(long userId)
+        {
+            if (userId <= 0)
+                throw new Exception("UserId khong hop le");
+
+            var user = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == userId)
+                ?? throw new Exception("Khong tim thay tai khoan");
+
+            return new AccountDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.FullName ?? string.Empty,
+                Phone = user.Phone,
+                Avatar = null,
+                RoleName = user.Role?.Name ?? string.Empty,
+                Status = user.Status.ToString(),
+                CreatedAt = user.CreatedAt
             };
         }
 

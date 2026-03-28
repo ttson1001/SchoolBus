@@ -1,14 +1,24 @@
+using BE_API.Configuration;
 using BE_API.Dto.Order;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
 using BE_API.Repository;
 using BE_API.Service.IService;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using PayOS;
+using PayOS.Models.Webhooks;
+using PayOS.Models.V2.PaymentRequests;
 
 namespace BE_API.Service
 {
     public class OrderService : IOrderService
     {
+        private const string WalletMethod = "WALLET";
+        private const string PayOsOrderMethod = "PAYOS_ORDER";
+        private const string PayOsPaymentMethod = "PAYOS";
+        private const string SystemReceiver = "SYSTEM";
+
         private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Student> _studentRepo;
@@ -16,6 +26,8 @@ namespace BE_API.Service
         private readonly IRepository<Wallet> _walletRepo;
         private readonly IRepository<Payment> _paymentRepo;
         private readonly IRepository<TransactionLog> _transactionLogRepo;
+        private readonly PayOSClient _payOsClient;
+        private readonly PayOsSettings _payOsSettings;
 
         public OrderService(
             IRepository<Order> orderRepo,
@@ -24,7 +36,9 @@ namespace BE_API.Service
             IRepository<Package> packageRepo,
             IRepository<Wallet> walletRepo,
             IRepository<Payment> paymentRepo,
-            IRepository<TransactionLog> transactionLogRepo)
+            IRepository<TransactionLog> transactionLogRepo,
+            PayOSClient payOsClient,
+            IOptions<PayOsSettings> payOsOptions)
         {
             _orderRepo = orderRepo;
             _userRepo = userRepo;
@@ -33,6 +47,8 @@ namespace BE_API.Service
             _walletRepo = walletRepo;
             _paymentRepo = paymentRepo;
             _transactionLogRepo = transactionLogRepo;
+            _payOsClient = payOsClient;
+            _payOsSettings = payOsOptions.Value;
         }
 
         public async Task<OrderDto> CreateOrderAsync(OrderCreateDto dto)
@@ -42,16 +58,7 @@ namespace BE_API.Service
             var package = await ValidatePackageAsync(dto.PackageId);
 
             await ExpireOrdersAsync(dto.StudentId);
-
-            var hasActiveOrder = await _orderRepo.Get()
-                .AnyAsync(x =>
-                    x.StudentId == dto.StudentId &&
-                    x.Status == OrderStatus.PAID &&
-                    x.EndDate.HasValue &&
-                    x.EndDate.Value >= DateTime.UtcNow);
-
-            if (hasActiveOrder)
-                throw new Exception("Student dang co goi con hieu luc");
+            await EnsureStudentHasNoActiveOrderAsync(dto.StudentId);
 
             var wallet = await _walletRepo.Get()
                 .FirstOrDefaultAsync(x => x.UserId == guardian.Id);
@@ -86,7 +93,7 @@ namespace BE_API.Service
             var payment = new Payment
             {
                 Order = order,
-                Method = "WALLET",
+                Method = WalletMethod,
                 Amount = package.Price,
                 Status = PaymentStatus.SUCCESS,
                 PaidAt = now
@@ -97,14 +104,14 @@ namespace BE_API.Service
             var transactionLog = new TransactionLog
             {
                 Order = order,
-                Method = "WALLET",
+                Method = WalletMethod,
                 Amount = package.Price,
                 Status = PaymentStatus.SUCCESS.ToString(),
                 PaidAt = now,
                 OldBalance = oldBalance,
                 NewBalance = wallet.Balance,
                 Sender = guardian.Email,
-                Receiver = "SYSTEM",
+                Receiver = SystemReceiver,
                 Description = $"Thanh toan goi {package.Name} bang vi",
                 Code = $"WALLET-{Guid.NewGuid():N}".ToUpperInvariant()
             };
@@ -119,18 +126,166 @@ namespace BE_API.Service
             return MapToDto(createdOrder);
         }
 
+        public async Task<OrderPayOsLinkDto> CreatePayOsOrderLinkAsync(OrderPayOsCreateDto dto)
+        {
+            var guardian = await ValidateGuardianAsync(dto.GuardianId);
+            var student = await ValidateStudentAsync(dto.StudentId, dto.GuardianId);
+            var package = await ValidatePackageAsync(dto.PackageId);
+            EnsurePayOsAmountSupported(package.Price);
+
+            await ExpireOrdersAsync(dto.StudentId);
+            await EnsureStudentHasNoActiveOrderAsync(dto.StudentId);
+
+            var returnUrl = ResolveUrl(dto.ReturnUrl, _payOsSettings.ReturnUrl, "ReturnUrl");
+            var cancelUrl = ResolveUrl(dto.CancelUrl, _payOsSettings.CancelUrl, "CancelUrl");
+            var orderCode = await GeneratePayOsOrderCodeAsync();
+            var description = BuildDirectOrderDescription(student.Id);
+            var createdAt = DateTime.UtcNow;
+
+            var paymentRequest = new CreatePaymentLinkRequest
+            {
+                OrderCode = orderCode,
+                Amount = decimal.ToInt64(package.Price),
+                Description = description,
+                ReturnUrl = returnUrl,
+                CancelUrl = cancelUrl
+            };
+
+            var paymentLink = await _payOsClient.PaymentRequests.CreateAsync(paymentRequest);
+
+            var order = new Order
+            {
+                GuardianId = guardian.Id,
+                StudentId = student.Id,
+                PackageId = package.Id,
+                Status = OrderStatus.PENDING,
+                CreatedAt = createdAt
+            };
+
+            await _orderRepo.AddAsync(order);
+
+            var transactionLog = new TransactionLog
+            {
+                Order = order,
+                Method = PayOsOrderMethod,
+                Amount = package.Price,
+                Status = OrderStatus.PENDING.ToString(),
+                OldBalance = 0,
+                NewBalance = 0,
+                Sender = guardian.Email,
+                Receiver = SystemReceiver,
+                Description = description,
+                Code = orderCode.ToString()
+            };
+
+            await _transactionLogRepo.AddAsync(transactionLog);
+            await _orderRepo.SaveChangesAsync();
+
+            return new OrderPayOsLinkDto
+            {
+                OrderId = order.Id,
+                GuardianId = guardian.Id,
+                StudentId = student.Id,
+                PackageId = package.Id,
+                PackageName = package.Name,
+                OrderCode = orderCode,
+                Amount = package.Price,
+                Description = description,
+                CheckoutUrl = paymentLink.CheckoutUrl,
+                Status = OrderStatus.PENDING.ToString(),
+                CreatedAt = createdAt
+            };
+        }
+
+        public async Task<OrderPayOsStatusDto> HandlePayOsWebhookAsync(Webhook webhook)
+        {
+            var verifiedData = await _payOsClient.Webhooks.VerifyAsync(webhook);
+            var transactionLog = await GetPayOsOrderTransactionAsync(verifiedData.OrderCode);
+            var order = await GetOrderForTransactionAsync(transactionLog);
+
+            if (order.Status == OrderStatus.PAID &&
+                string.Equals(transactionLog.Status, PaymentStatus.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return MapToPayOsStatusDto(order, transactionLog);
+            }
+
+            if (order.Status == OrderStatus.CANCELLED &&
+                !string.Equals(transactionLog.Status, PaymentStatus.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return MapToPayOsStatusDto(order, transactionLog);
+            }
+
+            var paidAt = ParseTransactionDateTime(verifiedData.TransactionDateTime);
+
+            if (!string.Equals(verifiedData.Code, "00", StringComparison.OrdinalIgnoreCase))
+            {
+                await MarkDirectPayOsOrderAsFailedAsync(order, transactionLog, paidAt);
+                order = await GetOrderByIdInternalAsync(order.Id);
+                return MapToPayOsStatusDto(order, transactionLog);
+            }
+
+            if (verifiedData.Amount != decimal.ToInt64(transactionLog.Amount))
+            {
+                await MarkDirectPayOsOrderAsFailedAsync(order, transactionLog, paidAt);
+                order = await GetOrderByIdInternalAsync(order.Id);
+                return MapToPayOsStatusDto(order, transactionLog);
+            }
+
+            try
+            {
+                var package = await ValidatePackageAsync(order.PackageId);
+                EnsurePayOsAmountSupported(package.Price);
+
+                await ExpireOrdersAsync(order.StudentId);
+                await EnsureStudentHasNoActiveOrderAsync(order.StudentId, order.Id);
+
+                order.Status = OrderStatus.PAID;
+                order.StartDate = paidAt;
+                order.EndDate = paidAt.AddDays(package.DurationDays);
+                order.PaidAt = paidAt;
+                order.ExpiredAt = null;
+
+                transactionLog.Status = PaymentStatus.SUCCESS.ToString();
+                transactionLog.PaidAt = paidAt;
+
+                _orderRepo.Update(order);
+                _transactionLogRepo.Update(transactionLog);
+                await UpsertOrderPaymentAsync(order.Id, transactionLog.Amount, PaymentStatus.SUCCESS, paidAt);
+                await _orderRepo.SaveChangesAsync();
+            }
+            catch
+            {
+                await MarkDirectPayOsOrderAsFailedAsync(order, transactionLog, paidAt);
+            }
+
+            order = await GetOrderByIdInternalAsync(order.Id);
+            return MapToPayOsStatusDto(order, transactionLog);
+        }
+
+        public async Task<OrderPayOsStatusDto> GetPayOsOrderStatusAsync(long orderCode)
+        {
+            if (orderCode <= 0)
+                throw new Exception("OrderCode phai lon hon 0");
+
+            var transactionLog = await GetPayOsOrderTransactionAsync(orderCode);
+            var order = await GetOrderForTransactionAsync(transactionLog);
+
+            if (order.Status == OrderStatus.PAID)
+            {
+                await ExpireOrdersAsync(order.StudentId);
+                order = await GetOrderByIdInternalAsync(order.Id);
+            }
+
+            return MapToPayOsStatusDto(order, transactionLog);
+        }
+
         public async Task<OrderDto> GetOrderByIdAsync(long id)
         {
-            var order = await GetOrderQueryable()
-                .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Order khong ton tai");
+            var order = await GetOrderByIdInternalAsync(id);
 
             await ExpireOrdersAsync(order.StudentId);
 
-            order = await GetOrderQueryable()
-                .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Order khong ton tai");
-
+            order = await GetOrderByIdInternalAsync(id);
             return MapToDto(order);
         }
 
@@ -178,6 +333,13 @@ namespace BE_API.Service
                 .Include(x => x.Package);
         }
 
+        private async Task<Order> GetOrderByIdInternalAsync(long id)
+        {
+            return await GetOrderQueryable()
+                .FirstOrDefaultAsync(x => x.Id == id)
+                ?? throw new Exception("Order khong ton tai");
+        }
+
         private async Task ExpireOrdersAsync(long studentId)
         {
             var now = DateTime.UtcNow;
@@ -200,6 +362,20 @@ namespace BE_API.Service
             }
 
             await _orderRepo.SaveChangesAsync();
+        }
+
+        private async Task EnsureStudentHasNoActiveOrderAsync(long studentId, long? excludeOrderId = null)
+        {
+            var hasActiveOrder = await _orderRepo.Get()
+                .AnyAsync(x =>
+                    x.StudentId == studentId &&
+                    x.Status == OrderStatus.PAID &&
+                    x.EndDate.HasValue &&
+                    x.EndDate.Value >= DateTime.UtcNow &&
+                    (!excludeOrderId.HasValue || x.Id != excludeOrderId.Value));
+
+            if (hasActiveOrder)
+                throw new Exception("Student dang co goi con hieu luc");
         }
 
         private async Task<User> ValidateGuardianAsync(long guardianId)
@@ -269,6 +445,106 @@ namespace BE_API.Service
             return package;
         }
 
+        private static void EnsurePayOsAmountSupported(decimal amount)
+        {
+            if (decimal.Truncate(amount) != amount)
+                throw new Exception("Gia goi thanh toan qua payOS phai la so nguyen VND");
+        }
+
+        private async Task<long> GeneratePayOsOrderCodeAsync()
+        {
+            var orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            while (await _transactionLogRepo.Get().AnyAsync(x => x.Code == orderCode.ToString()))
+            {
+                orderCode++;
+            }
+
+            return orderCode;
+        }
+
+        private async Task<TransactionLog> GetPayOsOrderTransactionAsync(long orderCode)
+        {
+            return await _transactionLogRepo.Get()
+                .FirstOrDefaultAsync(x => x.Method == PayOsOrderMethod && x.Code == orderCode.ToString())
+                ?? throw new Exception("Khong tim thay giao dich mua goi payOS");
+        }
+
+        private async Task<Order> GetOrderForTransactionAsync(TransactionLog transactionLog)
+        {
+            if (!transactionLog.OrderId.HasValue)
+                throw new Exception("Giao dich payOS chua gan voi order");
+
+            return await GetOrderByIdInternalAsync(transactionLog.OrderId.Value);
+        }
+
+        private static string ResolveUrl(string? inputUrl, string configuredUrl, string fieldName)
+        {
+            var url = string.IsNullOrWhiteSpace(inputUrl) ? configuredUrl : inputUrl.Trim();
+
+            if (string.IsNullOrWhiteSpace(url))
+                throw new Exception($"{fieldName} cua payOS chua duoc cau hinh");
+
+            return url;
+        }
+
+        private static string BuildDirectOrderDescription(long studentId)
+        {
+            return $"Mua goi HS{studentId}";
+        }
+
+        private async Task MarkDirectPayOsOrderAsFailedAsync(Order order, TransactionLog transactionLog, DateTime? paidAt)
+        {
+            order.Status = OrderStatus.CANCELLED;
+            order.StartDate = null;
+            order.EndDate = null;
+            order.PaidAt = null;
+            order.ExpiredAt = null;
+
+            transactionLog.Status = PaymentStatus.FAILED.ToString();
+            transactionLog.PaidAt = paidAt;
+
+            _orderRepo.Update(order);
+            _transactionLogRepo.Update(transactionLog);
+            await UpsertOrderPaymentAsync(order.Id, transactionLog.Amount, PaymentStatus.FAILED, paidAt);
+            await _orderRepo.SaveChangesAsync();
+        }
+
+        private async Task UpsertOrderPaymentAsync(long orderId, decimal amount, PaymentStatus status, DateTime? paidAt)
+        {
+            var payment = await _paymentRepo.Get()
+                .FirstOrDefaultAsync(x => x.OrderId == orderId);
+
+            if (payment == null)
+            {
+                payment = new Payment
+                {
+                    OrderId = orderId,
+                    Method = PayOsPaymentMethod,
+                    Amount = amount,
+                    Status = status,
+                    PaidAt = paidAt
+                };
+
+                await _paymentRepo.AddAsync(payment);
+                return;
+            }
+
+            payment.Method = PayOsPaymentMethod;
+            payment.Amount = amount;
+            payment.Status = status;
+            payment.PaidAt = paidAt;
+            _paymentRepo.Update(payment);
+        }
+
+        private static DateTime ParseTransactionDateTime(string? transactionDateTime)
+        {
+            if (DateTime.TryParse(transactionDateTime, out var parsedDateTime))
+                return parsedDateTime;
+
+            return DateTime.UtcNow;
+        }
+
         private static OrderDto MapToDto(Order order)
         {
             return new OrderDto
@@ -289,6 +565,26 @@ namespace BE_API.Service
                 EndDate = order.EndDate,
                 PaidAt = order.PaidAt,
                 ExpiredAt = order.ExpiredAt,
+                CreatedAt = order.CreatedAt
+            };
+        }
+
+        private static OrderPayOsStatusDto MapToPayOsStatusDto(Order order, TransactionLog transactionLog)
+        {
+            return new OrderPayOsStatusDto
+            {
+                OrderId = order.Id,
+                GuardianId = order.GuardianId,
+                StudentId = order.StudentId,
+                PackageId = order.PackageId,
+                PackageName = order.Package.Name,
+                OrderCode = long.TryParse(transactionLog.Code, out var orderCode) ? orderCode : 0,
+                Amount = transactionLog.Amount,
+                OrderStatus = order.Status.ToString(),
+                TransactionStatus = transactionLog.Status,
+                PaidAt = transactionLog.PaidAt ?? order.PaidAt,
+                StartDate = order.StartDate,
+                EndDate = order.EndDate,
                 CreatedAt = order.CreatedAt
             };
         }

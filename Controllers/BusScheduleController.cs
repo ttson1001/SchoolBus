@@ -11,11 +11,11 @@ namespace BE_API.Controllers
     {
         private readonly IBusScheduleService _busScheduleService;
 
-        private const string BUS_SCHEDULE_GET_SUCCESS = "Lay bus schedule thanh cong";
-        private const string BUS_SCHEDULE_LIST_SUCCESS = "Lay danh sach bus schedule thanh cong";
-        private const string BUS_SCHEDULE_CREATE_SUCCESS = "Tao bus schedule thanh cong";
-        private const string BUS_SCHEDULE_UPDATE_SUCCESS = "Cap nhat bus schedule thanh cong";
-        private const string BUS_SCHEDULE_DELETE_SUCCESS = "Xoa bus schedule thanh cong";
+        private const string BUS_SCHEDULE_GET_SUCCESS = "Lấy bus schedule thành công";
+        private const string BUS_SCHEDULE_LIST_SUCCESS = "Lấy danh sách bus schedule thành công";
+        private const string BUS_SCHEDULE_CREATE_SUCCESS = "Tạo bus schedule thành công";
+        private const string BUS_SCHEDULE_UPDATE_SUCCESS = "Cập nhật bus schedule thành công";
+        private const string BUS_SCHEDULE_DELETE_SUCCESS = "Xóa bus schedule thành công";
 
         public BusScheduleController(IBusScheduleService busScheduleService)
         {

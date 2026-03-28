@@ -12,11 +12,11 @@ namespace BE_API.Controllers
     {
         private readonly IBusRouteService _busRouteService;
 
-        private const string BUS_ROUTE_LIST_SUCCESS = "Lay danh sach bus route thanh cong";
-        private const string BUS_ROUTE_GET_SUCCESS = "Lay bus route thanh cong";
-        private const string BUS_ROUTE_CREATE_SUCCESS = "Tao bus route thanh cong";
-        private const string BUS_ROUTE_UPDATE_SUCCESS = "Cap nhat bus route thanh cong";
-        private const string BUS_ROUTE_DELETE_SUCCESS = "Xoa bus route thanh cong";
+        private const string BUS_ROUTE_LIST_SUCCESS = "Lấy danh sách bus route thành công";
+        private const string BUS_ROUTE_GET_SUCCESS = "Lấy bus route thành công";
+        private const string BUS_ROUTE_CREATE_SUCCESS = "Tạo bus route thành công";
+        private const string BUS_ROUTE_UPDATE_SUCCESS = "Cập nhật bus route thành công";
+        private const string BUS_ROUTE_DELETE_SUCCESS = "Xóa bus route thành công";
 
         public BusRouteController(IBusRouteService busRouteService)
         {
@@ -24,7 +24,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        [SwaggerOperation(Summary = "Tim kiem tuyen xe bus")]
+        [SwaggerOperation(Summary = "Tìm kiếm tuyến xe bus")]
         public async Task<IActionResult> Search(string? keyword, int page = 1, int pageSize = 10)
         {
             var response = new ResponseDto();
@@ -44,7 +44,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{id}")]
-        [SwaggerOperation(Summary = "Lay tuyen xe bus theo id")]
+        [SwaggerOperation(Summary = "Lấy tuyến xe bus theo id")]
         public async Task<IActionResult> Get(long id)
         {
             var response = new ResponseDto();
@@ -64,7 +64,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Tao tuyen xe bus")]
+        [SwaggerOperation(Summary = "Tạo tuyến xe bus")]
         public async Task<IActionResult> Create([FromBody] BusRouteCreateDto dto)
         {
             var response = new ResponseDto();
@@ -84,7 +84,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPut("[action]/{id}")]
-        [SwaggerOperation(Summary = "Cap nhat tuyen xe bus")]
+        [SwaggerOperation(Summary = "Cập nhật tuyến xe bus")]
         public async Task<IActionResult> Update(long id, [FromBody] BusRouteUpdateDto dto)
         {
             var response = new ResponseDto();
@@ -104,7 +104,7 @@ namespace BE_API.Controllers
         }
 
         [HttpDelete("[action]/{id}")]
-        [SwaggerOperation(Summary = "Xoa tuyen xe bus")]
+        [SwaggerOperation(Summary = "Xóa tuyến xe bus")]
         public async Task<IActionResult> Delete(long id)
         {
             var response = new ResponseDto();

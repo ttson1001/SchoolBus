@@ -2,6 +2,7 @@ using BE_API.Dto.Common;
 using BE_API.Dto.Order;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
+using PayOS.Models.Webhooks;
 
 namespace BE_API.Controllers
 {
@@ -14,6 +15,8 @@ namespace BE_API.Controllers
         private const string ORDER_GET_SUCCESS = "Lấy order thành công";
         private const string ORDER_LIST_SUCCESS = "Lấy danh sách order thành công";
         private const string ORDER_CREATE_SUCCESS = "Tạo order thành công";
+        private const string ORDER_PAYOS_LINK_SUCCESS = "Tạo link thanh toán payOS cho order thành công";
+        private const string ORDER_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS mua gói thành công";
 
         public OrderController(IOrderService orderService)
         {
@@ -30,6 +33,63 @@ namespace BE_API.Controllers
                 var data = await _orderService.CreateOrderAsync(dto);
                 response.Data = data;
                 response.Message = ORDER_CREATE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> CreatePayOsLink([FromBody] OrderPayOsCreateDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _orderService.CreatePayOsOrderLinkAsync(dto);
+                response.Data = data;
+                response.Message = ORDER_PAYOS_LINK_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> HandlePayOsWebhook([FromBody] Webhook webhook)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _orderService.HandlePayOsWebhookAsync(webhook);
+                response.Data = data;
+                response.Message = ORDER_PAYOS_WEBHOOK_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{orderCode}")]
+        public async Task<IActionResult> GetPayOsStatus(long orderCode)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _orderService.GetPayOsOrderStatusAsync(orderCode);
+                response.Data = data;
+                response.Message = ORDER_GET_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

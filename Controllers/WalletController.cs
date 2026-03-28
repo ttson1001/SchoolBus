@@ -14,10 +14,10 @@ namespace BE_API.Controllers
     {
         private readonly IWalletService _walletService;
 
-        private const string WALLET_GET_SUCCESS = "Lay vi thanh cong";
-        private const string WALLET_TOPUP_SUCCESS = "Nap tien vao vi thanh cong";
-        private const string WALLET_PAYOS_LINK_SUCCESS = "Tao link nap tien payOS thanh cong";
-        private const string WALLET_PAYOS_WEBHOOK_SUCCESS = "Xu ly webhook payOS thanh cong";
+        private const string WALLET_GET_SUCCESS = "Lấy ví thành công";
+        private const string WALLET_TOPUP_SUCCESS = "Nạp tiền vào ví thành công";
+        private const string WALLET_PAYOS_LINK_SUCCESS = "Tạo link nạp tiền payOS thành công";
+        private const string WALLET_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS thành công";
 
         public WalletController(IWalletService walletService)
         {
@@ -25,7 +25,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{userId}")]
-        [SwaggerOperation(Summary = "Lay vi theo user id")]
+        [SwaggerOperation(Summary = "Lấy ví theo user id")]
         public async Task<IActionResult> GetByUser(long userId)
         {
             var response = new ResponseDto();
@@ -45,7 +45,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Nap tien vao vi guardian")]
+        [SwaggerOperation(Summary = "Nạp tiền vào ví guardian")]
         public async Task<IActionResult> TopUp([FromBody] WalletTopUpDto dto)
         {
             var response = new ResponseDto();
@@ -65,7 +65,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Tao link nap tien bang payOS")]
+        [SwaggerOperation(Summary = "Tạo link nạp tiền bằng payOS")]
         public async Task<IActionResult> CreatePayOsTopUpLink([FromBody] WalletPayOsCreateDto dto)
         {
             var response = new ResponseDto();
@@ -85,7 +85,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Nhan webhook payOS de cong tien vao vi")]
+        [SwaggerOperation(Summary = "Nhận webhook payOS để cộng tiền vào ví")]
         public async Task<IActionResult> HandlePayOsWebhook([FromBody] Webhook webhook)
         {
             var response = new ResponseDto();
@@ -105,7 +105,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{orderCode}")]
-        [SwaggerOperation(Summary = "Lay trang thai giao dich nap tien payOS")]
+        [SwaggerOperation(Summary = "Lấy trạng thái giao dịch nạp tiền payOS")]
         public async Task<IActionResult> GetPayOsTopUpStatus(long orderCode)
         {
             var response = new ResponseDto();
