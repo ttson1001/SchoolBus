@@ -42,7 +42,7 @@ namespace BE_API.Service
             var bus = await ValidateBusAsync(dto.BusId);
             var route = await ValidateRouteAsync(dto.RouteId);
             //await ValidateBusRoutePairAsync(dto.BusId, dto.RouteId, rideDate);
-            var (pickupStation, dropOffStation) = await ValidateStationsAsync(dto.RouteId, dto.PickupStationId, dto.DropOffStationId);
+            //var (pickupStation, dropOffStation) = await ValidateStationsAsync(dto.RouteId, dto.PickupStationId, dto.DropOffStationId);
 
             var existed = await _assignmentRepo.Get()
                 .AnyAsync(x =>
@@ -59,8 +59,8 @@ namespace BE_API.Service
                 BusId = bus.Id,
                 RouteId = route.Id,
                 RideDate = rideDate,
-                PickupStationId = pickupStation.Id,
-                DropOffStationId = dropOffStation.Id
+                PickupStationId = dto.PickupStationId,
+                DropOffStationId = dto.DropOffStationId
             };
 
             await _assignmentRepo.AddAsync(assignment);
@@ -139,7 +139,7 @@ namespace BE_API.Service
             await ValidateBusAsync(busId);
             await ValidateRouteAsync(routeId);
             //await ValidateBusRoutePairAsync(busId, routeId, rideDate);
-            await ValidateStationsAsync(routeId, pickupStationId, dropOffStationId);
+            //await ValidateStationsAsync(routeId, pickupStationId, dropOffStationId);
 
             var duplicated = await _assignmentRepo.Get()
                 .AnyAsync(x =>
