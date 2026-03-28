@@ -1,44 +1,46 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: schoolbus-sqlserver
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "SchoolBus@123456"
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $$MSSQL_SA_PASSWORD -Q \"SELECT 1\" || exit 1"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 30s
+  # SQL Server chạy ở stack/repo khác trên VPS — bỏ comment block dưới nếu cần full stack local.
+  # sqlserver:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: schoolbus-sqlserver
+  #   environment:
+  #     ACCEPT_EULA: "Y"
+  #     MSSQL_SA_PASSWORD: "SchoolBus@123456"
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - sqlserver_data:/var/opt/mssql
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD-SHELL",
+  #         "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $$MSSQL_SA_PASSWORD -Q \"SELECT 1\" || exit 1"
+  #       ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 20
+  #     start_period: 30s
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: schoolbus-api
-    depends_on:
-      sqlserver:
-        condition: service_healthy
+    # depends_on:
+    #   sqlserver:
+    #     condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=SchoolBus;User Id=sa;Password=SchoolBus@123456;TrustServerCertificate=True;"
+      ASPNETCORE_URLS: "http://+:5280"
+      # Đặt trong .env hoặc trên VPS, ví dụ cùng network Docker: Server=be_api_sqlserver,1433;...
+      ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=SchoolBus;User Id=sa;Password=SchoolBus@123456;TrustServerCertificate=True;"
       Jwt__Key: "mysupersecretkey1234567890abcdef"
       Jwt__Issuer: "YourAppName"
       Jwt__Audience: "YourAppAudience"
       Jwt__ExpireMinutes: "60"
     ports:
-      - "8080:8080"
+      - "5280:5280"
     restart: unless-stopped
 
-volumes:
-  sqlserver_data:
+# volumes:
+#   sqlserver_data:

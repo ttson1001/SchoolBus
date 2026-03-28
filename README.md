@@ -47,8 +47,8 @@ sudo docker compose up --build -d
 
 Sau khi container chạy xong:
 
-- API: `http://localhost:8080`
-- Swagger: `http://localhost:8080/swagger`
+- API: `http://localhost:5280`
+- Swagger: `http://localhost:5280/swagger`
 - SQL Server: `localhost:1433`
 
 Thông tin SQL Server mặc định trong `docker-compose.yml`:
