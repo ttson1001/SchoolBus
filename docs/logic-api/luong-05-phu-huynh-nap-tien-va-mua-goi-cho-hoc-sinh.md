@@ -31,6 +31,7 @@ Ngoài ra vẫn có nhánh **nạp tiền vào ví qua payOS** như trước.
 
 **Lưu ý:**
 - FE có thể dùng `GET /api/Account/Me` để lấy `userId` hiện tại thay vì tự decode token.
+- `POST /api/Account/Login` hỗ trợ thêm `deviceToken` optional cho mobile.
 - `Order/Create` hiện mua gói bằng **ví**, không nhận `busRouteId`.
 - `Order/CreatePayOsLink` là luồng **mua trực tiếp bằng payOS**, không đi qua ví.
 - Backend hiện kiểm tra package còn `ACTIVE` cả lúc tạo link và lúc xác nhận webhook thanh toán thành công.
@@ -41,48 +42,48 @@ Ngoài ra vẫn có nhánh **nạp tiền vào ví qua payOS** như trước.
 
 ```text
 [Guardian đăng nhập]
-      │
-      ▼
+      |
+      v
 POST /api/Account/Login
-      │
-      ▼
+      |
+      v
 GET /api/Account/Me
-      │
-      ▼
+      |
+      v
 GET /api/Student/GetMyStudents
-      │
-      ▼
+      |
+      v
 GET /api/Package/Search
-      │
-      ▼
+      |
+      v
 Guardian chọn học sinh + chọn gói
-      │
-      ▼
+      |
+      v
 GET /api/Order/GetActiveByStudent/{studentId}
-      │
-      ├─ Đang có gói active
-      │    → Khóa nút mua
-      │
-      └─ Chưa có gói active
-           │
-           ├─ Mua bằng ví
-           │    │
-           │    ├─ Ví đủ tiền → POST /api/Order/Create
-           │    └─ Ví thiếu tiền → nạp ví rồi mua lại
-           │
-           └─ Mua trực tiếp bằng payOS
-                │
-                ▼
+      |
+      |- Đang có gói active
+      |   -> Khóa nút mua
+      |
+      '- Chưa có gói active
+           |
+           |- Mua bằng ví
+           |   |
+           |   |- Ví đủ tiền -> POST /api/Order/Create
+           |   '- Ví thiếu tiền -> nạp ví rồi mua lại
+           |
+           '- Mua trực tiếp bằng payOS
+                |
+                v
            POST /api/Order/CreatePayOsLink
-                │
-                ▼
+                |
+                v
            Guardian thanh toán payOS
-                │
-                ▼
+                |
+                v
            GET /api/Order/GetPayOsStatus/{orderCode}
-                │
-                ▼
-           Nếu PAID → gói được kích hoạt trực tiếp
+                |
+                v
+           Nếu PAID -> gói được kích hoạt trực tiếp
 ```
 
 ---
@@ -93,18 +94,26 @@ GET /api/Order/GetActiveByStudent/{studentId}
 
 - **Request**
   - **POST** `/api/Account/Login`
-  - Body:
+  - Body cho web:
     ```json
     {
       "email": "guardian01@schoolbus.local",
       "password": "123456"
     }
     ```
+  - Body cho mobile:
+    ```json
+    {
+      "email": "guardian01@schoolbus.local",
+      "password": "123456",
+      "deviceToken": "YOUR_FIREBASE_DEVICE_TOKEN"
+    }
+    ```
 
 - **Response 200**
   ```json
   {
-    "message": "Dang nhap thanh cong.",
+    "message": "Đăng nhập thành công.",
     "data": {
       "token": "jwt_token_here"
     }
@@ -123,12 +132,13 @@ GET /api/Order/GetActiveByStudent/{studentId}
 - **Response 200**
   ```json
   {
-    "message": "Lay thong tin tai khoan thanh cong.",
+    "message": "Lấy thông tin tài khoản thành công.",
     "data": {
       "id": 5,
       "email": "guardian01@schoolbus.local",
       "fullName": "Nguyen Thi Guardian 01",
       "phone": "0901000001",
+      "deviceToken": "YOUR_FIREBASE_DEVICE_TOKEN",
       "avatar": null,
       "roleName": "guardian",
       "status": "ACTIVE",
@@ -147,7 +157,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
 - **Response 200**
   ```json
   {
-    "message": "Lay danh sach student thanh cong",
+    "message": "Lấy danh sách student thành công",
     "data": [
       {
         "id": 2,
@@ -172,29 +182,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
   - **GET** `/api/Package/Search?page=1&pageSize=10`
 
 - **Response 200**
-  ```json
-  {
-    "message": "Lấy danh sách package thành công",
-    "data": {
-      "items": [
-        {
-          "id": 1,
-          "name": "Goi 1 thang",
-          "price": 500000,
-          "durationDays": 30,
-          "description": "Goi xe bus 30 ngay",
-          "status": "ACTIVE",
-          "createdAt": "2026-03-27T08:00:00",
-          "type": "MONTHLY",
-          "imageUrl": null
-        }
-      ],
-      "totalItems": 1,
-      "page": 1,
-      "pageSize": 10
-    }
-  }
-  ```
+  - Trả về `PagedResult<PackageDto>`.
 
 ---
 
@@ -220,7 +208,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
 - **Response 200**
   ```json
   {
-    "message": "Lay vi thanh cong",
+    "message": "Lấy ví thành công",
     "data": {
       "id": 1,
       "userId": 5,
@@ -253,7 +241,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
 - **Response 200**
   ```json
   {
-    "message": "Nap tien vao vi thanh cong",
+    "message": "Nạp tiền vào ví thành công",
     "data": {
       "id": 1,
       "userId": 5,
@@ -279,20 +267,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
     ```
 
 - **Response 200**
-  ```json
-  {
-    "message": "Tao link nap tien payOS thanh cong",
-    "data": {
-      "userId": 5,
-      "orderCode": 1760000000000,
-      "amount": 500000,
-      "description": "Nap vi GD5",
-      "checkoutUrl": "https://pay.payos.vn/web/...",
-      "status": "PENDING",
-      "createdAt": "2026-03-27T08:30:00"
-    }
-  }
-  ```
+  - Trả về link thanh toán payOS cho ví.
 
 ### 4.3 Kiểm tra trạng thái giao dịch nạp ví payOS
 
@@ -300,19 +275,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
   - **GET** `/api/Wallet/GetPayOsTopUpStatus/1760000000000`
 
 - **Response 200**
-  ```json
-  {
-    "message": "Lay vi thanh cong",
-    "data": {
-      "userId": 5,
-      "orderCode": 1760000000000,
-      "amount": 500000,
-      "status": "PAID",
-      "paidAt": "2026-03-27T08:35:00",
-      "walletBalance": 700000
-    }
-  }
-  ```
+  - Trả về trạng thái `PENDING` hoặc `PAID`.
 
 ### 4.4 Mua gói bằng số dư ví
 
@@ -328,30 +291,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
     ```
 
 - **Response 200**
-  ```json
-  {
-    "message": "Tao order thanh cong",
-    "data": {
-      "id": 12,
-      "guardianId": 5,
-      "guardianName": "Nguyen Thi Guardian 01",
-      "studentId": 2,
-      "studentName": "Tran Gia Bao",
-      "busRouteId": null,
-      "busRouteName": null,
-      "packageId": 1,
-      "packageName": "Goi 1 thang",
-      "packagePrice": 500000,
-      "durationDays": 30,
-      "status": "PAID",
-      "startDate": "2026-03-27T08:40:00",
-      "endDate": "2026-04-26T08:40:00",
-      "paidAt": "2026-03-27T08:40:00",
-      "expiredAt": null,
-      "createdAt": "2026-03-27T08:40:00"
-    }
-  }
-  ```
+  - Trả về `OrderDto` với `status = PAID` nếu mua thành công.
 
 ---
 
@@ -373,24 +313,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
     ```
 
 - **Response 200**
-  ```json
-  {
-    "message": "Tao link thanh toan payOS cho order thanh cong",
-    "data": {
-      "orderId": 21,
-      "guardianId": 5,
-      "studentId": 2,
-      "packageId": 1,
-      "packageName": "Goi 1 thang",
-      "orderCode": 1760000000100,
-      "amount": 500000,
-      "description": "Mua goi HS2",
-      "checkoutUrl": "https://pay.payos.vn/web/...",
-      "status": "PENDING",
-      "createdAt": "2026-03-27T09:00:00"
-    }
-  }
-  ```
+  - Trả về `checkoutUrl`, `orderCode`, trạng thái `PENDING`.
 
 - **Validation hiện có ở backend**
   - `guardianId` phải là guardian hợp lệ và active
@@ -417,26 +340,7 @@ GET /api/Order/GetActiveByStudent/{studentId}
   - **GET** `/api/Order/GetPayOsStatus/1760000000100`
 
 - **Response 200**
-  ```json
-  {
-    "message": "Lay order thanh cong",
-    "data": {
-      "orderId": 21,
-      "guardianId": 5,
-      "studentId": 2,
-      "packageId": 1,
-      "packageName": "Goi 1 thang",
-      "orderCode": 1760000000100,
-      "amount": 500000,
-      "orderStatus": "PAID",
-      "transactionStatus": "SUCCESS",
-      "paidAt": "2026-03-27T09:03:00",
-      "startDate": "2026-03-27T09:03:00",
-      "endDate": "2026-04-26T09:03:00",
-      "createdAt": "2026-03-27T09:00:00"
-    }
-  }
-  ```
+  - Trả về trạng thái hiện tại của order direct payOS.
 
 - **Các trạng thái có thể gặp**
   - `orderStatus = PENDING`, `transactionStatus = PENDING`
@@ -521,33 +425,33 @@ GET /api/Order/GetActiveByStudent/{studentId}
 
 ```text
 Guardian vào màn mua gói
-    │
-    ▼
+    |
+    v
 GET /api/Account/Me
 GET /api/Student/GetMyStudents
 GET /api/Package/Search
 GET /api/Wallet/GetByUser/{me.id}
-    │
-    ▼
+    |
+    v
 Guardian chọn student + package
-    │
-    ▼
+    |
+    v
 GET /api/Order/GetActiveByStudent/{studentId}
-    │
-    ├─ Có gói active
-    │    → Khóa nút mua
-    │
-    └─ Không có gói active
-         │
-         ├─ Mua bằng ví
-         │    ├─ Ví đủ tiền → POST /api/Order/Create
-         │    └─ Ví thiếu tiền → nạp ví → mua lại
-         │
-         └─ Mua trực tiếp payOS
-              ├─ POST /api/Order/CreatePayOsLink
-              ├─ Redirect checkoutUrl
-              ├─ GET /api/Order/GetPayOsStatus/{orderCode}
-              └─ Nếu PAID → gói được kích hoạt
+    |
+    |- Có gói active
+    |   -> Khóa nút mua
+    |
+    '- Không có gói active
+         |
+         |- Mua bằng ví
+         |   |- Ví đủ tiền -> POST /api/Order/Create
+         |   '- Ví thiếu tiền -> nạp ví -> mua lại
+         |
+         '- Mua trực tiếp payOS
+              |- POST /api/Order/CreatePayOsLink
+              |- Redirect checkoutUrl
+              |- GET /api/Order/GetPayOsStatus/{orderCode}
+              '- Nếu PAID -> gói được kích hoạt
 ```
 
 ---
@@ -560,4 +464,4 @@ GET /api/Order/GetActiveByStudent/{studentId}
 - `GetActiveByStudent` là API rất hữu ích để khóa nút mua nếu học sinh đang còn hạn gói.
 - Luồng direct payOS hiện có webhook riêng ở `/api/Order/HandlePayOsWebhook`.
 - Luồng nạp ví payOS hiện có webhook riêng ở `/api/Wallet/HandlePayOsWebhook`.
-- Nếu bạn muốn gom cả 2 luồng về **một webhook payOS chung**, mình có thể làm tiếp để triển khai production gọn hơn.
+- Nếu là mobile app và muốn nhận push sau khi học sinh check in/check out, nên truyền `deviceToken` ngay từ request login.

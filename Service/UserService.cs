@@ -208,6 +208,9 @@ namespace BE_API.Service
             if (dto.Phone != null)
                 user.Phone = NormalizeOptional(dto.Phone);
 
+            if (dto.DeviceToken != null)
+                user.DeviceToken = NormalizeOptional(dto.DeviceToken);
+
             if (dto.DriverLicenseNumber != null)
             {
                 var normalizedDriverLicenseNumber = NormalizeOptional(dto.DriverLicenseNumber);
@@ -283,6 +286,7 @@ namespace BE_API.Service
                 Email = createdUser.user.Email,
                 FullName = createdUser.user.FullName,
                 Phone = createdUser.user.Phone,
+                DeviceToken = createdUser.user.DeviceToken,
                 RoleName = createdUser.role.Name,
                 Status = createdUser.user.Status.ToString(),
                 CreatedAt = createdUser.user.CreatedAt
@@ -308,6 +312,7 @@ namespace BE_API.Service
                 Email = createdUser.user.Email,
                 FullName = createdUser.user.FullName,
                 Phone = createdUser.user.Phone,
+                DeviceToken = createdUser.user.DeviceToken,
                 DriverLicenseNumber = createdUser.user.DriverLicenseNumber,
                 DriverLicenseClass = createdUser.user.DriverLicenseClass,
                 DriverLicenseExpiryDate = createdUser.user.DriverLicenseExpiryDate,
@@ -394,6 +399,7 @@ namespace BE_API.Service
                 Email = user.Email,
                 FullName = user.FullName,
                 Phone = user.Phone,
+                DeviceToken = user.DeviceToken,
                 DriverLicenseNumber = user.DriverLicenseNumber,
                 DriverLicenseClass = user.DriverLicenseClass,
                 DriverLicenseExpiryDate = user.DriverLicenseExpiryDate,

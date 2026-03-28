@@ -28,9 +28,11 @@ Luồng này hiện có 2 góc nhìn FE:
   - `pickupStationId`
   - `dropOffStationId`
 - Backend hiện có side effect:
-  - Khi check in: tự tạo notification gửi guardian
-  - Khi check out: tự tạo notification gửi guardian
+  - Khi check in: tự tạo notification DB gửi guardian
+  - Khi check out: tự tạo notification DB gửi guardian
   - Nếu xuống sai điểm so với `dropOffStationId`: tạo thêm notification cảnh báo `WRONG_DROPOFF`
+  - Nếu guardian đã có `deviceToken`, backend sẽ bắn thêm Firebase push về điện thoại
+- Nếu `deviceToken` lỗi, hết hạn, hoặc Firebase gặp lỗi, luồng check in/check out **vẫn trả 200** nếu nghiệp vụ attendance hợp lệ
 
 ---
 
@@ -38,39 +40,39 @@ Luồng này hiện có 2 góc nhìn FE:
 
 ```text
 [Phụ huynh chọn điểm đón/trả theo ngày]
-      │
-      ▼
+      |
+      v
 POST /api/StudentBusAssignment/Create
 hoặc
 PUT /api/StudentBusAssignment/Update/{id}
-      │
-      ▼
+      |
+      v
 [Đến ngày xe chạy]
-      │
-      ▼
+      |
+      v
 FE trên xe lấy assignment của học sinh
 GET /api/StudentBusAssignment/GetByStudent/{studentId}?rideDate=...
-      │
-      ▼
+      |
+      v
 Học sinh lên xe
-      │
-      ▼
+      |
+      v
 POST /api/Attendance/ManualCheckIn
-      │
-      ▼
-Guardian nhận notification "đã lên xe"
-      │
-      ▼
+      |
+      v
+Guardian nhận notification / push "đã lên xe"
+      |
+      v
 Học sinh xuống xe
-      │
-      ▼
+      |
+      v
 POST /api/Attendance/ManualCheckOut
-      │
-      ▼
-Guardian nhận notification "đã xuống xe"
-      │
-      └─ Nếu xuống sai điểm
-           → Guardian nhận thêm cảnh báo sai điểm xuống
+      |
+      v
+Guardian nhận notification / push "đã xuống xe"
+      |
+      '- Nếu xuống sai điểm
+           -> Guardian nhận thêm cảnh báo sai điểm xuống
 ```
 
 ---
@@ -96,7 +98,7 @@ Guardian nhận notification "đã xuống xe"
 - **Response 200**
   ```json
   {
-    "message": "Set diem don tra cho hoc sinh thanh cong",
+    "message": "Thiết lập điểm đón trả cho học sinh thành công",
     "data": {
       "id": 10,
       "studentId": 2,
@@ -147,30 +149,12 @@ Guardian nhận notification "đã xuống xe"
     ```
 
 - **Response 200**
-  ```json
-  {
-    "message": "Check in thủ công thành công",
-    "data": {
-      "id": 15,
-      "studentId": 2,
-      "studentName": "Tran Gia Bao",
-      "busId": 1,
-      "busLicensePlate": "51A-12345",
-      "date": "2026-03-27T00:00:00",
-      "checkInTime": "07:10:00",
-      "checkOutTime": null,
-      "checkInStationId": 1,
-      "checkInStationName": "Tram Don Quan 1",
-      "checkOutStationId": null,
-      "checkOutStationName": null,
-      "method": "MANUAL",
-      "status": "CHECKED_IN"
-    }
-  }
-  ```
+  - Trả về `AttendanceDto` sau khi ghi nhận check in.
 
 - **Side effect**
-  - Backend tự tạo notification gửi guardian với nội dung học sinh đã lên xe.
+  - Backend tự tạo notification DB gửi guardian với nội dung học sinh đã lên xe.
+  - Nếu guardian có `deviceToken`, backend bắn thêm Firebase push về điện thoại.
+  - Nếu push lỗi, API vẫn thành công nếu attendance được lưu thành công.
 
 ---
 
@@ -190,31 +174,13 @@ Guardian nhận notification "đã xuống xe"
     ```
 
 - **Response 200**
-  ```json
-  {
-    "message": "Check out thủ công thành công",
-    "data": {
-      "id": 15,
-      "studentId": 2,
-      "studentName": "Tran Gia Bao",
-      "busId": 1,
-      "busLicensePlate": "51A-12345",
-      "date": "2026-03-27T00:00:00",
-      "checkInTime": "07:10:00",
-      "checkOutTime": "16:45:00",
-      "checkInStationId": 1,
-      "checkInStationName": "Tram Don Quan 1",
-      "checkOutStationId": 3,
-      "checkOutStationName": "Tram Don Quan 3",
-      "method": "MANUAL",
-      "status": "CHECKED_OUT"
-    }
-  }
-  ```
+  - Trả về `AttendanceDto` sau khi ghi nhận check out.
 
 - **Side effect**
-  - Backend tự tạo notification gửi guardian với nội dung học sinh đã xuống xe.
+  - Backend tự tạo notification DB gửi guardian với nội dung học sinh đã xuống xe.
   - Nếu `stationId` thực tế khác `dropOffStationId` trong assignment, backend tạo thêm notification cảnh báo sai điểm xuống.
+  - Nếu guardian có `deviceToken`, backend bắn thêm Firebase push tương ứng về điện thoại.
+  - Nếu push lỗi, API vẫn thành công nếu attendance được lưu thành công.
 
 ---
 
@@ -242,8 +208,8 @@ Guardian nhận notification "đã xuống xe"
 
 1. Nếu **200**:
    - Cập nhật ngay trạng thái trên UI.
-   - Check in thành công → đổi trạng thái thành "Đã lên xe".
-   - Check out thành công → đổi trạng thái thành "Đã xuống xe".
+   - Check in thành công -> đổi trạng thái thành "Đã lên xe".
+   - Check out thành công -> đổi trạng thái thành "Đã xuống xe".
 2. Nếu **400**:
    - Hiển thị lỗi backend.
    - Các lỗi thường gặp:
@@ -259,33 +225,37 @@ Guardian nhận notification "đã xuống xe"
 
 ```text
 Guardian set assignment theo ngày
-    │
-    ▼
+    |
+    v
 POST /api/StudentBusAssignment/Create
-    │
-    ▼
+    |
+    v
 Đến ngày chạy xe
-    │
-    ▼
+    |
+    v
 GET /api/StudentBusAssignment/GetByStudent/{studentId}?rideDate=...
-    │
-    ├─ Không có assignment
-    │    → Không cho check in/check out
-    │
-    └─ Có assignment
-         │
-         ▼
+    |
+    |- Không có assignment
+    |   -> Không cho check in/check out
+    |
+    '- Có assignment
+         |
+         v
     POST /api/Attendance/ManualCheckIn
-         │
-         ├─ 200 → Gửi notification "đã lên xe"
-         └─ 400 → Hiển thị lỗi
-         │
-         ▼
+         |
+         |- 200 -> Lưu attendance
+         |       -> Tạo notification DB
+         |       -> Nếu có deviceToken -> bắn push
+         '- 400 -> Hiển thị lỗi
+         |
+         v
     POST /api/Attendance/ManualCheckOut
-         │
-         ├─ 200 → Gửi notification "đã xuống xe"
-         │       → Nếu sai trạm → thêm notification cảnh báo
-         └─ 400 → Hiển thị lỗi
+         |
+         |- 200 -> Lưu attendance
+         |       -> Tạo notification DB
+         |       -> Nếu có deviceToken -> bắn push
+         |       -> Nếu sai trạm -> thêm cảnh báo
+         '- 400 -> Hiển thị lỗi
 ```
 
 ---
@@ -294,7 +264,8 @@ GET /api/StudentBusAssignment/GetByStudent/{studentId}?rideDate=...
 
 - `stationId` gửi trong check in/check out là **trạm thực tế** lúc thao tác, không phải trạm dự kiến.
 - Backend dùng `rideDate` để tìm assignment theo ngày; FE nên truyền ngày rõ ràng thay vì phụ thuộc hoàn toàn vào giờ hệ thống client.
-- Hiện notification được tạo nội bộ trong backend, chưa có tài liệu đọc notification ở file này.
+- Notification hiện vừa được lưu trong DB, vừa có thể được bắn ra điện thoại qua Firebase nếu guardian đã login mobile với `deviceToken`.
+- Nếu token Firebase bị lỗi hoặc không còn hợp lệ, backend chỉ log lỗi push; không làm fail API attendance.
 - Nếu muốn FE phụ huynh hiển thị đúng trạng thái chuyến đi trong ngày, nên gọi song song:
   - assignment của ngày
   - attendance của ngày

@@ -9,6 +9,7 @@ namespace BE_API.Entites
         public string PasswordHash { get; set; } = null!;
         public string? FullName { get; set; }
         public string? Phone { get; set; }
+        public string? DeviceToken { get; set; }
         public string? DriverLicenseNumber { get; set; }
         public string? DriverLicenseClass { get; set; }
         public DateTime? DriverLicenseExpiryDate { get; set; }

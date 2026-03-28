@@ -1,0 +1,16 @@
+@host = https://localhost:7001
+@token = YOUR_JWT_TOKEN
+
+### Dang nhap tai khoan
+POST {{host}}/api/Account/Login
+Content-Type: application/json
+
+{
+  "email": "guardian01@schoolbus.local",
+  "password": "123456",
+  "deviceToken": "YOUR_FIREBASE_DEVICE_TOKEN"
+}
+
+### Lay thong tin tai khoan hien tai
+GET {{host}}/api/Account/Me
+Authorization: Bearer {{token}}

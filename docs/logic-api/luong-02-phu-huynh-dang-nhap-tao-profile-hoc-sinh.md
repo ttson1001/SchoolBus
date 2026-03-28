@@ -19,6 +19,9 @@ Tài liệu mô tả cách FE gọi API cho luồng **phụ huynh đăng nhập 
 - FE không cần tự truyền `guardianId` để lấy danh sách học sinh nữa.
 - `GET /api/Account/Me` và `GET /api/Student/GetMyStudents` đều đọc trực tiếp từ JWT token.
 - `guardianId` vẫn cần trong body `Create student`, nhưng FE có thể lấy từ `Account/Me`.
+- `POST /api/Account/Login` hiện hỗ trợ thêm `deviceToken` dạng optional.
+- Mobile nên truyền `deviceToken` để backend lưu Firebase token nhận push notification.
+- Web có thể bỏ qua `deviceToken`.
 
 ---
 
@@ -26,36 +29,36 @@ Tài liệu mô tả cách FE gọi API cho luồng **phụ huynh đăng nhập 
 
 ```text
 [Phụ huynh đăng nhập]
-      │
-      ▼
+      |
+      v
 POST /api/Account/Login
-      │
-      ▼
+      |
+      v
 GET /api/Account/Me
-      │
-      ▼
+      |
+      v
 GET /api/Student/GetMyStudents
-      │
-      ├─ Có học sinh
-      │    → Hiển thị danh sách profile đã có
-      │
-      └─ Chưa có học sinh
-           → Hiển thị empty state + nút "Tạo hồ sơ học sinh"
-                    │
-                    ▼
-           GET /api/Campus/Search
-                    │
-                    ▼
-           Phụ huynh nhập thông tin học sinh
-                    │
-                    ▼
-           POST /api/Student/Create
-                    │
-                    ▼
-           GET /api/Student/GetMyStudents
-                    │
-                    ▼
-           Hiển thị profile học sinh vừa tạo
+      |
+      |- Có học sinh
+      |   -> Hiển thị danh sách profile đã có
+      |
+      '- Chưa có học sinh
+          -> Hiển thị empty state + nút "Tạo hồ sơ học sinh"
+                   |
+                   v
+          GET /api/Campus/Search
+                   |
+                   v
+          Phụ huynh nhập thông tin học sinh
+                   |
+                   v
+          POST /api/Student/Create
+                   |
+                   v
+          GET /api/Student/GetMyStudents
+                   |
+                   v
+          Hiển thị profile học sinh vừa tạo
 ```
 
 ---
@@ -66,18 +69,26 @@ GET /api/Student/GetMyStudents
 
 - **Request**
   - **POST** `/api/Account/Login`
-  - Body:
+  - Body dùng cho web:
     ```json
     {
       "email": "guardian01@schoolbus.local",
       "password": "123456"
     }
     ```
+  - Body dùng cho mobile:
+    ```json
+    {
+      "email": "guardian01@schoolbus.local",
+      "password": "123456",
+      "deviceToken": "YOUR_FIREBASE_DEVICE_TOKEN"
+    }
+    ```
 
 - **Response 200**
   ```json
   {
-    "message": "Dang nhap thanh cong.",
+    "message": "Đăng nhập thành công.",
     "data": {
       "token": "jwt_token_here"
     }
@@ -96,12 +107,13 @@ GET /api/Student/GetMyStudents
 - **Response 200**
   ```json
   {
-    "message": "Lay thong tin tai khoan thanh cong.",
+    "message": "Lấy thông tin tài khoản thành công.",
     "data": {
       "id": 5,
       "email": "guardian01@schoolbus.local",
       "fullName": "Nguyen Thi Guardian 01",
       "phone": "0901000001",
+      "deviceToken": "YOUR_FIREBASE_DEVICE_TOKEN",
       "avatar": null,
       "roleName": "guardian",
       "status": "ACTIVE",
@@ -113,6 +125,7 @@ GET /api/Student/GetMyStudents
 - **Mục đích**
   - FE dùng `data.id` làm `guardianId` khi tạo học sinh hoặc mua gói.
   - FE dùng `roleName` để chắc chắn tài khoản hiện tại là guardian.
+  - Mobile có thể kiểm tra `deviceToken` hiện đang lưu trên backend hay chưa.
 
 ---
 
@@ -126,7 +139,7 @@ GET /api/Student/GetMyStudents
 - **Response 200**
   ```json
   {
-    "message": "Lay danh sach student thanh cong",
+    "message": "Lấy danh sách student thành công",
     "data": [
       {
         "id": 3,
@@ -198,7 +211,7 @@ GET /api/Student/GetMyStudents
 - **Response 200**
   ```json
   {
-    "message": "Tao student thanh cong",
+    "message": "Tạo student thành công",
     "data": null
   }
   ```
@@ -241,10 +254,11 @@ GET /api/Student/GetMyStudents
 ### 4.1 Sau khi phụ huynh login thành công
 
 1. Lưu `token`.
-2. Gọi **GET** `/api/Account/Me`.
-3. Nếu `roleName !== "guardian"`:
+2. Nếu là mobile, truyền `deviceToken` ngay từ request login.
+3. Gọi **GET** `/api/Account/Me`.
+4. Nếu `roleName !== "guardian"`:
    - chặn màn hình hoặc redirect.
-4. Nếu là guardian:
+5. Nếu là guardian:
    - gọi tiếp **GET** `/api/Student/GetMyStudents`.
 
 ### 4.2 Nếu guardian chưa có học sinh
@@ -269,31 +283,31 @@ GET /api/Student/GetMyStudents
 
 ```text
 Guardian login
-    │
-    ▼
+    |
+    v
 POST /api/Account/Login
-    │
-    ▼
+    |
+    v
 GET /api/Account/Me
-    │
-    ├─ roleName != guardian
-    │    → Chặn truy cập màn guardian
-    │
-    └─ roleName = guardian
-         │
-         ▼
+    |
+    |- roleName != guardian
+    |   -> Chặn truy cập màn guardian
+    |
+    '- roleName = guardian
+         |
+         v
     GET /api/Student/GetMyStudents
-         │
-         ├─ data.length > 0
-         │    → Hiển thị danh sách học sinh
-         │
-         └─ data.length = 0
-              → Hiển thị empty state
-              → GET /api/Campus/Search
-              → POST /api/Student/Create
-                   │
-                   ├─ 200 → GET lại danh sách học sinh
-                   └─ 400 → Hiển thị lỗi validate
+         |
+         |- data.length > 0
+         |   -> Hiển thị danh sách học sinh
+         |
+         '- data.length = 0
+              -> Hiển thị empty state
+              -> GET /api/Campus/Search
+              -> POST /api/Student/Create
+                   |
+                   |- 200 -> GET lại danh sách học sinh
+                   '- 400 -> Hiển thị lỗi validate
 ```
 
 ---

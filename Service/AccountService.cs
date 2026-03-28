@@ -50,6 +50,15 @@ namespace BE_API.Service
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 throw new Exception("Sai mat khau can kiem tra lai mat khau");
 
+            var normalizedDeviceToken = NormalizeDeviceToken(dto.DeviceToken);
+            if (!string.IsNullOrWhiteSpace(normalizedDeviceToken) &&
+                !string.Equals(user.DeviceToken, normalizedDeviceToken, StringComparison.Ordinal))
+            {
+                user.DeviceToken = normalizedDeviceToken;
+                _userRepo.Update(user);
+                await _userRepo.SaveChangesAsync();
+            }
+
             var token = _jwtService.GenerateToken(user, null);
 
             return new LoginReponseDto
@@ -68,17 +77,7 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == userId)
                 ?? throw new Exception("Khong tim thay tai khoan");
 
-            return new AccountDto
-            {
-                Id = user.Id,
-                Email = user.Email,
-                FullName = user.FullName ?? string.Empty,
-                Phone = user.Phone,
-                Avatar = null,
-                RoleName = user.Role?.Name ?? string.Empty,
-                Status = user.Status.ToString(),
-                CreatedAt = user.CreatedAt
-            };
+            return MapToAccountDto(user);
         }
 
         public async Task SendEmailAsync(SendEmailRequest request)
@@ -130,6 +129,27 @@ namespace BE_API.Service
 
             if (string.IsNullOrWhiteSpace(_emailSettings.Password))
                 throw new Exception("Chua cau hinh Email:Password");
+        }
+
+        private static AccountDto MapToAccountDto(User user)
+        {
+            return new AccountDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.FullName ?? string.Empty,
+                Phone = user.Phone,
+                DeviceToken = user.DeviceToken,
+                Avatar = null,
+                RoleName = user.Role?.Name ?? string.Empty,
+                Status = user.Status.ToString(),
+                CreatedAt = user.CreatedAt
+            };
+        }
+
+        private static string? NormalizeDeviceToken(string? deviceToken)
+        {
+            return string.IsNullOrWhiteSpace(deviceToken) ? null : deviceToken.Trim();
         }
     }
 }

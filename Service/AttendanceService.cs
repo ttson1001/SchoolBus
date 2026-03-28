@@ -16,6 +16,7 @@ namespace BE_API.Service
         private readonly IRepository<StudentBusAssignment> _assignmentRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<Notification> _notificationRepo;
+        private readonly IFirebaseNotificationService _firebaseNotificationService;
 
         public AttendanceService(
             IRepository<Attendance> attendanceRepo,
@@ -23,7 +24,8 @@ namespace BE_API.Service
             IRepository<Bus> busRepo,
             IRepository<StudentBusAssignment> assignmentRepo,
             IRepository<BusRouteStation> routeStationRepo,
-            IRepository<Notification> notificationRepo)
+            IRepository<Notification> notificationRepo,
+            IFirebaseNotificationService firebaseNotificationService)
         {
             _attendanceRepo = attendanceRepo;
             _studentRepo = studentRepo;
@@ -31,6 +33,7 @@ namespace BE_API.Service
             _assignmentRepo = assignmentRepo;
             _routeStationRepo = routeStationRepo;
             _notificationRepo = notificationRepo;
+            _firebaseNotificationService = firebaseNotificationService;
         }
 
         public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, int page, int pageSize)
@@ -304,6 +307,22 @@ namespace BE_API.Service
 
             await _notificationRepo.AddAsync(notification);
             await _notificationRepo.SaveChangesAsync();
+
+            await _firebaseNotificationService.SendAsync(
+                student.Guardian?.DeviceToken,
+                BuildPushTitle(type),
+                message,
+                new Dictionary<string, string>
+                {
+                    ["type"] = type,
+                    ["studentId"] = student.Id.ToString(),
+                    ["guardianId"] = student.GuardianId.ToString(),
+                    ["busId"] = bus.Id.ToString(),
+                    ["busLicensePlate"] = bus.LicensePlate,
+                    ["routeName"] = routeName,
+                    ["attendanceDate"] = attendanceDate.ToString("yyyy-MM-dd"),
+                    ["checkTime"] = FormatTime(checkTime)
+                });
         }
 
         private static string FormatRouteSuffix(string? routeName)
@@ -319,6 +338,17 @@ namespace BE_API.Service
         private static string FormatTime(TimeSpan time)
         {
             return time.ToString(@"hh\:mm");
+        }
+
+        private static string BuildPushTitle(string type)
+        {
+            return type switch
+            {
+                "BOARDING" => "Học sinh đã lên xe",
+                "ALIGHTING" => "Học sinh đã xuống xe",
+                "WRONG_DROPOFF" => "Cảnh báo xuống sai điểm",
+                _ => "Thông báo SchoolBus"
+            };
         }
 
         private static AttendanceDto MapToDto(Attendance attendance)

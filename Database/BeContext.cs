@@ -39,6 +39,10 @@ namespace BE_API.Database
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<User>()
+                .Property(x => x.DeviceToken)
+                .HasMaxLength(1024);
+
             modelBuilder.Entity<BusAssignment>()
                 .HasOne(x => x.Driver)
                 .WithMany()

@@ -1,6 +1,8 @@
 using BE_API.Configuration;
 using BE_API.Database;
 using BE_API.Extensions;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -37,6 +39,7 @@ builder.Services.AddControllers()
 
 builder.Services.Configure<PayOsSettings>(builder.Configuration.GetSection("PayOS"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection("Firebase"));
 builder.Services.AddScoped<PayOSClient>(serviceProvider =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<PayOsSettings>>().Value;
@@ -112,6 +115,7 @@ var app = builder.Build();
 app.UseCors("AllowAllOrigin");
 
 EnsureMigrate(app);
+EnsureFirebaseInitialized(app);
 
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
@@ -136,4 +140,35 @@ static void EnsureMigrate(WebApplication webApp)
     using var scope = webApp.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<BeContext>();
     context.Database.Migrate();
+}
+
+static void EnsureFirebaseInitialized(WebApplication webApp)
+{
+    var settings = webApp.Configuration.GetSection("Firebase").Get<FirebaseSettings>() ?? new FirebaseSettings();
+
+    if (!settings.Enabled)
+        return;
+
+    if (FirebaseApp.DefaultInstance != null)
+        return;
+
+    if (string.IsNullOrWhiteSpace(settings.CredentialsPath))
+        return;
+
+    var credentialPath = Path.IsPathRooted(settings.CredentialsPath)
+        ? settings.CredentialsPath
+        : Path.Combine(webApp.Environment.ContentRootPath, settings.CredentialsPath);
+
+    if (!File.Exists(credentialPath))
+        return;
+
+    var appOptions = new AppOptions
+    {
+        Credential = GoogleCredential.FromFile(credentialPath)
+    };
+
+    if (!string.IsNullOrWhiteSpace(settings.ProjectId))
+        appOptions.ProjectId = settings.ProjectId;
+
+    FirebaseApp.Create(appOptions);
 }

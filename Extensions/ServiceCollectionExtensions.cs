@@ -12,6 +12,7 @@ namespace BE_API.Extensions
 
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
 
             services.AddScoped<IAttendanceService, AttendanceService>();
             services.AddScoped<IBusDamageReportService, BusDamageReportService>();

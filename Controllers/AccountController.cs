@@ -20,10 +20,11 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Đăng nhập tài khoản", Description = "Trả về JWT token khi đăng nhập thành công.")]
+        [SwaggerOperation(Summary = "Đăng nhập tài khoản", Description = "Trả về JWT token khi đăng nhập thành công. Mobile có thể truyền thêm deviceToken để lưu Firebase token, còn web có thể bỏ qua.")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             var response = new ResponseDto();
+
             try
             {
                 var data = await _accountService.LoginAsync(dto);
@@ -42,6 +43,7 @@ namespace BE_API.Controllers
         public async Task<IActionResult> Me()
         {
             var response = new ResponseDto();
+
             try
             {
                 var userId = GetCurrentUserId();
@@ -60,6 +62,7 @@ namespace BE_API.Controllers
         public async Task<IActionResult> SendEmail([FromBody] SendEmailRequest request)
         {
             var response = new ResponseDto();
+
             try
             {
                 await _accountService.SendEmailAsync(request);
