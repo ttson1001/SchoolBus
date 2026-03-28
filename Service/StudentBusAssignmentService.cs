@@ -41,7 +41,7 @@ namespace BE_API.Service
             var student = await ValidateStudentAsync(dto.StudentId);
             var bus = await ValidateBusAsync(dto.BusId);
             var route = await ValidateRouteAsync(dto.RouteId);
-            await ValidateBusRoutePairAsync(dto.BusId, dto.RouteId, rideDate);
+            //await ValidateBusRoutePairAsync(dto.BusId, dto.RouteId, rideDate);
             var (pickupStation, dropOffStation) = await ValidateStationsAsync(dto.RouteId, dto.PickupStationId, dto.DropOffStationId);
 
             var existed = await _assignmentRepo.Get()
@@ -138,7 +138,7 @@ namespace BE_API.Service
             await ValidateStudentAsync(studentId);
             await ValidateBusAsync(busId);
             await ValidateRouteAsync(routeId);
-            await ValidateBusRoutePairAsync(busId, routeId, rideDate);
+            //await ValidateBusRoutePairAsync(busId, routeId, rideDate);
             await ValidateStationsAsync(routeId, pickupStationId, dropOffStationId);
 
             var duplicated = await _assignmentRepo.Get()
