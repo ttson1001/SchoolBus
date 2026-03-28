@@ -43,6 +43,34 @@ namespace BE_API.Database
                 .Property(x => x.DeviceToken)
                 .HasMaxLength(1024);
 
+            modelBuilder.Entity<FaceRecognitionLog>()
+                .Property(x => x.ConfidenceScore)
+                .HasPrecision(10, 6);
+
+            modelBuilder.Entity<Package>()
+                .Property(x => x.Price)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Payment>()
+                .Property(x => x.Amount)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TransactionLog>()
+                .Property(x => x.Amount)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TransactionLog>()
+                .Property(x => x.OldBalance)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TransactionLog>()
+                .Property(x => x.NewBalance)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Wallet>()
+                .Property(x => x.Balance)
+                .HasPrecision(18, 2);
+
             modelBuilder.Entity<BusAssignment>()
                 .HasOne(x => x.Driver)
                 .WithMany()
