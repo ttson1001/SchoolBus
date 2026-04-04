@@ -47,6 +47,14 @@ namespace BE_API.Database
                 .Property(x => x.AvatarUrl)
                 .HasMaxLength(1000);
 
+            modelBuilder.Entity<StudentBusAssignment>()
+                .Property(x => x.Note)
+                .HasMaxLength(500);
+
+            modelBuilder.Entity<Attendance>()
+                .Property(x => x.Note)
+                .HasMaxLength(500);
+
             modelBuilder.Entity<FaceRecognitionLog>()
                 .Property(x => x.ConfidenceScore)
                 .HasPrecision(10, 6);

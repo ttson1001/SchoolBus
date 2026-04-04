@@ -18,6 +18,7 @@ namespace BE_API.Service
         private readonly IRepository<BusRoute> _routeRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
+        private readonly IRepository<Order> _orderRepo;
 
         public StudentBusAssignmentService(
             IRepository<StudentBusAssignment> assignmentRepo,
@@ -27,7 +28,8 @@ namespace BE_API.Service
             IRepository<BusSchedule> busScheduleRepo,
             IRepository<BusRoute> routeRepo,
             IRepository<BusRouteStation> routeStationRepo,
-            IRepository<BusAssignment> busAssignmentRepo)
+            IRepository<BusAssignment> busAssignmentRepo,
+            IRepository<Order> orderRepo)
         {
             _assignmentRepo = assignmentRepo;
             _studentRepo = studentRepo;
@@ -37,6 +39,7 @@ namespace BE_API.Service
             _routeRepo = routeRepo;
             _routeStationRepo = routeStationRepo;
             _busAssignmentRepo = busAssignmentRepo;
+            _orderRepo = orderRepo;
         }
 
         public async Task<PagedResult<StudentBusAssignmentDto>> SearchAsync(
@@ -101,11 +104,15 @@ namespace BE_API.Service
         public async Task<StudentBusAssignmentDto> CreateAsync(StudentBusAssignmentCreateDto dto)
         {
             var rideDate = dto.RideDate.Date;
+            ValidateRideDate(rideDate);
             var student = await ValidateStudentAsync(dto.StudentId);
             var bus = await ValidateBusAsync(dto.BusId);
             var route = await ValidateRouteAsync(dto.RouteId);
+            await ValidateBusRoutePairAsync(bus.Id, route.Id, rideDate);
+            await ValidateStationsAsync(route.Id, dto.PickupStationId, dto.DropOffStationId);
 
             await EnsureStudentAssignmentNotDuplicatedAsync(dto.StudentId, rideDate, null);
+            var note = await BuildAssignmentNoteAsync(student.Id, rideDate);
 
             var assignment = new StudentBusAssignment
             {
@@ -114,7 +121,8 @@ namespace BE_API.Service
                 RouteId = route.Id,
                 RideDate = rideDate,
                 PickupStationId = dto.PickupStationId,
-                DropOffStationId = dto.DropOffStationId
+                DropOffStationId = dto.DropOffStationId,
+                Note = note
             };
 
             await _assignmentRepo.AddAsync(assignment);
@@ -126,12 +134,16 @@ namespace BE_API.Service
         public async Task<StudentBusAssignmentDto> CreateByScheduleAsync(StudentBusAssignmentByScheduleCreateDto dto)
         {
             var rideDate = dto.RideDate.Date;
+            ValidateRideDate(rideDate);
             var student = await ValidateStudentAsync(dto.StudentId);
             var resolution = await ResolveScheduleAsync(dto.BusScheduleId, rideDate);
             var bus = await ValidateBusAsync(resolution.BusId);
             var route = await ValidateRouteAsync(resolution.RouteId);
+            await ValidateBusRoutePairAsync(bus.Id, route.Id, rideDate);
+            await ValidateStationsAsync(route.Id, dto.PickupStationId, dto.DropOffStationId);
 
             await EnsureStudentAssignmentNotDuplicatedAsync(dto.StudentId, rideDate, null);
+            var note = await BuildAssignmentNoteAsync(student.Id, rideDate);
 
             var assignment = new StudentBusAssignment
             {
@@ -140,7 +152,8 @@ namespace BE_API.Service
                 RouteId = route.Id,
                 RideDate = rideDate,
                 PickupStationId = dto.PickupStationId,
-                DropOffStationId = dto.DropOffStationId
+                DropOffStationId = dto.DropOffStationId,
+                Note = note
             };
 
             await _assignmentRepo.AddAsync(assignment);
@@ -210,15 +223,19 @@ namespace BE_API.Service
             var busId = dto.BusId ?? assignment.BusId;
             var routeId = dto.RouteId ?? assignment.RouteId;
             var rideDate = (dto.RideDate ?? assignment.RideDate ?? DateTime.Now).Date;
+            ValidateRideDate(rideDate);
             var pickupStationId = dto.PickupStationId ?? assignment.PickupStationId
                 ?? throw new Exception("PickupStationId khong duoc de trong");
             var dropOffStationId = dto.DropOffStationId ?? assignment.DropOffStationId
                 ?? throw new Exception("DropOffStationId khong duoc de trong");
 
             await ValidateStudentAsync(studentId);
-            await ValidateBusAsync(busId);
-            await ValidateRouteAsync(routeId);
+            var bus = await ValidateBusAsync(busId);
+            var route = await ValidateRouteAsync(routeId);
+            await ValidateBusRoutePairAsync(bus.Id, route.Id, rideDate);
+            await ValidateStationsAsync(route.Id, pickupStationId, dropOffStationId);
             await EnsureStudentAssignmentNotDuplicatedAsync(studentId, rideDate, id);
+            var note = await BuildAssignmentNoteAsync(studentId, rideDate);
 
             assignment.StudentId = studentId;
             assignment.BusId = busId;
@@ -226,6 +243,7 @@ namespace BE_API.Service
             assignment.RideDate = rideDate;
             assignment.PickupStationId = pickupStationId;
             assignment.DropOffStationId = dropOffStationId;
+            assignment.Note = note;
 
             _assignmentRepo.Update(assignment);
             await _assignmentRepo.SaveChangesAsync();
@@ -241,6 +259,7 @@ namespace BE_API.Service
 
             var studentId = dto.StudentId ?? assignment.StudentId;
             var rideDate = (dto.RideDate ?? assignment.RideDate ?? DateTime.Now).Date;
+            ValidateRideDate(rideDate);
             var busScheduleId = dto.BusScheduleId ?? throw new Exception("BusScheduleId khong duoc de trong");
             var resolution = await ResolveScheduleAsync(busScheduleId, rideDate);
             var pickupStationId = dto.PickupStationId ?? assignment.PickupStationId
@@ -249,9 +268,12 @@ namespace BE_API.Service
                 ?? throw new Exception("DropOffStationId khong duoc de trong");
 
             await ValidateStudentAsync(studentId);
-            await ValidateBusAsync(resolution.BusId);
-            await ValidateRouteAsync(resolution.RouteId);
+            var bus = await ValidateBusAsync(resolution.BusId);
+            var route = await ValidateRouteAsync(resolution.RouteId);
+            await ValidateBusRoutePairAsync(bus.Id, route.Id, rideDate);
+            await ValidateStationsAsync(route.Id, pickupStationId, dropOffStationId);
             await EnsureStudentAssignmentNotDuplicatedAsync(studentId, rideDate, id);
+            var note = await BuildAssignmentNoteAsync(studentId, rideDate);
 
             assignment.StudentId = studentId;
             assignment.BusId = resolution.BusId;
@@ -259,6 +281,7 @@ namespace BE_API.Service
             assignment.RideDate = rideDate;
             assignment.PickupStationId = pickupStationId;
             assignment.DropOffStationId = dropOffStationId;
+            assignment.Note = note;
 
             _assignmentRepo.Update(assignment);
             await _assignmentRepo.SaveChangesAsync();
@@ -394,14 +417,45 @@ namespace BE_API.Service
 
         private async Task ValidateBusRoutePairAsync(long busId, long routeId, DateTime rideDate)
         {
-            var exists = await _busAssignmentRepo.Get()
+            var hasAssignment = await _busAssignmentRepo.Get()
                 .AnyAsync(x =>
                     x.BusId == busId &&
                     x.RouteId == routeId &&
                     (!x.ActiveDate.HasValue || x.ActiveDate.Value.Date == rideDate));
 
-            if (!exists)
-                throw new Exception("Bus nay chua duoc gan vao route da chon");
+            if (hasAssignment)
+                return;
+
+            var dayOfWeek = (int)rideDate.DayOfWeek;
+            var hasSchedule = await _busScheduleRepo.Get()
+                .AnyAsync(x =>
+                    x.BusId == busId &&
+                    x.RouteId == routeId &&
+                    x.IsActive &&
+                    x.StartDate.Date <= rideDate.Date &&
+                    (!x.EndDate.HasValue || x.EndDate.Value.Date >= rideDate.Date) &&
+                    x.DayOfWeek == dayOfWeek);
+
+            if (!hasSchedule)
+            {
+                var availableDays = await _busScheduleRepo.Get()
+                    .Where(x =>
+                        x.BusId == busId &&
+                        x.RouteId == routeId &&
+                        x.IsActive)
+                    .Select(x => x.DayOfWeek)
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToListAsync();
+
+                if (!availableDays.Any())
+                    throw new Exception("Bus này chưa được gán hoặc chưa có lịch chạy cho route đã chọn");
+
+                var availableDayNames = string.Join(", ", availableDays.Select(GetDayOfWeekDisplayName));
+                var selectedDayName = GetDayOfWeekDisplayName(dayOfWeek);
+
+                throw new Exception($"Bus này không chạy route đã chọn vào {selectedDayName}. Bus chỉ chạy vào: {availableDayNames}");
+            }
         }
 
         private async Task<(BusStation pickupStation, BusStation dropOffStation)> ValidateStationsAsync(
@@ -443,6 +497,52 @@ namespace BE_API.Service
             return (pickupStation, dropOffStation);
         }
 
+        private static void ValidateRideDate(DateTime rideDate)
+        {
+            if (rideDate < DateTime.Today)
+                throw new Exception("RideDate phai la hom nay hoac trong tuong lai");
+        }
+
+        private async Task<string> BuildAssignmentNoteAsync(long studentId, DateTime rideDate)
+        {
+            var activeOrder = await _orderRepo.Get()
+                .Where(x =>
+                    x.StudentId == studentId &&
+                    x.Status == OrderStatus.PAID &&
+                    x.StartDate.HasValue &&
+                    x.EndDate.HasValue &&
+                    x.StartDate.Value.Date <= rideDate.Date &&
+                    x.EndDate.Value.Date >= rideDate.Date)
+                .OrderByDescending(x => x.EndDate)
+                .FirstOrDefaultAsync();
+
+            if (activeOrder != null)
+                return "Học sinh có gói còn hiệu lực";
+
+            var hasAnyOrder = await _orderRepo.Get()
+                .AnyAsync(x => x.StudentId == studentId);
+
+            if (hasAnyOrder)
+                return "Gói đã hết hạn nhưng vẫn được đi lần này";
+
+            return "Học sinh chưa có gói nhưng vẫn được đi lần này";
+        }
+
+        private static string GetDayOfWeekDisplayName(int dayOfWeek)
+        {
+            return dayOfWeek switch
+            {
+                0 => "Chủ nhật",
+                1 => "Thứ hai",
+                2 => "Thứ ba",
+                3 => "Thứ tư",
+                4 => "Thứ năm",
+                5 => "Thứ sáu",
+                6 => "Thứ bảy",
+                _ => $"Ngày {dayOfWeek}"
+            };
+        }
+
         private static StudentBusAssignmentDto MapToDto(StudentBusAssignment assignment)
         {
             return new StudentBusAssignmentDto
@@ -459,7 +559,8 @@ namespace BE_API.Service
                 PickupStationId = assignment.PickupStationId,
                 PickupStationName = assignment.PickupStation?.Name,
                 DropOffStationId = assignment.DropOffStationId,
-                DropOffStationName = assignment.DropOffStation?.Name
+                DropOffStationName = assignment.DropOffStation?.Name,
+                Note = assignment.Note
             };
         }
     }

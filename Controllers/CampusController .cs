@@ -1,4 +1,4 @@
-﻿using BE_API.Dto.Campus;
+using BE_API.Dto.Campus;
 using BE_API.Dto.Common;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
@@ -32,6 +32,26 @@ namespace BE_API.Controllers
             try
             {
                 var data = await _campusService.SearchCampusAsync(keyword, page, pageSize);
+                response.Data = data;
+                response.Message = CAMPUS_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lấy danh sách campus đang hoạt động")]
+        public async Task<IActionResult> Active(string? keyword, int page = 1, int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _campusService.GetActiveCampusesAsync(keyword, page, pageSize);
                 response.Data = data;
                 response.Message = CAMPUS_LIST_SUCCESS;
                 return Ok(response);

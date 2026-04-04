@@ -15,5 +15,6 @@ namespace BE_API.Dto.StudentBusAssignment
         public string? PickupStationName { get; set; }
         public long? DropOffStationId { get; set; }
         public string? DropOffStationName { get; set; }
+        public string? Note { get; set; }
     }
 }

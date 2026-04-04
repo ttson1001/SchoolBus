@@ -18,33 +18,16 @@ namespace BE_API.Service
 
         public async Task<PagedResult<CampusDto>> SearchCampusAsync(string? keyword, int page, int pageSize)
         {
-            var query = _campusRepo.Get();
+            var query = BuildCampusSearchQuery(keyword);
+            return await BuildCampusPagedResultAsync(query, page, pageSize);
+        }
 
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                keyword = keyword.ToLower();
-                query = query.Where(x =>
-                    x.Name.ToLower().Contains(keyword) ||
-                    x.Code.ToLower().Contains(keyword) ||
-                    x.Address.ToLower().Contains(keyword) ||
-                    (x.Phone != null && x.Phone.ToLower().Contains(keyword)));
-            }
+        public async Task<PagedResult<CampusDto>> GetActiveCampusesAsync(string? keyword, int page, int pageSize)
+        {
+            var query = BuildCampusSearchQuery(keyword)
+                .Where(x => x.IsActive);
 
-            var totalItems = await query.CountAsync();
-
-            var campuses = await query
-                .OrderByDescending(x => x.Id)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return new PagedResult<CampusDto>
-            {
-                Items = campuses.Select(MapToDto).ToList(),
-                TotalItems = totalItems,
-                Page = page,
-                PageSize = pageSize
-            };
+            return await BuildCampusPagedResultAsync(query, page, pageSize);
         }
 
         public async Task<CampusDto> GetCampusByIdAsync(long id)
@@ -119,6 +102,42 @@ namespace BE_API.Service
 
             _campusRepo.Delete(campus);
             await _campusRepo.SaveChangesAsync();
+        }
+
+        private IQueryable<Campus> BuildCampusSearchQuery(string? keyword)
+        {
+            var query = _campusRepo.Get();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                keyword = keyword.ToLower();
+                query = query.Where(x =>
+                    x.Name.ToLower().Contains(keyword) ||
+                    x.Code.ToLower().Contains(keyword) ||
+                    x.Address.ToLower().Contains(keyword) ||
+                    (x.Phone != null && x.Phone.ToLower().Contains(keyword)));
+            }
+
+            return query;
+        }
+
+        private static async Task<PagedResult<CampusDto>> BuildCampusPagedResultAsync(IQueryable<Campus> query, int page, int pageSize)
+        {
+            var totalItems = await query.CountAsync();
+
+            var campuses = await query
+                .OrderByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<CampusDto>
+            {
+                Items = campuses.Select(MapToDto).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         private static CampusDto MapToDto(Campus campus)

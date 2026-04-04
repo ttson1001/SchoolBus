@@ -43,6 +43,26 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lấy danh sách tuyến xe bus đang hoạt động")]
+        public async Task<IActionResult> Active(string? keyword, long? campusId, int page = 1, int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _busRouteService.GetActiveBusRouteAsync(keyword, campusId, page, pageSize);
+                response.Data = data;
+                response.Message = BUS_ROUTE_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpGet("[action]/{id}")]
         [SwaggerOperation(Summary = "Lấy tuyến xe bus theo id")]
         public async Task<IActionResult> Get(long id)

@@ -20,6 +20,8 @@ namespace BE_API.Entites
         public long? CheckOutStationId { get; set; }
         public BusStation? CheckOutStation { get; set; }
 
+        public string? Note { get; set; }
+
         public AttendanceMethod Method { get; set; }
         public AttendanceStatus Status { get; set; }
     }

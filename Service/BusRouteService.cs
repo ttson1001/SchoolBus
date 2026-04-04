@@ -28,40 +28,21 @@ namespace BE_API.Service
 
         public async Task<PagedResult<BusRouteDto>> SearchBusRouteAsync(string? keyword, int page, int pageSize)
         {
-            var query = _routeRepo.Get();
+            var query = BuildSearchQuery(keyword, null, null);
+            return await BuildPagedResultAsync(query, page, pageSize);
+        }
 
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                keyword = keyword.ToLower();
-                query = query.Where(x =>
-                    x.Name.ToLower().Contains(keyword) ||
-                    x.Campus.Name.ToLower().Contains(keyword));
-            }
-
-            var totalItems = await query.CountAsync();
-
-            var routes = await query.Include(x => x.Campus)
-                .Include(x => x.Stations)
-                .ThenInclude(x => x.Station)
-                .OrderByDescending(x => x.Id)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            return new PagedResult<BusRouteDto>
-            {
-                Items = routes.Select(MapToDto).ToList(),
-                TotalItems = totalItems,
-                Page = page,
-                PageSize = pageSize
-            };
+        public async Task<PagedResult<BusRouteDto>> GetActiveBusRouteAsync(string? keyword, long? campusId, int page, int pageSize)
+        {
+            var query = BuildSearchQuery(keyword, campusId, true);
+            return await BuildPagedResultAsync(query, page, pageSize);
         }
 
         public async Task<BusRouteDto> GetBusRouteByIdAsync(long id)
         {
             var route = await GetRouteQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus route khong ton tai");
+                ?? throw new Exception("Bus route không tồn tại");
 
             return MapToDto(route);
         }
@@ -69,10 +50,10 @@ namespace BE_API.Service
         public async Task<BusRouteDto> CreateBusRouteAsync(BusRouteCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new Exception("Ten tuyen khong duoc de trong");
+                throw new Exception("Tên tuyến không được để trống");
 
             if (!dto.StationIds.Any())
-                throw new Exception("Tuyen xe phai co it nhat mot tram");
+                throw new Exception("Tuyến xe phải có ít nhất một trạm");
 
             var campus = await ValidateCampusAsync(dto.CampusId);
             var stationIds = ValidateStationIds(dto.StationIds);
@@ -116,7 +97,7 @@ namespace BE_API.Service
         {
             var route = await GetRouteQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus route khong ton tai");
+                ?? throw new Exception("Bus route không tồn tại");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
                 route.Name = dto.Name.Trim();
@@ -169,7 +150,7 @@ namespace BE_API.Service
 
             var updatedRoute = await GetRouteQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus route khong ton tai");
+                ?? throw new Exception("Bus route không tồn tại");
 
             return MapToDto(updatedRoute);
         }
@@ -178,7 +159,7 @@ namespace BE_API.Service
         {
             var route = await _routeRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus route khong ton tai");
+                ?? throw new Exception("Bus route không tồn tại");
 
             var routeStations = await _routeStationRepo.Get()
                 .Where(x => x.RouteId == id)
@@ -199,17 +180,59 @@ namespace BE_API.Service
                 .ThenInclude(x => x.Station);
         }
 
+        private IQueryable<BusRoute> BuildSearchQuery(string? keyword, long? campusId, bool? isEnabled)
+        {
+            var query = _routeRepo.Get();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                keyword = keyword.ToLower();
+                query = query.Where(x =>
+                    x.Name.ToLower().Contains(keyword) ||
+                    x.Campus.Name.ToLower().Contains(keyword));
+            }
+
+            if (campusId.HasValue)
+                query = query.Where(x => x.CampusId == campusId.Value);
+
+            if (isEnabled.HasValue)
+                query = query.Where(x => x.IsEnabled == isEnabled.Value);
+
+            return query.Include(x => x.Campus);
+        }
+
+        private static async Task<PagedResult<BusRouteDto>> BuildPagedResultAsync(IQueryable<BusRoute> query, int page, int pageSize)
+        {
+            var totalItems = await query.CountAsync();
+
+            var routes = await query
+                .Include(x => x.Stations)
+                .ThenInclude(x => x.Station)
+                .OrderByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<BusRouteDto>
+            {
+                Items = routes.Select(MapToDto).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
         private async Task<Campus> ValidateCampusAsync(long campusId)
         {
             if (campusId <= 0)
-                throw new Exception("CampusId phai lon hon 0");
+                throw new Exception("CampusId phải lớn hơn 0");
 
             var campus = await _campusRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == campusId)
-                ?? throw new Exception("Campus khong ton tai");
+                ?? throw new Exception("Campus không tồn tại");
 
             if (!campus.IsActive)
-                throw new Exception("Campus dang khong hoat dong");
+                throw new Exception("Campus đang không hoạt động");
 
             return campus;
         }
@@ -217,14 +240,14 @@ namespace BE_API.Service
         private static List<long> ValidateStationIds(List<long> stationIds)
         {
             if (!stationIds.Any())
-                throw new Exception("Tuyen xe phai co it nhat mot tram");
+                throw new Exception("Tuyến xe phải có ít nhất một trạm");
 
             if (stationIds.Any(x => x <= 0))
-                throw new Exception("StationIds phai lon hon 0");
+                throw new Exception("StationIds phải lớn hơn 0");
 
             var distinctStationIds = stationIds.Distinct().ToList();
             if (distinctStationIds.Count != stationIds.Count)
-                throw new Exception("Danh sach tram bi trung");
+                throw new Exception("Danh sách trạm bị trùng");
 
             return distinctStationIds;
         }
@@ -236,11 +259,11 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (stations.Count != stationIds.Count)
-                throw new Exception("Mot hoac nhieu tram khong ton tai");
+                throw new Exception("Một hoặc nhiều trạm không tồn tại");
 
             var disabledStation = stations.FirstOrDefault(x => !x.IsEnabled);
             if (disabledStation != null)
-                throw new Exception($"Bus station '{disabledStation.Name}' dang khong hoat dong");
+                throw new Exception($"Bus station '{disabledStation.Name}' đang không hoạt động");
 
             return stations;
         }

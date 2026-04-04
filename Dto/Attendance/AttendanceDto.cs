@@ -14,6 +14,7 @@ namespace BE_API.Dto.Attendance
         public string? CheckInStationName { get; set; }
         public long? CheckOutStationId { get; set; }
         public string? CheckOutStationName { get; set; }
+        public string? Note { get; set; }
         public string Method { get; set; } = null!;
         public string Status { get; set; } = null!;
     }

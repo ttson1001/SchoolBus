@@ -15,6 +15,9 @@ namespace BE_API.Service
         private readonly IRepository<Bus> _busRepo;
         private readonly IRepository<StudentBusAssignment> _assignmentRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
+        private readonly IRepository<BusAssignment> _busAssignmentRepo;
+        private readonly IRepository<BusSchedule> _busScheduleRepo;
+        private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
 
@@ -24,6 +27,9 @@ namespace BE_API.Service
             IRepository<Bus> busRepo,
             IRepository<StudentBusAssignment> assignmentRepo,
             IRepository<BusRouteStation> routeStationRepo,
+            IRepository<BusAssignment> busAssignmentRepo,
+            IRepository<BusSchedule> busScheduleRepo,
+            IRepository<Order> orderRepo,
             IRepository<Notification> notificationRepo,
             IFirebaseNotificationService firebaseNotificationService)
         {
@@ -32,6 +38,9 @@ namespace BE_API.Service
             _busRepo = busRepo;
             _assignmentRepo = assignmentRepo;
             _routeStationRepo = routeStationRepo;
+            _busAssignmentRepo = busAssignmentRepo;
+            _busScheduleRepo = busScheduleRepo;
+            _orderRepo = orderRepo;
             _notificationRepo = notificationRepo;
             _firebaseNotificationService = firebaseNotificationService;
         }
@@ -133,6 +142,7 @@ namespace BE_API.Service
         public async Task<AttendanceDto> ManualCheckInAsync(AttendanceManualDto dto)
         {
             var validation = await ValidateManualAttendanceAsync(dto);
+            var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
 
             var attendance = await GetAttendanceQueryable()
                 .FirstOrDefaultAsync(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate);
@@ -150,7 +160,8 @@ namespace BE_API.Service
                     Method = AttendanceMethod.MANUAL,
                     Status = AttendanceStatus.PRESENT,
                     CheckInTime = validation.CheckTime,
-                    CheckInStationId = validation.Station.Id
+                    CheckInStationId = validation.Station.Id,
+                    Note = note
                 };
 
                 await _attendanceRepo.AddAsync(attendance);
@@ -167,6 +178,7 @@ namespace BE_API.Service
                 attendance.CheckInStationId = validation.Station.Id;
                 attendance.Method = AttendanceMethod.MANUAL;
                 attendance.Status = AttendanceStatus.PRESENT;
+                attendance.Note = note;
 
                 _attendanceRepo.Update(attendance);
                 await _attendanceRepo.SaveChangesAsync();
@@ -179,12 +191,12 @@ namespace BE_API.Service
             await CreateGuardianNotificationAsync(
                 validation.Student,
                 validation.Bus,
-                validation.Assignment.Route.Name,
+                validation.RouteName,
                 validation.AttendanceDate,
                 validation.CheckTime,
                 "BOARDING",
                 $"Hoc sinh {validation.Student.FullName} da len xe {validation.Bus.LicensePlate}" +
-                $"{FormatRouteSuffix(validation.Assignment.Route.Name)}" +
+                $"{FormatRouteSuffix(validation.RouteName)}" +
                 $"{FormatStationSuffix(validation.Station.Name)} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
 
             return MapToDto(attendance);
@@ -193,6 +205,7 @@ namespace BE_API.Service
         public async Task<AttendanceDto> ManualCheckOutAsync(AttendanceManualDto dto)
         {
             var validation = await ValidateManualAttendanceAsync(dto);
+            var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
 
             var attendance = await GetAttendanceQueryable()
                 .FirstOrDefaultAsync(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate)
@@ -209,6 +222,7 @@ namespace BE_API.Service
             attendance.CheckOutStationId = validation.Station.Id;
             attendance.Method = AttendanceMethod.MANUAL;
             attendance.Status = AttendanceStatus.PRESENT;
+            attendance.Note = note;
 
             _attendanceRepo.Update(attendance);
             await _attendanceRepo.SaveChangesAsync();
@@ -220,28 +234,28 @@ namespace BE_API.Service
             await CreateGuardianNotificationAsync(
                 validation.Student,
                 validation.Bus,
-                validation.Assignment.Route.Name,
+                validation.RouteName,
                 validation.AttendanceDate,
                 validation.CheckTime,
                 "ALIGHTING",
                 $"Hoc sinh {validation.Student.FullName} da xuong xe {validation.Bus.LicensePlate}" +
-                $"{FormatRouteSuffix(validation.Assignment.Route.Name)}" +
+                $"{FormatRouteSuffix(validation.RouteName)}" +
                 $"{FormatStationSuffix(validation.Station.Name)} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
 
-            if (validation.Assignment.DropOffStationId.HasValue &&
-                validation.Assignment.DropOffStationId.Value != validation.Station.Id)
+            if (validation.ExpectedDropOffStationId.HasValue &&
+                validation.ExpectedDropOffStationId.Value != validation.Station.Id)
             {
-                var expectedStationName = validation.Assignment.DropOffStation?.Name ?? "khong ro";
+                var expectedStationName = validation.ExpectedDropOffStationName ?? "khong ro";
 
                 await CreateGuardianNotificationAsync(
                     validation.Student,
                     validation.Bus,
-                    validation.Assignment.Route.Name,
+                    validation.RouteName,
                     validation.AttendanceDate,
                     validation.CheckTime,
                     "WRONG_DROPOFF",
                     $"Canh bao: Hoc sinh {validation.Student.FullName} da xuong xe {validation.Bus.LicensePlate}" +
-                    $"{FormatRouteSuffix(validation.Assignment.Route.Name)} tai diem {validation.Station.Name}, " +
+                    $"{FormatRouteSuffix(validation.RouteName)} tai diem {validation.Station.Name}, " +
                     $"khong dung diem da dang ky {expectedStationName} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
             }
 
@@ -300,14 +314,13 @@ namespace BE_API.Service
             assignment ??= await assignmentQuery
                 .FirstOrDefaultAsync(x => !x.RideDate.HasValue);
 
-            if (assignment == null)
-                throw new Exception("Hoc sinh chua duoc set diem don tra cho bus nay trong ngay da chon");
+            var routeResolution = await ResolveAttendanceRouteAsync(dto.BusId, attendanceDate);
 
             var routeStation = await _routeStationRepo.Get()
-                .Where(x => x.RouteId == assignment.RouteId && x.StationId == dto.StationId)
+                .Where(x => x.RouteId == routeResolution.RouteId && x.StationId == dto.StationId)
                 .Include(x => x.Station)
                 .FirstOrDefaultAsync()
-                ?? throw new Exception("Bus station khong thuoc route cua hoc sinh");
+                ?? throw new Exception("Bus station khong thuoc route cua bus trong ngay da chon");
 
             if (!routeStation.Station.IsEnabled)
                 throw new Exception($"Bus station '{routeStation.Station.Name}' dang khong hoat dong");
@@ -316,11 +329,40 @@ namespace BE_API.Service
             {
                 Student = student,
                 Bus = bus,
-                Assignment = assignment,
+                RouteName = routeResolution.RouteName,
+                ExpectedDropOffStationId = assignment?.DropOffStationId,
+                ExpectedDropOffStationName = assignment?.DropOffStation?.Name,
                 Station = routeStation.Station,
                 AttendanceDate = attendanceDate,
                 CheckTime = checkTime
             };
+        }
+
+        private async Task<(long RouteId, string RouteName)> ResolveAttendanceRouteAsync(long busId, DateTime attendanceDate)
+        {
+            var busAssignment = await _busAssignmentRepo.Get()
+                .Include(x => x.Route)
+                .FirstOrDefaultAsync(x =>
+                    x.BusId == busId &&
+                    (!x.ActiveDate.HasValue || x.ActiveDate.Value.Date == attendanceDate.Date));
+
+            if (busAssignment != null)
+                return (busAssignment.RouteId, busAssignment.Route.Name);
+
+            var dayOfWeek = (int)attendanceDate.DayOfWeek;
+            var busSchedule = await _busScheduleRepo.Get()
+                .Include(x => x.Route)
+                .FirstOrDefaultAsync(x =>
+                    x.BusId == busId &&
+                    x.IsActive &&
+                    x.StartDate.Date <= attendanceDate.Date &&
+                    (!x.EndDate.HasValue || x.EndDate.Value.Date >= attendanceDate.Date) &&
+                    x.DayOfWeek == dayOfWeek);
+
+            if (busSchedule != null)
+                return (busSchedule.RouteId, busSchedule.Route.Name);
+
+            throw new Exception("Bus nay chua duoc gan route hoac chua co lich chay trong ngay da chon");
         }
 
         private async Task CreateGuardianNotificationAsync(
@@ -399,6 +441,29 @@ namespace BE_API.Service
             };
         }
 
+        private async Task<string> BuildAttendanceNoteAsync(long studentId, DateTime attendanceDate)
+        {
+            var hasActiveOrder = await _orderRepo.Get()
+                .AnyAsync(x =>
+                    x.StudentId == studentId &&
+                    x.Status == OrderStatus.PAID &&
+                    x.StartDate.HasValue &&
+                    x.EndDate.HasValue &&
+                    x.StartDate.Value.Date <= attendanceDate.Date &&
+                    x.EndDate.Value.Date >= attendanceDate.Date);
+
+            if (hasActiveOrder)
+                return "Học sinh có gói còn hiệu lực";
+
+            var hasAnyOrder = await _orderRepo.Get()
+                .AnyAsync(x => x.StudentId == studentId);
+
+            if (hasAnyOrder)
+                return "Gói đã hết hạn nhưng vẫn được đi lần này";
+
+            return "Học sinh chưa có gói nhưng vẫn được đi lần này";
+        }
+
         private static AttendanceDto MapToDto(Attendance attendance)
         {
             return new AttendanceDto
@@ -415,6 +480,7 @@ namespace BE_API.Service
                 CheckInStationName = attendance.CheckInStation?.Name,
                 CheckOutStationId = attendance.CheckOutStationId,
                 CheckOutStationName = attendance.CheckOutStation?.Name,
+                Note = attendance.Note,
                 Method = attendance.Method.ToString(),
                 Status = attendance.Status.ToString()
             };
@@ -424,7 +490,9 @@ namespace BE_API.Service
         {
             public Student Student { get; set; } = null!;
             public Bus Bus { get; set; } = null!;
-            public StudentBusAssignment Assignment { get; set; } = null!;
+            public string RouteName { get; set; } = null!;
+            public long? ExpectedDropOffStationId { get; set; }
+            public string? ExpectedDropOffStationName { get; set; }
             public BusStation Station { get; set; } = null!;
             public DateTime AttendanceDate { get; set; }
             public TimeSpan CheckTime { get; set; }

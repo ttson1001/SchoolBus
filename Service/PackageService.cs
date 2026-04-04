@@ -18,35 +18,14 @@ namespace BE_API.Service
 
         public async Task<PagedResult<PackageDto>> SearchPackageAsync(string? keyword, int page, int pageSize)
         {
-            var query = _packageRepo.Get();
+            var query = BuildSearchQuery(keyword, null);
+            return await BuildPagedResultAsync(query, page, pageSize);
+        }
 
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                keyword = keyword.ToLower();
-                query = query.Where(x =>
-                    x.Name.ToLower().Contains(keyword) ||
-                    (x.Description != null && x.Description.ToLower().Contains(keyword)) ||
-                    (x.Type != null && x.Type.ToLower().Contains(keyword)) ||
-                    x.Status.ToLower().Contains(keyword));
-            }
-
-            var totalItems = await query.CountAsync();
-
-            var packages = await query
-                .OrderByDescending(x => x.Id)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            var items = packages.Select(MapToDto).ToList();
-
-            return new PagedResult<PackageDto>
-            {
-                Items = items,
-                TotalItems = totalItems,
-                Page = page,
-                PageSize = pageSize
-            };
+        public async Task<PagedResult<PackageDto>> GetActivePackagesAsync(string? keyword, int page, int pageSize)
+        {
+            var query = BuildSearchQuery(keyword, "ACTIVE");
+            return await BuildPagedResultAsync(query, page, pageSize);
         }
 
         public async Task<PackageDto> GetPackageByIdAsync(long id)
@@ -131,6 +110,48 @@ namespace BE_API.Service
 
             _packageRepo.Delete(package);
             await _packageRepo.SaveChangesAsync();
+        }
+
+        private IQueryable<Package> BuildSearchQuery(string? keyword, string? status)
+        {
+            var query = _packageRepo.Get();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                keyword = keyword.ToLower();
+                query = query.Where(x =>
+                    x.Name.ToLower().Contains(keyword) ||
+                    (x.Description != null && x.Description.ToLower().Contains(keyword)) ||
+                    (x.Type != null && x.Type.ToLower().Contains(keyword)) ||
+                    x.Status.ToLower().Contains(keyword));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                status = status.Trim().ToUpper();
+                query = query.Where(x => x.Status.ToUpper() == status);
+            }
+
+            return query;
+        }
+
+        private static async Task<PagedResult<PackageDto>> BuildPagedResultAsync(IQueryable<Package> query, int page, int pageSize)
+        {
+            var totalItems = await query.CountAsync();
+
+            var packages = await query
+                .OrderByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<PackageDto>
+            {
+                Items = packages.Select(MapToDto).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         private static PackageDto MapToDto(Package package)

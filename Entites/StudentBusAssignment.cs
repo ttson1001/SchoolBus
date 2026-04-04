@@ -20,6 +20,8 @@
 
         public long? DropOffStationId { get; set; }
         public BusStation? DropOffStation { get; set; }
+
+        public string? Note { get; set; }
     }
 
 }
