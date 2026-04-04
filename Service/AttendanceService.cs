@@ -161,6 +161,7 @@ namespace BE_API.Service
                     Status = AttendanceStatus.PRESENT,
                     CheckInTime = validation.CheckTime,
                     CheckInStationId = validation.Station.Id,
+                    CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl),
                     Note = note
                 };
 
@@ -176,6 +177,7 @@ namespace BE_API.Service
                 attendance.BusId = validation.Bus.Id;
                 attendance.CheckInTime = validation.CheckTime;
                 attendance.CheckInStationId = validation.Station.Id;
+                attendance.CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl);
                 attendance.Method = AttendanceMethod.MANUAL;
                 attendance.Status = AttendanceStatus.PRESENT;
                 attendance.Note = note;
@@ -220,6 +222,7 @@ namespace BE_API.Service
             attendance.BusId = validation.Bus.Id;
             attendance.CheckOutTime = validation.CheckTime;
             attendance.CheckOutStationId = validation.Station.Id;
+            attendance.CheckOutImageUrl = NormalizeImageUrl(dto.ImageUrl);
             attendance.Method = AttendanceMethod.MANUAL;
             attendance.Status = AttendanceStatus.PRESENT;
             attendance.Note = note;
@@ -464,6 +467,11 @@ namespace BE_API.Service
             return "Học sinh chưa có gói nhưng vẫn được đi lần này";
         }
 
+        private static string? NormalizeImageUrl(string? imageUrl)
+        {
+            return string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim();
+        }
+
         private static AttendanceDto MapToDto(Attendance attendance)
         {
             return new AttendanceDto
@@ -478,8 +486,10 @@ namespace BE_API.Service
                 CheckOutTime = attendance.CheckOutTime,
                 CheckInStationId = attendance.CheckInStationId,
                 CheckInStationName = attendance.CheckInStation?.Name,
+                CheckInImageUrl = attendance.CheckInImageUrl,
                 CheckOutStationId = attendance.CheckOutStationId,
                 CheckOutStationName = attendance.CheckOutStation?.Name,
+                CheckOutImageUrl = attendance.CheckOutImageUrl,
                 Note = attendance.Note,
                 Method = attendance.Method.ToString(),
                 Status = attendance.Status.ToString()

@@ -12,8 +12,10 @@ namespace BE_API.Dto.Attendance
         public TimeSpan? CheckOutTime { get; set; }
         public long? CheckInStationId { get; set; }
         public string? CheckInStationName { get; set; }
+        public string? CheckInImageUrl { get; set; }
         public long? CheckOutStationId { get; set; }
         public string? CheckOutStationName { get; set; }
+        public string? CheckOutImageUrl { get; set; }
         public string? Note { get; set; }
         public string Method { get; set; } = null!;
         public string Status { get; set; } = null!;

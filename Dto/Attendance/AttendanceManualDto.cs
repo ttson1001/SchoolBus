@@ -5,6 +5,7 @@ namespace BE_API.Dto.Attendance
         public long StudentId { get; set; }
         public long BusId { get; set; }
         public long StationId { get; set; }
+        public string? ImageUrl { get; set; }
         public DateTime? Date { get; set; }
         public TimeSpan? Time { get; set; }
     }

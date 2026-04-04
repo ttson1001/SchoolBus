@@ -17,8 +17,10 @@ namespace BE_API.Entites
         public TimeSpan? CheckOutTime { get; set; }
         public long? CheckInStationId { get; set; }
         public BusStation? CheckInStation { get; set; }
+        public string? CheckInImageUrl { get; set; }
         public long? CheckOutStationId { get; set; }
         public BusStation? CheckOutStation { get; set; }
+        public string? CheckOutImageUrl { get; set; }
 
         public string? Note { get; set; }
 

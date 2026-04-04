@@ -55,6 +55,14 @@ namespace BE_API.Database
                 .Property(x => x.Note)
                 .HasMaxLength(500);
 
+            modelBuilder.Entity<Attendance>()
+                .Property(x => x.CheckInImageUrl)
+                .HasMaxLength(1000);
+
+            modelBuilder.Entity<Attendance>()
+                .Property(x => x.CheckOutImageUrl)
+                .HasMaxLength(1000);
+
             modelBuilder.Entity<FaceRecognitionLog>()
                 .Property(x => x.ConfidenceScore)
                 .HasPrecision(10, 6);
