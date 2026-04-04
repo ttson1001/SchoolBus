@@ -23,12 +23,14 @@ namespace BE_API.Service
         {
             var bus = await ValidateBusAsync(dto.BusId);
             ValidateCoordinates(dto.Latitude, dto.Longitude);
+            ValidateSpeed(dto.Speed);
 
             var tracking = new BusTracking
             {
                 BusId = bus.Id,
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
+                Speed = dto.Speed,
                 TrackedAt = DateTime.UtcNow
             };
 
@@ -78,6 +80,12 @@ namespace BE_API.Service
                 throw new Exception("Longitude không hợp lệ");
         }
 
+        private static void ValidateSpeed(double? speed)
+        {
+            if (speed.HasValue && speed.Value < 0)
+                throw new Exception("Speed không hợp lệ");
+        }
+
         private static BusTrackingDto MapToDto(BusTracking tracking)
         {
             return new BusTrackingDto
@@ -87,6 +95,7 @@ namespace BE_API.Service
                 BusLicensePlate = tracking.Bus.LicensePlate,
                 Latitude = tracking.Latitude,
                 Longitude = tracking.Longitude,
+                Speed = tracking.Speed,
                 TrackedAt = tracking.TrackedAt
             };
         }

@@ -25,13 +25,13 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Tìm kiếm tuyến xe bus")]
-        public async Task<IActionResult> Search(string? keyword, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Search(string? keyword, long? campusId, int page = 1, int pageSize = 10)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _busRouteService.SearchBusRouteAsync(keyword, page, pageSize);
+                var data = await _busRouteService.SearchBusRouteAsync(keyword, campusId, page, pageSize);
                 response.Data = data;
                 response.Message = BUS_ROUTE_LIST_SUCCESS;
                 return Ok(response);

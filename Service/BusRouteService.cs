@@ -26,9 +26,9 @@ namespace BE_API.Service
             _stationRepo = stationRepo;
         }
 
-        public async Task<PagedResult<BusRouteDto>> SearchBusRouteAsync(string? keyword, int page, int pageSize)
+        public async Task<PagedResult<BusRouteDto>> SearchBusRouteAsync(string? keyword, long? campusId, int page, int pageSize)
         {
-            var query = BuildSearchQuery(keyword, null, null);
+            var query = BuildSearchQuery(keyword, campusId, null);
             return await BuildPagedResultAsync(query, page, pageSize);
         }
 
