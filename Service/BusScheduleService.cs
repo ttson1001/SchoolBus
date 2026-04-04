@@ -77,6 +77,39 @@ namespace BE_API.Service
             return MapToDto(schedule);
         }
 
+        public async Task<List<BusScheduleDto>> SearchBusSchedulesAsync(long? busId, long? routeId, long? campusId)
+        {
+            if (busId.HasValue)
+                await ValidateBusAsync(busId.Value);
+
+            if (routeId.HasValue)
+                await ValidateRouteAsync(routeId.Value);
+
+            if (campusId.HasValue)
+                await ValidateCampusAsync(campusId.Value);
+
+            var query = GetScheduleQueryable();
+
+            if (busId.HasValue)
+                query = query.Where(x => x.BusId == busId.Value);
+
+            if (routeId.HasValue)
+                query = query.Where(x => x.RouteId == routeId.Value);
+
+            if (campusId.HasValue)
+                query = query.Where(x => x.Route.CampusId == campusId.Value);
+
+            var schedules = await query
+                .OrderBy(x => x.Route.CampusId)
+                .ThenBy(x => x.RouteId)
+                .ThenBy(x => x.BusId)
+                .ThenBy(x => x.DayOfWeek)
+                .ThenBy(x => x.StartTime)
+                .ToListAsync();
+
+            return schedules.Select(MapToDto).ToList();
+        }
+
         public async Task<List<BusScheduleDto>> GetBusSchedulesByBusIdAsync(long busId)
         {
             await ValidateBusAsync(busId);
@@ -240,7 +273,7 @@ namespace BE_API.Service
                 ?? throw new Exception("Bus không tồn tại");
 
             if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"Bus '{bus.LicensePlate}' dang khong hoat dong");
+                throw new Exception($"Bus '{bus.LicensePlate}' đang không hoạt động");
 
             return bus;
         }
@@ -259,7 +292,7 @@ namespace BE_API.Service
                 throw new Exception("Bus route đang không hoạt động");
 
             if (!route.Campus.IsActive)
-                throw new Exception($"Campus '{route.Campus.Name}' dang khong hoat dong");
+                throw new Exception($"Campus '{route.Campus.Name}' đang không hoạt động");
 
             return route;
         }

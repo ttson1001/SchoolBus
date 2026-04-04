@@ -60,6 +60,25 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        public async Task<IActionResult> Search(long? busId, long? routeId, long? campusId)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _busScheduleService.SearchBusSchedulesAsync(busId, routeId, campusId);
+                response.Data = data;
+                response.Message = BUS_SCHEDULE_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpGet("[action]/{busId}")]
         public async Task<IActionResult> GetByBus(long busId)
         {

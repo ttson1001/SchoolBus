@@ -61,7 +61,8 @@ namespace BE_API.Service
             if (activeDate.HasValue)
             {
                 var selectedDate = activeDate.Value.Date;
-                query = query.Where(x => x.ActiveDate.HasValue && x.ActiveDate.Value.Date == selectedDate);
+                var nextDate = selectedDate.AddDays(1);
+                query = query.Where(x => x.ActiveDate.HasValue && x.ActiveDate.Value >= selectedDate && x.ActiveDate.Value < nextDate);
             }
 
             var totalItems = await query.CountAsync();
@@ -196,14 +197,21 @@ namespace BE_API.Service
 
             if (activeDate.HasValue)
             {
-                if (schedule.StartDate.Date > activeDate.Value.Date ||
-                    (schedule.EndDate.HasValue && schedule.EndDate.Value.Date < activeDate.Value.Date))
+                var normalizedActiveDate = activeDate.Value.Date;
+                var actualDayOfWeek = (int)normalizedActiveDate.DayOfWeek;
+
+                if (schedule.StartDate.Date > normalizedActiveDate ||
+                    (schedule.EndDate.HasValue && schedule.EndDate.Value.Date < normalizedActiveDate))
                 {
                     throw new Exception("ActiveDate không nằm trong thời gian áp dụng của bus schedule");
                 }
 
-                if (schedule.DayOfWeek != (int)activeDate.Value.DayOfWeek)
-                    throw new Exception("ActiveDate không khớp DayOfWeek của bus schedule");
+                if (schedule.DayOfWeek != actualDayOfWeek)
+                {
+                    throw new Exception(
+                        $"ActiveDate {normalizedActiveDate:yyyy-MM-dd} là {GetDayOfWeekName(actualDayOfWeek)} " +
+                        $"nhưng bus schedule đang là {GetDayOfWeekName(schedule.DayOfWeek)}");
+                }
             }
 
             return schedule;
@@ -242,11 +250,11 @@ namespace BE_API.Service
         }
 
         private async Task EnsureAssignmentNotDuplicatedAsync(
-    long busScheduleId,
-    long driverId,
-    long teacherId,
-    DateTime? activeDate,
-    long? excludedId)
+            long busScheduleId,
+            long driverId,
+            long teacherId,
+            DateTime? activeDate,
+            long? excludedId)
         {
             var start = activeDate?.Date;
             var end = start?.AddDays(1);
@@ -307,22 +315,26 @@ namespace BE_API.Service
                 throw new Exception("Teacher đã được phân công cho bus khác trong ngày này");
         }
 
-        private static bool IsSameDate(DateTime? left, DateTime? right)
-        {
-            if (!left.HasValue && !right.HasValue)
-                return true;
-
-            if (left.HasValue && right.HasValue)
-                return left.Value.Date == right.Value.Date;
-
-            return false;
-        }
-
         private static string Capitalize(string value)
         {
             return string.IsNullOrWhiteSpace(value)
                 ? value
                 : char.ToUpperInvariant(value[0]) + value[1..];
+        }
+
+        private static string GetDayOfWeekName(int dayOfWeek)
+        {
+            return dayOfWeek switch
+            {
+                0 => "Chủ nhật",
+                1 => "Thứ hai",
+                2 => "Thứ ba",
+                3 => "Thứ tư",
+                4 => "Thứ năm",
+                5 => "Thứ sáu",
+                6 => "Thứ bảy",
+                _ => $"Ngày {dayOfWeek}"
+            };
         }
 
         private static BusAssignmentDto MapToDto(BusAssignment assignment)

@@ -6,6 +6,7 @@ namespace BE_API.Service.IService
     {
         Task<BusScheduleDto> CreateBusScheduleAsync(BusScheduleCreateDto dto);
         Task<BusScheduleDto> GetBusScheduleByIdAsync(long id);
+        Task<List<BusScheduleDto>> SearchBusSchedulesAsync(long? busId, long? routeId, long? campusId);
         Task<List<BusScheduleDto>> GetBusSchedulesByBusIdAsync(long busId);
         Task<List<BusScheduleDto>> GetBusSchedulesByRouteIdAsync(long routeId);
         Task<List<BusScheduleDto>> GetBusSchedulesByCampusIdAsync(long campusId);
