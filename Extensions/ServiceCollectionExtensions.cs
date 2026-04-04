@@ -12,6 +12,7 @@ namespace BE_API.Extensions
 
             services.AddScoped<IJwtService, JwtService>();
             services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<ICloudinaryService, CloudinaryService>();
             services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
 
             services.AddScoped<IAttendanceService, AttendanceService>();
@@ -23,6 +24,7 @@ namespace BE_API.Extensions
             services.AddScoped<IBusStationService, BusStationService>();
             services.AddScoped<IBusTrackingService, BusTrackingService>();
             services.AddScoped<ICampusService, CampusService>();
+            services.AddScoped<IFaceRecognitionService, FaceRecognitionService>();
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();

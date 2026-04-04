@@ -281,8 +281,13 @@ namespace BE_API.Service
                     .OrderBy(x => x.OrderIndex)
                     .Select(x => new BusRouteStationDto
                     {
-                        StationId = x.StationId,
-                        StationName = x.Station.Name,
+                        Id = x.Station.Id,
+                        Name = x.Station.Name,
+                        Address = x.Station.Address,
+                        Description = x.Station.Description,
+                        Latitude = x.Station.Latitude,
+                        Longitude = x.Station.Longitude,
+                        IsEnabled = x.Station.IsEnabled,
                         OrderIndex = x.OrderIndex
                     })
                     .ToList()
