@@ -15,6 +15,7 @@ namespace BE_API.Extensions
             services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
 
             services.AddScoped<IAttendanceService, AttendanceService>();
+            services.AddScoped<IBusAssignmentService, BusAssignmentService>();
             services.AddScoped<IBusDamageReportService, BusDamageReportService>();
             services.AddScoped<IBusRouteService, BusRouteService>();
             services.AddScoped<IBusScheduleService, BusScheduleService>();
@@ -26,6 +27,7 @@ namespace BE_API.Extensions
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();
             services.AddScoped<IStudentBusAssignmentService, StudentBusAssignmentService>();
+            services.AddScoped<ITransactionLogService, TransactionLogService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IWalletService, WalletService>();
         }

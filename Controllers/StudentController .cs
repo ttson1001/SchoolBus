@@ -25,13 +25,13 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        public async Task<IActionResult> Search(string? keyword, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Search(string? keyword, long? campusId, long? guardianId, string? status, int page = 1, int pageSize = 10)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _studentService.SearchStudentAsync(keyword, page, pageSize);
+                var data = await _studentService.SearchStudentAsync(keyword, campusId, guardianId, status, page, pageSize);
                 response.Data = data;
                 response.Message = STUDENT_LIST_SUCCESS;
                 return Ok(response);

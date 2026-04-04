@@ -25,13 +25,21 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Tìm kiếm attendance")]
-        public async Task<IActionResult> Search(string? keyword, DateTime? date, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Search(
+            string? keyword,
+            DateTime? date,
+            long? campusId,
+            long? busId,
+            long? studentId,
+            string? status,
+            int page = 1,
+            int pageSize = 10)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _attendanceService.SearchAttendanceAsync(keyword, date, page, pageSize);
+                var data = await _attendanceService.SearchAttendanceAsync(keyword, date, campusId, busId, studentId, status, page, pageSize);
                 response.Data = data;
                 response.Message = ATTENDANCE_LIST_SUCCESS;
                 return Ok(response);
@@ -54,6 +62,26 @@ namespace BE_API.Controllers
                 var data = await _attendanceService.GetAttendanceByIdAsync(id);
                 response.Data = data;
                 response.Message = ATTENDANCE_GET_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{studentId}")]
+        [SwaggerOperation(Summary = "Lấy lịch sử attendance theo student")]
+        public async Task<IActionResult> GetByStudent(long studentId, DateTime? fromDate, DateTime? toDate)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _attendanceService.GetAttendanceByStudentIdAsync(studentId, fromDate, toDate);
+                response.Data = data;
+                response.Message = ATTENDANCE_LIST_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

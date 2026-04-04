@@ -17,6 +17,7 @@ namespace BE_API.Controllers
         private const string ORDER_CREATE_SUCCESS = "Tạo order thành công";
         private const string ORDER_PAYOS_LINK_SUCCESS = "Tạo link thanh toán payOS cho order thành công";
         private const string ORDER_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS mua gói thành công";
+        private const string ORDER_CANCEL_SUCCESS = "Hủy order thành công";
 
         public OrderController(IOrderService orderService)
         {
@@ -99,6 +100,25 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        public async Task<IActionResult> Search(string? status, long? guardianId, long? studentId, DateTime? fromDate, DateTime? toDate, int page = 1, int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _orderService.SearchOrderAsync(status, guardianId, studentId, fromDate, toDate, page, pageSize);
+                response.Data = data;
+                response.Message = ORDER_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpGet("[action]/{id}")]
         public async Task<IActionResult> Get(long id)
         {
@@ -147,6 +167,25 @@ namespace BE_API.Controllers
                 var data = await _orderService.GetActiveOrderByStudentIdAsync(studentId);
                 response.Data = data;
                 response.Message = ORDER_GET_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPut("[action]/{id}")]
+        public async Task<IActionResult> Cancel(long id, [FromBody] OrderCancelDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _orderService.CancelOrderAsync(id, dto);
+                response.Data = data;
+                response.Message = ORDER_CANCEL_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

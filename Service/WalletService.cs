@@ -10,6 +10,7 @@ using PayOS;
 using PayOS.Models;
 using PayOS.Models.Webhooks;
 using PayOS.Models.V2.PaymentRequests;
+using BE_API.Dto.Common;
 
 namespace BE_API.Service
 {
@@ -33,6 +34,35 @@ namespace BE_API.Service
             _transactionLogRepo = transactionLogRepo;
             _payOsClient = payOsClient;
             _payOsSettings = payOsOptions.Value;
+        }
+
+        public async Task<PagedResult<WalletDto>> SearchAsync(string? keyword, int page, int pageSize)
+        {
+            var query = _walletRepo.Get();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                keyword = keyword.Trim().ToLower();
+                query = query.Where(x =>
+                    (x.User.FullName != null && x.User.FullName.ToLower().Contains(keyword)) ||
+                    x.User.Email.ToLower().Contains(keyword));
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var wallets = await query.Include(x => x.User)
+                .OrderByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<WalletDto>
+            {
+                Items = wallets.Select(x => MapToDto(x, x.User)).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<WalletDto> TopUpAsync(WalletTopUpDto dto)
@@ -62,6 +92,70 @@ namespace BE_API.Service
 
             await _walletRepo.SaveChangesAsync();
             return MapToDto(wallet, guardian);
+        }
+
+        public async Task<PagedResult<WalletTransactionHistoryDto>> GetTransactionHistoryAsync(
+            long walletId,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? method,
+            string? status,
+            int page,
+            int pageSize)
+        {
+            if (walletId <= 0)
+                throw new Exception("WalletId phai lon hon 0");
+
+            var wallet = await _walletRepo.Get()
+                .Include(x => x.User)
+                .FirstOrDefaultAsync(x => x.Id == walletId)
+                ?? throw new Exception("Wallet khong ton tai");
+
+            var email = wallet.User.Email;
+
+            var query = _transactionLogRepo.Get()
+                .Where(x => x.Sender == email || x.Receiver == email);
+
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(x => x.PaidAt.HasValue && x.PaidAt.Value.Date >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var to = toDate.Value.Date;
+                query = query.Where(x => x.PaidAt.HasValue && x.PaidAt.Value.Date <= to);
+            }
+
+            if (!string.IsNullOrWhiteSpace(method))
+            {
+                method = method.Trim().ToUpper();
+                query = query.Where(x => x.Method.ToUpper() == method);
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                status = status.Trim().ToUpper();
+                query = query.Where(x => x.Status.ToUpper() == status);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var transactions = await query
+                .OrderByDescending(x => x.PaidAt ?? DateTime.MinValue)
+                .ThenByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<WalletTransactionHistoryDto>
+            {
+                Items = transactions.Select(MapToTransactionHistoryDto).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<WalletPayOsLinkDto> CreatePayOsTopUpLinkAsync(WalletPayOsCreateDto dto)
@@ -301,6 +395,25 @@ namespace BE_API.Service
                 Status = transactionLog.Status,
                 PaidAt = transactionLog.PaidAt,
                 WalletBalance = walletBalance
+            };
+        }
+
+        private static WalletTransactionHistoryDto MapToTransactionHistoryDto(TransactionLog transactionLog)
+        {
+            return new WalletTransactionHistoryDto
+            {
+                Id = transactionLog.Id,
+                OrderId = transactionLog.OrderId,
+                Amount = transactionLog.Amount,
+                Method = transactionLog.Method,
+                Status = transactionLog.Status,
+                PaidAt = transactionLog.PaidAt,
+                OldBalance = transactionLog.OldBalance,
+                NewBalance = transactionLog.NewBalance,
+                Sender = transactionLog.Sender,
+                Receiver = transactionLog.Receiver,
+                Description = transactionLog.Description,
+                Code = transactionLog.Code
             };
         }
     }

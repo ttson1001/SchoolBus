@@ -36,7 +36,7 @@ namespace BE_API.Service
             _firebaseNotificationService = firebaseNotificationService;
         }
 
-        public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, int page, int pageSize)
+        public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, long? campusId, long? busId, long? studentId, string? status, int page, int pageSize)
         {
             var query = GetAttendanceQueryable();
 
@@ -46,12 +46,30 @@ namespace BE_API.Service
                 query = query.Where(x => x.Date.Date == selectedDate);
             }
 
+            if (campusId.HasValue)
+                query = query.Where(x => x.Student.CampusId == campusId.Value);
+
+            if (busId.HasValue)
+                query = query.Where(x => x.BusId == busId.Value);
+
+            if (studentId.HasValue)
+                query = query.Where(x => x.StudentId == studentId.Value);
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (!Enum.TryParse<AttendanceStatus>(status, true, out var attendanceStatus))
+                    throw new Exception($"Status '{status}' khong hop le.");
+
+                query = query.Where(x => x.Status == attendanceStatus);
+            }
+
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 keyword = keyword.ToLower();
                 query = query.Where(x =>
                     x.Student.FullName.ToLower().Contains(keyword) ||
                     x.Bus.LicensePlate.ToLower().Contains(keyword) ||
+                    x.Student.Campus.Name.ToLower().Contains(keyword) ||
                     (x.CheckInStation != null && x.CheckInStation.Name.ToLower().Contains(keyword)) ||
                     (x.CheckOutStation != null && x.CheckOutStation.Name.ToLower().Contains(keyword)));
             }
@@ -72,6 +90,35 @@ namespace BE_API.Service
                 Page = page,
                 PageSize = pageSize
             };
+        }
+
+        public async Task<List<AttendanceDto>> GetAttendanceByStudentIdAsync(long studentId, DateTime? fromDate, DateTime? toDate)
+        {
+            var student = await _studentRepo.Get()
+                .FirstOrDefaultAsync(x => x.Id == studentId)
+                ?? throw new Exception("Student khong ton tai");
+
+            var query = GetAttendanceQueryable()
+                .Where(x => x.StudentId == student.Id);
+
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(x => x.Date.Date >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var to = toDate.Value.Date;
+                query = query.Where(x => x.Date.Date <= to);
+            }
+
+            var attendances = await query
+                .OrderByDescending(x => x.Date)
+                .ThenByDescending(x => x.Id)
+                .ToListAsync();
+
+            return attendances.Select(MapToDto).ToList();
         }
 
         public async Task<AttendanceDto> GetAttendanceByIdAsync(long id)
@@ -215,6 +262,7 @@ namespace BE_API.Service
         {
             return _attendanceRepo.Get()
                 .Include(x => x.Student)
+                .ThenInclude(x => x.Campus)
                 .Include(x => x.Bus)
                 .Include(x => x.CheckInStation)
                 .Include(x => x.CheckOutStation);

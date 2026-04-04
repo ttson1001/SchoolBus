@@ -10,6 +10,7 @@ namespace BE_API.Service.IService
         Task<UserImportResultDto> ImportAsync(UserImportRequestDto dto, CancellationToken cancellationToken = default);
         Task<UserDto> CreateUserAsync(UserCreateDto dto, CancellationToken cancellationToken = default);
         Task<UserDto> UpdateUserAsync(long id, UserUpdateDto dto, CancellationToken cancellationToken = default);
+        Task<UserDto> DeleteUserAsync(long id, CancellationToken cancellationToken = default);
         Task<TeacherDto> CreateTeacherAsync(TeacherCreateDto dto, CancellationToken cancellationToken = default);
         Task<DriverDto> CreateDriverAsync(DriverCreateDto dto, CancellationToken cancellationToken = default);
     }

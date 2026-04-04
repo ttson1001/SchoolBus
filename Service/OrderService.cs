@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using PayOS;
 using PayOS.Models.Webhooks;
 using PayOS.Models.V2.PaymentRequests;
+using BE_API.Dto.Common;
 
 namespace BE_API.Service
 {
@@ -279,6 +280,91 @@ namespace BE_API.Service
             return MapToPayOsStatusDto(order, transactionLog);
         }
 
+        public async Task<PagedResult<OrderDto>> SearchOrderAsync(
+            string? status,
+            long? guardianId,
+            long? studentId,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page,
+            int pageSize)
+        {
+            var query = GetOrderQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
+                    throw new Exception($"Status '{status}' khong hop le.");
+
+                query = query.Where(x => x.Status == orderStatus);
+            }
+
+            if (guardianId.HasValue)
+                query = query.Where(x => x.GuardianId == guardianId.Value);
+
+            if (studentId.HasValue)
+                query = query.Where(x => x.StudentId == studentId.Value);
+
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(x => x.CreatedAt.Date >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var to = toDate.Value.Date;
+                query = query.Where(x => x.CreatedAt.Date <= to);
+            }
+
+            var studentIds = await query.Select(x => x.StudentId).Distinct().ToListAsync();
+            foreach (var currentStudentId in studentIds)
+                await ExpireOrdersAsync(currentStudentId);
+
+            query = GetOrderQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                Enum.TryParse<OrderStatus>(status, true, out var orderStatus);
+                query = query.Where(x => x.Status == orderStatus);
+            }
+
+            if (guardianId.HasValue)
+                query = query.Where(x => x.GuardianId == guardianId.Value);
+
+            if (studentId.HasValue)
+                query = query.Where(x => x.StudentId == studentId.Value);
+
+            if (fromDate.HasValue)
+            {
+                var from = fromDate.Value.Date;
+                query = query.Where(x => x.CreatedAt.Date >= from);
+            }
+
+            if (toDate.HasValue)
+            {
+                var to = toDate.Value.Date;
+                query = query.Where(x => x.CreatedAt.Date <= to);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var orders = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<OrderDto>
+            {
+                Items = orders.Select(MapToDto).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
         public async Task<OrderDto> GetOrderByIdAsync(long id)
         {
             var order = await GetOrderByIdInternalAsync(id);
@@ -309,6 +395,60 @@ namespace BE_API.Service
                 .ToListAsync();
 
             return orders.Select(MapToDto).ToList();
+        }
+
+        public async Task<OrderDto> CancelOrderAsync(long id, OrderCancelDto dto)
+        {
+            var order = await GetOrderByIdInternalAsync(id);
+            var currentStatus = order.Status;
+
+            if (currentStatus == OrderStatus.CANCELLED)
+                throw new Exception("Order da duoc huy truoc do");
+
+            await ExpireOrdersAsync(order.StudentId);
+            order = await GetOrderByIdInternalAsync(id);
+            currentStatus = order.Status;
+
+            if (currentStatus == OrderStatus.EXPIRED)
+                throw new Exception("Order da het han, khong the huy");
+
+            if (currentStatus == OrderStatus.PAID && dto.RefundToWallet)
+            {
+                var wallet = await FindOrCreateWalletAsync(order.GuardianId);
+                var oldBalance = wallet.Balance;
+                wallet.Balance += order.Package.Price;
+
+                var transactionLog = new TransactionLog
+                {
+                    OrderId = order.Id,
+                    Method = WalletMethod,
+                    Amount = order.Package.Price,
+                    Status = PaymentStatus.SUCCESS.ToString(),
+                    PaidAt = DateTime.UtcNow,
+                    OldBalance = oldBalance,
+                    NewBalance = wallet.Balance,
+                    Sender = SystemReceiver,
+                    Receiver = order.Guardian.Email,
+                    Description = BuildCancelDescription(order, dto.Reason),
+                    Code = $"REFUND-{Guid.NewGuid():N}".ToUpperInvariant()
+                };
+
+                _walletRepo.Update(wallet);
+                await _transactionLogRepo.AddAsync(transactionLog);
+            }
+
+            order.Status = OrderStatus.CANCELLED;
+            order.ExpiredAt = null;
+
+            if (currentStatus == OrderStatus.PAID)
+            {
+                order.EndDate = DateTime.UtcNow;
+            }
+
+            _orderRepo.Update(order);
+            await _orderRepo.SaveChangesAsync();
+
+            return MapToDto(await GetOrderByIdInternalAsync(id));
         }
 
         public async Task<OrderDto?> GetActiveOrderByStudentIdAsync(long studentId)
@@ -470,6 +610,24 @@ namespace BE_API.Service
                 ?? throw new Exception("Khong tim thay giao dich mua goi payOS");
         }
 
+        private async Task<Wallet> FindOrCreateWalletAsync(long userId)
+        {
+            var wallet = await _walletRepo.Get()
+                .FirstOrDefaultAsync(x => x.UserId == userId);
+
+            if (wallet != null)
+                return wallet;
+
+            wallet = new Wallet
+            {
+                UserId = userId,
+                Balance = 0
+            };
+
+            await _walletRepo.AddAsync(wallet);
+            return wallet;
+        }
+
         private async Task<Order> GetOrderForTransactionAsync(TransactionLog transactionLog)
         {
             if (!transactionLog.OrderId.HasValue)
@@ -491,6 +649,16 @@ namespace BE_API.Service
         private static string BuildDirectOrderDescription(long studentId)
         {
             return $"Mua goi HS{studentId}";
+        }
+
+        private static string BuildCancelDescription(Order order, string? reason)
+        {
+            var description = $"Hoan tien huy order {order.Id} cho hoc sinh {order.Student.FullName}";
+
+            if (!string.IsNullOrWhiteSpace(reason))
+                description += $". Ly do: {reason.Trim()}";
+
+            return description;
         }
 
         private async Task MarkDirectPayOsOrderAsFailedAsync(Order order, TransactionLog transactionLog, DateTime? paidAt)

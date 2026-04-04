@@ -25,7 +25,7 @@ namespace BE_API.Service
             _campusRepo = campusRepo;
         }
 
-        public async Task<PagedResult<StudentDto>> SearchStudentAsync(string? keyword, int page, int pageSize)
+        public async Task<PagedResult<StudentDto>> SearchStudentAsync(string? keyword, long? campusId, long? guardianId, string? status, int page, int pageSize)
         {
             IQueryable<Student> query = _studentRepo.Get()
                 .Include(x => x.Guardian)
@@ -33,8 +33,25 @@ namespace BE_API.Service
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                keyword = keyword.ToLower();
-                query = query.Where(x => x.FullName.ToLower().Contains(keyword));
+                keyword = keyword.Trim().ToLower();
+                query = query.Where(x =>
+                    x.FullName.ToLower().Contains(keyword) ||
+                    (x.Guardian != null && x.Guardian.FullName != null && x.Guardian.FullName.ToLower().Contains(keyword)) ||
+                    (x.Campus != null && x.Campus.Name != null && x.Campus.Name.ToLower().Contains(keyword)));
+            }
+
+            if (campusId.HasValue)
+                query = query.Where(x => x.CampusId == campusId.Value);
+
+            if (guardianId.HasValue)
+                query = query.Where(x => x.GuardianId == guardianId.Value);
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (!Enum.TryParse<AccountStatus>(status, true, out var accountStatus))
+                    throw new Exception($"Status '{status}' khong hop le.");
+
+                query = query.Where(x => x.Status == accountStatus);
             }
 
             var totalItems = await query.CountAsync();
@@ -96,6 +113,7 @@ namespace BE_API.Service
         public async Task CreateStudentAsync(StudentCreateDto dto)
         {
             var normalizedFullName = NormalizeRequiredFullName(dto.FullName);
+            var avatarUrl = NormalizeAvatarUrl(dto.AvatarUrl);
             var dateOfBirth = ValidateDateOfBirth(dto.DateOfBirth);
             var gender = NormalizeGender(dto.Gender);
 
@@ -111,6 +129,7 @@ namespace BE_API.Service
             var student = new Student
             {
                 FullName = normalizedFullName,
+                AvatarUrl = avatarUrl,
                 DateOfBirth = dateOfBirth,
                 Gender = gender,
                 GuardianId = dto.GuardianId,
@@ -131,6 +150,9 @@ namespace BE_API.Service
             if (!string.IsNullOrWhiteSpace(dto.FullName))
                 student.FullName = NormalizeRequiredFullName(dto.FullName);
 
+            if (dto.AvatarUrl != null)
+                student.AvatarUrl = NormalizeAvatarUrl(dto.AvatarUrl);
+
             if (dto.DateOfBirth.HasValue)
                 student.DateOfBirth = ValidateDateOfBirth(dto.DateOfBirth);
 
@@ -147,6 +169,14 @@ namespace BE_API.Service
             {
                 await ValidateCampusAsync(dto.CampusId.Value);
                 student.CampusId = dto.CampusId.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Status))
+            {
+                if (!Enum.TryParse<AccountStatus>(dto.Status, true, out var accountStatus))
+                    throw new Exception($"Status '{dto.Status}' không hợp lệ.");
+
+                student.Status = accountStatus;
             }
 
             await EnsureStudentNotDuplicatedAsync(
@@ -222,6 +252,19 @@ namespace BE_API.Service
             return normalizedFullName;
         }
 
+        private static string? NormalizeAvatarUrl(string? avatarUrl)
+        {
+            if (string.IsNullOrWhiteSpace(avatarUrl))
+                return null;
+
+            var normalizedAvatarUrl = avatarUrl.Trim();
+
+            if (normalizedAvatarUrl.Length > 1000)
+                throw new Exception("AvatarUrl không được vượt quá 1000 ký tự");
+
+            return normalizedAvatarUrl;
+        }
+
         private static DateTime ValidateDateOfBirth(DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue)
@@ -287,6 +330,7 @@ namespace BE_API.Service
             {
                 Id = student.Id,
                 FullName = student.FullName,
+                AvatarUrl = student.AvatarUrl,
                 DateOfBirth = student.DateOfBirth,
                 Gender = student.Gender,
                 GuardianId = student.GuardianId,

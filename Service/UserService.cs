@@ -1,4 +1,4 @@
-using BE_API.Dto.Common;
+﻿using BE_API.Dto.Common;
 using BE_API.Dto.User;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
@@ -260,6 +260,26 @@ namespace BE_API.Service
 
             if (dto.Status != null)
                 user.Status = ParseStatus(dto.Status, 0);
+
+            _userRepo.Update(user);
+            await _userRepo.SaveChangesAsync(cancellationToken);
+
+            return MapToUserDto(user, user.Role.Name);
+        }
+
+        public async Task<UserDto> DeleteUserAsync(long id, CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+                ?? throw new Exception("User không tồn tại.");
+
+            if (user.Role != null && user.Role.Name.ToLower() == "admin")
+            {
+                throw new Exception("Không thể disable tài khoản ADMIN.");
+            }
+
+            user.Status = AccountStatus.DISABLED;
 
             _userRepo.Update(user);
             await _userRepo.SaveChangesAsync(cancellationToken);

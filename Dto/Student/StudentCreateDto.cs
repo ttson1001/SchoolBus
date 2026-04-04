@@ -8,6 +8,9 @@ namespace BE_API.Dto.Student
         [MaxLength(100, ErrorMessage = "FullName không được vượt quá 100 ký tự")]
         public string FullName { get; set; } = null!;
 
+        [MaxLength(1000, ErrorMessage = "AvatarUrl không được vượt quá 1000 ký tự")]
+        public string? AvatarUrl { get; set; }
+
         [Required(ErrorMessage = "DateOfBirth không được để trống")]
         public DateTime? DateOfBirth { get; set; }
 

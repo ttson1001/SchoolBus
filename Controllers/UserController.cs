@@ -17,6 +17,7 @@ namespace BE_API.Controllers
         private const string USER_IMPORT_SUCCESS = "Import user thành công";
         private const string USER_CREATE_SUCCESS = "Tạo user thành công";
         private const string USER_UPDATE_SUCCESS = "Cập nhật user thành công";
+        private const string USER_DELETE_SUCCESS = "Vô hiệu hóa user thành công";
         private const string TEACHER_CREATE_SUCCESS = "Tạo teacher thành công";
         private const string DRIVER_CREATE_SUCCESS = "Tạo driver thành công";
 
@@ -116,6 +117,26 @@ namespace BE_API.Controllers
                 var data = await _userService.UpdateUserAsync(id, dto, cancellationToken);
                 response.Data = data;
                 response.Message = USER_UPDATE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpDelete("[action]/{id}")]
+        [SwaggerOperation(Summary = "Xóa mềm user, đổi status về DISABLED")]
+        public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _userService.DeleteUserAsync(id, cancellationToken);
+                response.Data = data;
+                response.Message = USER_DELETE_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

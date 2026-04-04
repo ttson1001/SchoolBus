@@ -1,9 +1,10 @@
-﻿namespace BE_API.Dto.Student
+namespace BE_API.Dto.Student
 {
     public class StudentDto
     {
         public long Id { get; set; }
         public string FullName { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
         public DateTime? DateOfBirth { get; set; }
         public string? Gender { get; set; }
 

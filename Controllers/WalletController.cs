@@ -2,7 +2,6 @@ using BE_API.Dto.Common;
 using BE_API.Dto.Wallet;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
-using PayOS.Models;
 using PayOS.Models.Webhooks;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -15,6 +14,8 @@ namespace BE_API.Controllers
         private readonly IWalletService _walletService;
 
         private const string WALLET_GET_SUCCESS = "Lấy ví thành công";
+        private const string WALLET_LIST_SUCCESS = "Lấy danh sách ví thành công";
+        private const string WALLET_TRANSACTION_HISTORY_SUCCESS = "Lấy lịch sử giao dịch ví thành công";
         private const string WALLET_TOPUP_SUCCESS = "Nạp tiền vào ví thành công";
         private const string WALLET_PAYOS_LINK_SUCCESS = "Tạo link nạp tiền payOS thành công";
         private const string WALLET_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS thành công";
@@ -22,6 +23,26 @@ namespace BE_API.Controllers
         public WalletController(IWalletService walletService)
         {
             _walletService = walletService;
+        }
+
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Tìm kiếm ví")]
+        public async Task<IActionResult> Search(string? keyword, int page = 1, int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _walletService.SearchAsync(keyword, page, pageSize);
+                response.Data = data;
+                response.Message = WALLET_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
         }
 
         [HttpGet("[action]/{userId}")]
@@ -35,6 +56,26 @@ namespace BE_API.Controllers
                 var data = await _walletService.GetWalletByUserIdAsync(userId);
                 response.Data = data;
                 response.Message = WALLET_GET_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{walletId}")]
+        [SwaggerOperation(Summary = "Lấy lịch sử giao dịch theo wallet id")]
+        public async Task<IActionResult> TransactionHistory(long walletId, DateTime? fromDate, DateTime? toDate, string? method, string? status, int page = 1, int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _walletService.GetTransactionHistoryAsync(walletId, fromDate, toDate, method, status, page, pageSize);
+                response.Data = data;
+                response.Message = WALLET_TRANSACTION_HISTORY_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

@@ -23,6 +23,34 @@ namespace BE_API.Controllers
             _assignmentService = assignmentService;
         }
 
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Tìm kiếm student bus assignment")]
+        public async Task<IActionResult> Search(
+            string? keyword,
+            long? studentId,
+            long? guardianId,
+            long? busId,
+            long? routeId,
+            DateTime? rideDate,
+            int page = 1,
+            int pageSize = 10)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _assignmentService.SearchAsync(keyword, studentId, guardianId, busId, routeId, rideDate, page, pageSize);
+                response.Data = data;
+                response.Message = ASSIGNMENT_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpGet("[action]/{id}")]
         [SwaggerOperation(Summary = "Lấy student bus assignment theo id")]
         public async Task<IActionResult> Get(long id)
@@ -103,6 +131,26 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpPost("[action]")]
+        [SwaggerOperation(Summary = "Thiết lập điểm đón trả theo bus schedule cho học sinh")]
+        public async Task<IActionResult> CreateBySchedule([FromBody] StudentBusAssignmentByScheduleCreateDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _assignmentService.CreateByScheduleAsync(dto);
+                response.Data = data;
+                response.Message = ASSIGNMENT_CREATE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPut("[action]/{id}")]
         [SwaggerOperation(Summary = "Cập nhật student bus assignment")]
         public async Task<IActionResult> Update(long id, [FromBody] StudentBusAssignmentUpdateDto dto)
@@ -112,6 +160,26 @@ namespace BE_API.Controllers
             try
             {
                 var data = await _assignmentService.UpdateAsync(id, dto);
+                response.Data = data;
+                response.Message = ASSIGNMENT_UPDATE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPut("[action]/{id}")]
+        [SwaggerOperation(Summary = "Cập nhật student bus assignment theo bus schedule")]
+        public async Task<IActionResult> UpdateBySchedule(long id, [FromBody] StudentBusAssignmentByScheduleUpdateDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _assignmentService.UpdateByScheduleAsync(id, dto);
                 response.Data = data;
                 response.Message = ASSIGNMENT_UPDATE_SUCCESS;
                 return Ok(response);

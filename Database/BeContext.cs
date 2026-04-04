@@ -43,6 +43,10 @@ namespace BE_API.Database
                 .Property(x => x.DeviceToken)
                 .HasMaxLength(1024);
 
+            modelBuilder.Entity<Student>()
+                .Property(x => x.AvatarUrl)
+                .HasMaxLength(1000);
+
             modelBuilder.Entity<FaceRecognitionLog>()
                 .Property(x => x.ConfidenceScore)
                 .HasPrecision(10, 6);
