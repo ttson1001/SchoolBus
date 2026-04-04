@@ -7,6 +7,9 @@ namespace BE_API.Entites
         public long BusId { get; set; }
         public Bus Bus { get; set; } = null!;
 
+        public long? ReportedByUserId { get; set; }
+        public User? ReportedByUser { get; set; }
+
         public string Title { get; set; } = null!;
         public string? Description { get; set; }
         public string Status { get; set; } = "PENDING";

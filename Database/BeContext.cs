@@ -113,6 +113,12 @@ namespace BE_API.Database
                 .HasForeignKey(x => x.BusId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<BusDamageReport>()
+                .HasOne(x => x.ReportedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.ReportedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<BusSchedule>()
                 .HasOne(x => x.Bus)
                 .WithMany(x => x.Schedules)

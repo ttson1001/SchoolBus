@@ -5,7 +5,7 @@ namespace BE_API.Service.IService
 {
     public interface IBusDamageReportService
     {
-        Task<PagedResult<BusDamageReportDto>> SearchBusDamageReportAsync(string? keyword, string? status, int page, int pageSize);
+        Task<PagedResult<BusDamageReportDto>> SearchBusDamageReportAsync(string? keyword, string? status, long? busId, long? reportedByUserId, int page, int pageSize);
         Task<BusDamageReportDto> GetBusDamageReportByIdAsync(long id);
         Task CreateBusDamageReportAsync(BusDamageReportCreateDto dto);
         Task<BusDamageReportDto> UpdateBusDamageReportAsync(long id, BusDamageReportUpdateDto dto);

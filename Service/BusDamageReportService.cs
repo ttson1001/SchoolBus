@@ -11,34 +11,49 @@ namespace BE_API.Service
     {
         private readonly IRepository<BusDamageReport> _reportRepo;
         private readonly IRepository<Bus> _busRepo;
+        private readonly IRepository<User> _userRepo;
 
         public BusDamageReportService(
             IRepository<BusDamageReport> reportRepo,
-            IRepository<Bus> busRepo)
+            IRepository<Bus> busRepo,
+            IRepository<User> userRepo)
         {
             _reportRepo = reportRepo;
             _busRepo = busRepo;
+            _userRepo = userRepo;
         }
 
-        public async Task<PagedResult<BusDamageReportDto>> SearchBusDamageReportAsync(string? keyword, string? status, int page, int pageSize)
+        public async Task<PagedResult<BusDamageReportDto>> SearchBusDamageReportAsync(
+            string? keyword,
+            string? status,
+            long? busId,
+            long? reportedByUserId,
+            int page,
+            int pageSize)
         {
-            var query = _reportRepo.Get();
-                
+            var query = GetQueryable();
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                keyword = keyword.ToLower();
+                keyword = keyword.Trim().ToLower();
                 query = query.Where(x =>
                     x.Title.ToLower().Contains(keyword) ||
                     (x.Description != null && x.Description.ToLower().Contains(keyword)) ||
-                    x.Bus.LicensePlate.ToLower().Contains(keyword)).Include(x => x.Bus);
+                    x.Bus.LicensePlate.ToLower().Contains(keyword) ||
+                    (x.ReportedByUser != null && x.ReportedByUser.FullName != null && x.ReportedByUser.FullName.ToLower().Contains(keyword)));
             }
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                status = status.ToLower();
-                query = query.Where(x => x.Status.ToLower() == status).Include(x => x.Bus); ;
+                status = status.Trim().ToUpper();
+                query = query.Where(x => x.Status.ToUpper() == status);
             }
+
+            if (busId.HasValue)
+                query = query.Where(x => x.BusId == busId.Value);
+
+            if (reportedByUserId.HasValue)
+                query = query.Where(x => x.ReportedByUserId == reportedByUserId.Value);
 
             var totalItems = await query.CountAsync();
 
@@ -60,8 +75,7 @@ namespace BE_API.Service
 
         public async Task<BusDamageReportDto> GetBusDamageReportByIdAsync(long id)
         {
-            var report = await _reportRepo.Get()
-                .Include(x => x.Bus)
+            var report = await GetQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Báo cáo hư hỏng xe không tồn tại");
 
@@ -70,6 +84,9 @@ namespace BE_API.Service
 
         public async Task CreateBusDamageReportAsync(BusDamageReportCreateDto dto)
         {
+            if (dto.BusId <= 0)
+                throw new Exception("BusId phải lớn hơn 0");
+
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new Exception("Tiêu đề không được để trống");
 
@@ -77,9 +94,21 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == dto.BusId)
                 ?? throw new Exception("Bus không tồn tại");
 
+            User? reportedByUser = null;
+            if (dto.ReportedByUserId.HasValue)
+            {
+                if (dto.ReportedByUserId.Value <= 0)
+                    throw new Exception("ReportedByUserId phải lớn hơn 0");
+
+                reportedByUser = await _userRepo.Get()
+                    .FirstOrDefaultAsync(x => x.Id == dto.ReportedByUserId.Value)
+                    ?? throw new Exception("User báo cáo không tồn tại");
+            }
+
             var report = new BusDamageReport
             {
                 BusId = bus.Id,
+                ReportedByUserId = reportedByUser?.Id,
                 Title = dto.Title.Trim(),
                 Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 Status = string.IsNullOrWhiteSpace(dto.Status) ? "PENDING" : dto.Status.Trim().ToUpper(),
@@ -92,8 +121,7 @@ namespace BE_API.Service
 
         public async Task<BusDamageReportDto> UpdateBusDamageReportAsync(long id, BusDamageReportUpdateDto dto)
         {
-            var report = await _reportRepo.Get()
-                .Include(x => x.Bus)
+            var report = await GetQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Báo cáo hư hỏng xe không tồn tại");
 
@@ -125,6 +153,13 @@ namespace BE_API.Service
             await _reportRepo.SaveChangesAsync();
         }
 
+        private IQueryable<BusDamageReport> GetQueryable()
+        {
+            return _reportRepo.Get()
+                .Include(x => x.Bus)
+                .Include(x => x.ReportedByUser);
+        }
+
         private static BusDamageReportDto MapToDto(BusDamageReport report)
         {
             return new BusDamageReportDto
@@ -132,6 +167,8 @@ namespace BE_API.Service
                 Id = report.Id,
                 BusId = report.BusId,
                 BusLicensePlate = report.Bus.LicensePlate,
+                ReportedByUserId = report.ReportedByUserId,
+                ReportedByName = report.ReportedByUser?.FullName,
                 Title = report.Title,
                 Description = report.Description,
                 Status = report.Status,

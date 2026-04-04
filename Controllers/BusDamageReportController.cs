@@ -25,13 +25,13 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Tìm kiếm báo cáo hư hỏng xe")]
-        public async Task<IActionResult> Search(string? keyword, string? status, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Search(string? keyword, string? status, long? busId, long? reportedByUserId, int page = 1, int pageSize = 10)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _reportService.SearchBusDamageReportAsync(keyword, status, page, pageSize);
+                var data = await _reportService.SearchBusDamageReportAsync(keyword, status, busId, reportedByUserId, page, pageSize);
                 response.Data = data;
                 response.Message = REPORT_LIST_SUCCESS;
                 return Ok(response);
