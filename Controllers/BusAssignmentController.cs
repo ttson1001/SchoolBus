@@ -25,8 +25,7 @@ namespace BE_API.Controllers
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(
             string? keyword,
-            long? busId,
-            long? routeId,
+            long? busScheduleId,
             long? driverId,
             long? teacherId,
             DateTime? activeDate,
@@ -37,7 +36,7 @@ namespace BE_API.Controllers
 
             try
             {
-                var data = await _busAssignmentService.SearchAsync(keyword, busId, routeId, driverId, teacherId, activeDate, page, pageSize);
+                var data = await _busAssignmentService.SearchAsync(keyword, busScheduleId, driverId, teacherId, activeDate, page, pageSize);
                 response.Data = data;
                 response.Message = BUS_ASSIGNMENT_LIST_SUCCESS;
                 return Ok(response);

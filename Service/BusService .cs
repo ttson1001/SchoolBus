@@ -65,10 +65,12 @@ namespace BE_API.Service
             await ValidateCampusAsync(campusId);
 
             var buses = await _busAssignmentRepo.Get()
-                .Include(x => x.Route)
-                .Include(x => x.Bus)
-                .Where(x => x.Route.CampusId == campusId)
-                .Select(x => x.Bus)
+                .Include(x => x.BusSchedule)
+                .ThenInclude(x => x.Route)
+                .Include(x => x.BusSchedule)
+                .ThenInclude(x => x.Bus)
+                .Where(x => x.BusSchedule.Route.CampusId == campusId)
+                .Select(x => x.BusSchedule.Bus)
                 .Distinct()
                 .OrderByDescending(x => x.Id)
                 .ToListAsync();

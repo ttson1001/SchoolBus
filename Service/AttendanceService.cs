@@ -344,13 +344,14 @@ namespace BE_API.Service
         private async Task<(long RouteId, string RouteName)> ResolveAttendanceRouteAsync(long busId, DateTime attendanceDate)
         {
             var busAssignment = await _busAssignmentRepo.Get()
-                .Include(x => x.Route)
+                .Include(x => x.BusSchedule)
+                .ThenInclude(x => x.Route)
                 .FirstOrDefaultAsync(x =>
-                    x.BusId == busId &&
+                    x.BusSchedule.BusId == busId &&
                     (!x.ActiveDate.HasValue || x.ActiveDate.Value.Date == attendanceDate.Date));
 
             if (busAssignment != null)
-                return (busAssignment.RouteId, busAssignment.Route.Name);
+                return (busAssignment.BusSchedule.RouteId, busAssignment.BusSchedule.Route.Name);
 
             var dayOfWeek = (int)attendanceDate.DayOfWeek;
             var busSchedule = await _busScheduleRepo.Get()

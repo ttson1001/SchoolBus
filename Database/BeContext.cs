@@ -92,15 +92,9 @@ namespace BE_API.Database
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<BusAssignment>()
-                .HasOne(x => x.Driver)
+                .HasOne(x => x.BusSchedule)
                 .WithMany()
-                .HasForeignKey(x => x.DriverId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusAssignment>()
-                .HasOne(x => x.Teacher)
-                .WithMany()
-                .HasForeignKey(x => x.TeacherId)
+                .HasForeignKey(x => x.BusScheduleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<BusAssignment>()

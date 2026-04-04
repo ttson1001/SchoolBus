@@ -418,9 +418,10 @@ namespace BE_API.Service
         private async Task ValidateBusRoutePairAsync(long busId, long routeId, DateTime rideDate)
         {
             var hasAssignment = await _busAssignmentRepo.Get()
+                .Include(x => x.BusSchedule)
                 .AnyAsync(x =>
-                    x.BusId == busId &&
-                    x.RouteId == routeId &&
+                    x.BusSchedule.BusId == busId &&
+                    x.BusSchedule.RouteId == routeId &&
                     (!x.ActiveDate.HasValue || x.ActiveDate.Value.Date == rideDate));
 
             if (hasAssignment)
