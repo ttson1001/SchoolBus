@@ -129,7 +129,7 @@ namespace BE_API.Migrations
                     b.Property<DateTime?>("ActiveDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<long>("BusScheduleId")
+                    b.Property<long>("BusId")
                         .HasColumnType("bigint");
 
                     b.Property<long>("DriverId")
@@ -140,7 +140,7 @@ namespace BE_API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BusScheduleId");
+                    b.HasIndex("BusId");
 
                     b.HasIndex("DriverId");
 
@@ -823,9 +823,9 @@ namespace BE_API.Migrations
 
             modelBuilder.Entity("BE_API.Entites.BusAssignment", b =>
                 {
-                    b.HasOne("BE_API.Entites.BusSchedule", "BusSchedule")
+                    b.HasOne("BE_API.Entites.Bus", "Bus")
                         .WithMany()
-                        .HasForeignKey("BusScheduleId")
+                        .HasForeignKey("BusId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -841,7 +841,7 @@ namespace BE_API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("BusSchedule");
+                    b.Navigation("Bus");
 
                     b.Navigation("Driver");
 

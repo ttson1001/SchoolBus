@@ -1,0 +1,33 @@
+%% 3.1.14 Wallet Management — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/wallets)
+    participant WC as Controller (WalletController)
+    participant WS as Service (WalletService)
+    participant Repo as Repository (Wallet TransactionLog User)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Wallet Management
+    Actor->>UI: Search by guardian name or email
+
+    UI->>WC: GET /api/Wallet/Search?keyword=...
+    WC->>WS: SearchAsync
+    WS->>Repo: Query wallets + user
+    Repo->>DB: SELECT
+    WS-->>WC: paged wallets (ID, UserId, name, email, balance)
+    WC-->>UI: 200 — table row
+
+    Actor->>UI: Click Xem — view history
+    UI->>UI: Modal overlay — Lịch sử giao dịch ví
+
+    UI->>WC: GET /api/Wallet/TransactionHistory/{walletId}?fromDate&toDate&method&status&...
+    WC->>WS: GetTransactionHistoryAsync
+    WS->>Repo: Query TransactionLog by wallet + filters
+    Repo->>DB: SELECT
+    WS-->>WC: history rows (before/after balance, amount, status, code)
+    WC-->>UI: 200 — modal table read-only
+
+    Note over Actor,DB: BR14 — không chỉnh sửa dòng lịch sử trong modal; nguồn dữ liệu cùng schema với Transactions ledger.

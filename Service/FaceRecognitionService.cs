@@ -10,11 +10,15 @@ using BE_API.Service.IService;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Processing;
 
 namespace BE_API.Service
 {
     public class FaceRecognitionService : IFaceRecognitionService
     {
+        private const int MaxImageSize = 640;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly CompreFaceSettings _settings;
         private readonly IRepository<Student> _studentRepo;
@@ -69,10 +73,7 @@ namespace BE_API.Service
 
             var client = CreateClient();
             using var content = new MultipartFormDataContent();
-            using var stream = file.OpenReadStream();
-            using var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-            content.Add(streamContent, "file", file.FileName);
+            await AddImageToFormDataAsync(content, file);
 
             using var response = await client.PostAsync($"/api/v1/recognition/faces?subject={Uri.EscapeDataString(subject)}", content);
             var responseText = await response.Content.ReadAsStringAsync();
@@ -81,6 +82,68 @@ namespace BE_API.Service
                 throw new Exception($"Không đăng ký khuôn mặt cho học sinh: {responseText}");
 
             return subject;
+        }
+
+        public async Task<FaceSubjectImagesDto> GetSubjectFacesAsync(string subject)
+        {
+            if (string.IsNullOrWhiteSpace(subject))
+                throw new Exception("Subject không được để trống");
+
+            var normalizedSubject = subject.Trim();
+            var client = CreateClient();
+            var items = new List<FaceSubjectImageDto>();
+            var page = 0;
+            const int size = 100;
+            var totalPages = 1;
+
+            while (page < totalPages)
+            {
+                using var response = await client.GetAsync($"/api/v1/recognition/faces?page={page}&size={size}&subject={Uri.EscapeDataString(normalizedSubject)}");
+                var responseText = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                    throw new Exception($"Không lấy được danh sách ảnh của subject: {responseText}");
+
+                using var document = JsonDocument.Parse(responseText);
+                var root = document.RootElement;
+
+                totalPages = ReadInt(root, "total_pages") ?? ReadInt(root, "totalPages") ?? 1;
+                if (totalPages <= 0)
+                    totalPages = 1;
+
+                if (!root.TryGetProperty("faces", out var facesElement) || facesElement.ValueKind != JsonValueKind.Array)
+                {
+                    page++;
+                    continue;
+                }
+
+                foreach (var faceElement in facesElement.EnumerateArray())
+                {
+                    var imageId = ReadString(faceElement, "image_id") ?? ReadString(faceElement, "imageId");
+                    if (string.IsNullOrWhiteSpace(imageId))
+                        continue;
+
+                    var imageSubject = ReadString(faceElement, "subject") ?? normalizedSubject;
+                    var image = await DownloadSubjectFaceImageAsync(client, _settings.ApiKey, imageId);
+
+                    items.Add(new FaceSubjectImageDto
+                    {
+                        ImageId = imageId,
+                        Subject = imageSubject,
+                        ContentType = image.ContentType,
+                        ImageBase64 = image.ImageBase64
+                    });
+                }
+
+                page++;
+            }
+
+            return new FaceSubjectImagesDto
+            {
+                Subject = normalizedSubject,
+                TotalItems = items.Count,
+                Items = items
+            };
         }
 
         public async Task<FaceRecognitionResultDto> RecognizeStudentAsync(IFormFile file)
@@ -145,10 +208,7 @@ namespace BE_API.Service
         {
             var client = CreateClient();
             using var content = new MultipartFormDataContent();
-            using var stream = file.OpenReadStream();
-            using var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-            content.Add(streamContent, "file", file.FileName);
+            await AddImageToFormDataAsync(content, file);
 
             using var response = await client.PostAsync("/api/v1/recognition/recognize", content);
             var responseText = await response.Content.ReadAsStringAsync();
@@ -157,6 +217,108 @@ namespace BE_API.Service
                 throw new Exception($"Không nhận diện được khuôn mặt: {responseText}");
 
             return responseText;
+        }
+
+        private static async Task AddImageToFormDataAsync(MultipartFormDataContent content, IFormFile file)
+        {
+            var resized = await ResizeImageIfNeededAsync(file);
+            var streamContent = new StreamContent(resized.Stream);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue(resized.ContentType);
+            content.Add(streamContent, "file", resized.FileName);
+        }
+
+        private static async Task<(MemoryStream Stream, string ContentType, string FileName)> ResizeImageIfNeededAsync(IFormFile file)
+        {
+            await using var inputStream = file.OpenReadStream();
+            using var image = await Image.LoadAsync(inputStream);
+
+            var width = image.Width;
+            var height = image.Height;
+            var longestSide = Math.Max(width, height);
+
+            if (longestSide > MaxImageSize)
+            {
+                var ratio = (double)MaxImageSize / longestSide;
+                var resizedWidth = Math.Max(1, (int)Math.Round(width * ratio));
+                var resizedHeight = Math.Max(1, (int)Math.Round(height * ratio));
+
+                image.Mutate(x => x.Resize(new ResizeOptions
+                {
+                    Size = new Size(resizedWidth, resizedHeight),
+                    Mode = ResizeMode.Max
+                }));
+            }
+
+            var outputStream = new MemoryStream();
+            var encoder = GetEncoder(image, file.ContentType, out var contentType, out var fileExtension);
+            await image.SaveAsync(outputStream, encoder);
+            outputStream.Position = 0;
+
+            var originalName = Path.GetFileNameWithoutExtension(file.FileName);
+            var safeName = string.IsNullOrWhiteSpace(originalName) ? "face-image" : originalName;
+
+            return (outputStream, contentType, $"{safeName}{fileExtension}");
+        }
+
+        private static IImageEncoder GetEncoder(Image image, string? originalContentType, out string contentType, out string fileExtension)
+        {
+            var formatName = image.Metadata.DecodedImageFormat?.Name;
+
+            if (string.Equals(formatName, "PNG", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(originalContentType, "image/png", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = "image/png";
+                fileExtension = ".png";
+                return new SixLabors.ImageSharp.Formats.Png.PngEncoder();
+            }
+
+            if (string.Equals(formatName, "BMP", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(originalContentType, "image/bmp", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = "image/bmp";
+                fileExtension = ".bmp";
+                return new SixLabors.ImageSharp.Formats.Bmp.BmpEncoder();
+            }
+
+            if (string.Equals(formatName, "GIF", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(originalContentType, "image/gif", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = "image/gif";
+                fileExtension = ".gif";
+                return new SixLabors.ImageSharp.Formats.Gif.GifEncoder();
+            }
+
+            contentType = "image/jpeg";
+            fileExtension = ".jpg";
+            return new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder();
+        }
+
+        private static async Task<(string? ContentType, string? ImageBase64)> DownloadSubjectFaceImageAsync(HttpClient client, string apiKey, string imageId)
+        {
+            var candidateEndpoints = new[]
+            {
+                $"/api/v1/static/{Uri.EscapeDataString(apiKey)}/images/{Uri.EscapeDataString(imageId)}",
+                $"/api/v1/recognition/faces/{Uri.EscapeDataString(imageId)}/image",
+                $"/api/v1/recognition/faces/{Uri.EscapeDataString(imageId)}"
+            };
+
+            foreach (var endpoint in candidateEndpoints)
+            {
+                using var response = await client.GetAsync(endpoint);
+                if (!response.IsSuccessStatusCode)
+                    continue;
+
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                if (bytes.Length == 0)
+                    continue;
+
+                return (
+                    response.Content.Headers.ContentType?.MediaType ?? "image/jpeg",
+                    Convert.ToBase64String(bytes)
+                );
+            }
+
+            return (null, null);
         }
 
         private async Task SaveRecognitionLogAsync(FaceRecognitionResultDto result)
@@ -221,7 +383,7 @@ namespace BE_API.Service
 
         private static string BuildStudentSubject(long studentId)
         {
-            return $"student_{studentId}";
+            return studentId.ToString();
         }
 
         private static FaceRecognitionResultDto ParseRecognitionResult(string responseText, decimal threshold)
@@ -278,16 +440,38 @@ namespace BE_API.Service
             };
         }
 
+        private static int? ReadInt(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property))
+                return null;
+
+            return property.TryGetInt32(out var value) ? value : null;
+        }
+
+        private static string? ReadString(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property))
+                return null;
+
+            return property.GetString();
+        }
+
         private static long? TryParseStudentId(string? subject)
         {
             if (string.IsNullOrWhiteSpace(subject))
                 return null;
 
             const string prefix = "student_";
-            if (!subject.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return null;
+            if (long.TryParse(subject.Trim(), out var numericStudentId))
+                return numericStudentId;
 
-            return long.TryParse(subject[prefix.Length..], out var studentId) ? studentId : null;
+            if (subject.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+                long.TryParse(subject[prefix.Length..], out var legacyStudentId))
+            {
+                return legacyStudentId;
+            }
+
+            return null;
         }
     }
 }

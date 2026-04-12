@@ -1,0 +1,43 @@
+%% =============================================================================
+%% 3.1.8 Student Roster — specification + flow
+%% Route UI: /students-roster | API: StudentController Search, Get, Update
+%% Search hỗ trợ campusId, keyword, guardianId, status — filter theo Route có thể FE hoặc mở rộng API.
+%% Detail: GET Student/{id}; boarding history: Attendance / FaceRecognition logs (theo tích hợp FE).
+%% BR08: Admin có thể vô hiệu quyền đi xe — cập nhật Status học sinh (StudentUpdateDto.Status).
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Trigger"]
+        T["Sidebar → Student Roster /students-roster"]
+    end
+
+    subgraph grid["Read-heavy grid"]
+        G["Toolbar: Campus, Route, Classroom filters"]
+        R["Rows: Avatar, ID, Name, Current Route"]
+        T --> G
+        G --> R
+    end
+
+    subgraph filter["Filter by campus — example"]
+        F1["Open Filter by Campus"]
+        F2["Check Thu Duc Campus"]
+        F3["Table refreshes — fade UI"]
+        R --> F1
+        F1 --> F2
+        F2 --> F3
+    end
+
+    subgraph detail["View details"]
+        D1["Double-click row Nguyen Van B or View"]
+        D2["Router → Child Analysis / detail page"]
+        D3["Guardian info + recent boarding / face reports"]
+        F3 --> D1
+        D1 --> D2
+        D2 --> D3
+    end
+
+    subgraph br["BR08"]
+        BR["On detail screen: Admin can suspend travel privileges (student status)"]
+    end
+
+    D3 -.-> BR

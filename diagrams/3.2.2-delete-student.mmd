@@ -1,0 +1,18 @@
+%% =============================================================================
+%% 3.2.2 Delete Student — flow
+%% API: DELETE /api/Student/Delete/{id}
+%% Spec: block if active orders / trips — hiện DeleteStudentAsync chưa kiểm tra FK; cần bổ sung rule
+%% =============================================================================
+
+flowchart TD
+    A["Student Detail"] --> B["Click Delete trash"]
+    B --> C["Confirm modal"]
+    C --> D{"Confirm?"}
+    D -->|Cancel| A
+    D -->|Confirm| E["DELETE API"]
+    E --> F{"Success?"}
+    F -->|Yes| G["Toast — redirect Roster — row gone"]
+    F -->|Dependency| X["Toast: cannot delete active subscriptions"]
+    F -->|Other error| Y["Red toast"]
+
+    style X fill:#fff0f0

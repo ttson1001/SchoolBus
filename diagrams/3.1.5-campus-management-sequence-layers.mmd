@@ -1,0 +1,40 @@
+%% 3.1.5 Campus Management — sequence diagram (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+%% BR05: Student create must set CampusId to an active campus — StudentService.ValidateCampusAsync
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/campuses)
+    participant CC as Controller (CampusController)
+    participant CS as Service (CampusService)
+    participant Repo as Repository (IRepository Campus)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Campus Management (/campuses)
+    UI->>CC: GET /api/Campus/Search
+    CC->>CS: SearchCampusAsync(keyword, page, pageSize)
+    CS->>Repo: Query campuses
+    Repo->>DB: SELECT
+    DB-->>Repo: rows
+    Repo-->>CS: list
+    CS-->>CC: PagedResult
+    CC-->>UI: 200 — table (Code, Name, Address, Phone, ImageUrl, ...)
+
+    Actor->>UI: Click Edit on first row
+    UI->>UI: Form / Modal — edit fields including Contact Phone
+
+    Actor->>UI: Replace phone with new Hotline, click Update
+
+    UI->>CC: PUT /api/Campus/Update/{id} CampusUpdateDto
+    CC->>CS: UpdateCampusAsync(id, dto)
+    CS->>Repo: Update entity + SaveChangesAsync
+    Repo->>DB: UPDATE Campus
+    DB-->>Repo: OK
+    Repo-->>CS: saved
+    CS-->>CC: CampusDto
+    CC-->>UI: 200 Success
+    UI->>UI: Highlight row, refresh cell with new phone
+    UI-->>Actor: Table shows latest number
+
+    Note over Actor,DB: BR05 — Tạo tài khoản học sinh: bắt buộc CampusId trỏ tới campus đang active (POST Student/Create → StudentService.ValidateCampusAsync).

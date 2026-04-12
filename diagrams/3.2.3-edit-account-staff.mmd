@@ -1,0 +1,17 @@
+%% =============================================================================
+%% 3.2.3 Edit Account (Staff) — flow | §3.1.10
+%% API: PUT /api/User/Update/{id} UserUpdateDto (Role, Phone, ...)
+%% Super Admin only — BR10
+%% =============================================================================
+
+flowchart TD
+    A["Account table"] --> B["Pencil on Staff row"]
+    B --> C["Modal pre-filled"]
+    C --> D["Change Role Staff→Admin, Phone"]
+    D --> E["Update"]
+    E --> F{"Email duplicate?"}
+    F -->|Yes| X["Inline: email already registered"]
+    F -->|No| G["PUT User/Update"]
+    G --> H["Toast — row badge Admin"]
+
+    style X fill:#ffeeee

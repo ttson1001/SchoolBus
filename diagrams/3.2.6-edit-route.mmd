@@ -1,0 +1,16 @@
+%% =============================================================================
+%% 3.2.6 Edit Route — flow | §3.1.3
+%% API: PUT /api/BusRoute/Update/{id} BusRouteUpdateDto — StationIds order = stop sequence
+%% BE: ValidateStationIds — ít nhất 1 trạm, không trùng
+%% =============================================================================
+
+flowchart TD
+    A["Route row"] --> B["Pencil"]
+    B --> C["Modal: reorder drag, remove X, add +"]
+    C --> D["Save"]
+    D --> E{"At least 1 stop?"}
+    E -->|No| V["Inline: route must have ≥1 pickup point"]
+    E -->|Yes| F["PUT BusRoute/Update"]
+    F --> G["Toast success"]
+
+    style V fill:#ffeeee

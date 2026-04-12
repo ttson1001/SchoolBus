@@ -1,0 +1,30 @@
+%% 3.2.5 Edit Driver — sequence (layered)
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin or Staff
+    participant UI as UI (/drivers)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant Repo as Repository (IRepository User)
+    participant DB as Database (SQL Server)
+
+    UI->>UC: GET /api/User/Get/{id}
+    UC-->>UI: pre-fill (email read-only in UI)
+
+    opt Avatar upload
+        UI->>UI: Upload → URL (if supported)
+    end
+
+    Actor->>UI: Save Update
+    UI->>UC: PUT /api/User/Update/{id} UserUpdateDto
+    UC->>US: UpdateUserAsync
+
+    alt License expiry not after today
+        US-->>UC: 400
+        UI-->>Actor: Error
+    else OK
+        US->>Repo: UPDATE
+        Repo->>DB: UPDATE Users
+        UC-->>UI: 200
+    end

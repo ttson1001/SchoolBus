@@ -1,0 +1,40 @@
+%% 3.1.9 Guardian Management — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin or Staff
+    participant UI as UI (/guardians-manage)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant Repo as Repository (IRepository User)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Guardian Management
+    UI->>UC: GET /api/User/Search?role=guardian&keyword=...
+    UC->>US: SearchUserAsync
+    US->>Repo: Query users
+    Repo->>DB: SELECT
+    US-->>UC: list (Name, Phone, ...)
+    UC-->>UI: 200 — grid
+
+    Note over UI,DB: Linked student count — GET /api/Student/GetByGuardian/{id} or aggregate
+
+    Actor->>UI: Eye — View household
+    UI->>UC: GET /api/User/Get/{id}
+    UC->>US: GetUserByIdAsync
+    US->>Repo: Load user + role
+    Repo->>DB: SELECT
+    UC-->>UI: 200 — guardian profile + children list (extra calls as needed)
+
+    Actor->>UI: Block Account → Confirm + optional reason
+    UI->>UC: DELETE /api/User/Delete/{id} (soft-disable guardian)
+    UC->>US: DeleteUserAsync — sets Status DISABLED
+    US->>Repo: Update user status
+    Repo->>DB: UPDATE Users
+    DB-->>Repo: OK
+    UC-->>UI: 200
+    UI->>UI: Row label Banned
+    UI-->>Actor: Done
+
+    Note over Actor,DB: BR09 — JWT trên mobile: không còn hợp lệ sau khi khóa nếu có token blacklist hoặc mọi API kiểm tra AccountStatus; JWT cũ có thể sống đến khi hết hạn nếu chưa có revoke server-side.

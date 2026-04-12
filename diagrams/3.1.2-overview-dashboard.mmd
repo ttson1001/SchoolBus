@@ -1,0 +1,55 @@
+%% =============================================================================
+%% 3.1.2 Overview (Dashboard) — specification + Mermaid flow
+%% Product: FaceRide Admin — Control Panel after login or via sidebar "Overview"
+%% =============================================================================
+%%
+%% Function trigger:
+%%   After successful login, OR user clicks "Overview" on the left sidebar.
+%%
+%% Actors / roles: Admin
+%% Purpose: Quick business snapshot via headline KPIs.
+%%
+%% Interface:
+%%   Top: 4 square blocks — Total Students | Running Routes | Total Revenue | Attendance Check-ins
+%%   Bottom: line chart (7 days, blue curve, hover tooltip) + sub-table "5 Latest Transactions"
+%%
+%% Screen layout: (wireframe — design team)
+%% //////////////////////////////////////////////////////////////////////////////
+%%
+%% Business rule: BR02 — Overview data must be refreshed on a cache timeout (server/client policy).
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Function trigger"]
+        T1["After login success → land on Dashboard"]
+        T2["User clicks Overview in sidebar"]
+        T1 --> LOAD
+        T2 --> LOAD
+        LOAD["1. Page load — Admin on Dashboard route"]
+    end
+
+    subgraph skeleton["2. Skeleton loading"]
+        S1["Show skeleton placeholders (blur / pulse)"]
+        S2["Parallel fetch: KPIs + chart series + latest transactions"]
+        LOAD --> S1
+        S1 --> S2
+    end
+
+    subgraph render["3. Render data"]
+        R0["~1s later: hide skeleton"]
+        R1["4 headline cards: exact values + small % vs previous month"]
+        R2["Line chart: day 1–7, blue line, tooltip on hover"]
+        R3["Table: 5 latest transactions"]
+        S2 --> R0
+        R0 --> R1
+        R1 --> R2
+        R2 --> R3
+    end
+
+    subgraph cache["Business rule BR02"]
+        BR["Refresh policy: invalidate or refetch when cache timeout elapses"]
+    end
+
+    R3 -.-> BR
+
+    style BR fill:#f9f9f9,stroke:#666,stroke-dasharray: 5 5

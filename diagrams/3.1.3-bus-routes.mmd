@@ -1,0 +1,80 @@
+%% =============================================================================
+%% 3.1.3 Bus Routes — specification + Mermaid flow
+%% Backend refs: BusRouteController (Search, Create, Update, Delete), BusStation (pickup points)
+%% DTO create: Name, CampusId, StationIds (UI "Route Code" may be display-only or future field)
+%% =============================================================================
+%%
+%% Function trigger: User clicks "Bus Routes" in the left Sidebar.
+%%
+%% Actors / roles: Admin, Staff
+%% Purpose: Manage vehicle journeys for student pickup / drop-off.
+%%
+%% Interface:
+%%   Top-right: large "Add Bus Route" button.
+%%   Main: data table columns — Route Code, Route Name, Distance (km), Total Stops,
+%%         Operating Days, Status (Running/Suspended), Action (Edit/Delete).
+%%
+%% Screen layout: (wireframe — design team)
+%% //////////////////////////////////////////////////////////////////////////////
+%%
+%% Business rule BR03: A route that has an assigned running vehicle cannot be deleted
+%%   (only Active/Running status may be changed). Align implementation in Delete API.
+%% =============================================================================
+
+flowchart TD
+    subgraph nav["Function trigger"]
+        N["Click Bus Routes in sidebar"]
+    end
+
+    subgraph list["List view"]
+        L1["Load route table (search/paging)"]
+        L2["Columns: Code, Name, Distance, Stops, Days, Status, Actions"]
+        N --> L1
+        L1 --> L2
+    end
+
+    subgraph addFlow["Add Bus Route"]
+        A1["Click Add Bus Route"]
+        A2["Overlay dims page; Modal opens (center)"]
+        A3["Section A: Basic info — Name, Code (if applicable)"]
+        A4["Section B: Route stops — Plus adds row; dropdown = Pickup Points from Pickup Points module"]
+        L2 --> A1
+        A1 --> A2
+        A2 --> A3
+        A3 --> A4
+    end
+
+    subgraph save["Save"]
+        S1["Click Save (Modal bottom-right)"]
+        S2{"Route Name non-empty?"}
+        S3["Red border + message: Route Name cannot be empty"]
+        S4["POST create route + station order"]
+        A4 --> S1
+        S1 --> S2
+        S2 -->|No| S3
+        S2 -->|Yes| S4
+    end
+
+    subgraph ok["Success"]
+        K1["Close Modal"]
+        K2["Table reloads; new row e.g. Route 01 at top"]
+        K3["Green Toast: Bus route created successfully"]
+        S4 --> K1
+        K1 --> K2
+        K2 --> K3
+    end
+
+    subgraph br["BR03 — Delete"]
+        D1["User clicks Delete"]
+        D2{"Route has assigned running vehicle?"}
+        D3["Block delete — only allow status change"]
+        D4["Or allow delete if rule passes"]
+    end
+
+    L2 -.-> D1
+    D1 --> D2
+    D2 -->|Yes| D3
+    D2 -->|No| D4
+
+    style S3 fill:#ffeeee
+    style D3 fill:#fff8e6

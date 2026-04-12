@@ -1,0 +1,17 @@
+%% =============================================================================
+%% 3.2.1 Edit Student Profile — flow (from §3.1.8 detail)
+%% API: PUT /api/Student/Update/{id} — StudentUpdateDto
+%% Entity Student: chưa có field Classroom — có thể lưu ở extension/FE hoặc bổ sung schema
+%% =============================================================================
+
+flowchart TD
+    A["Student Detail — read-only"] --> B["Click Edit pencil"]
+    B --> C["Fields unlock: Name, Campus, ..."]
+    C --> D["Edit e.g. Classroom 10A1→10A3, Campus Thu Duc→Binh Thanh"]
+    D --> E["Click Save"]
+    E --> F{"Client validation OK?"}
+    F -->|No required field| V["Inline red: This field is required — block API"]
+    F -->|Yes| G["PUT Update"]
+    G --> H["200 — Toast success, read-only with new data"]
+
+    style V fill:#ffeeee

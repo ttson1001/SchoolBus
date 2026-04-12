@@ -1,0 +1,29 @@
+%% 3.2.3 Edit Account (Staff) — sequence (layered)
+
+sequenceDiagram
+    autonumber
+    actor Actor as Super Admin
+    participant UI as UI (/accounts)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant Repo as Repository (IRepository User)
+    participant DB as Database (SQL Server)
+
+    Note over Actor,DB: Route guard BR10
+
+    UI->>UC: GET /api/User/Get/{id}
+    UC-->>UI: pre-fill modal
+
+    Actor->>UI: Save Update
+    UI->>UC: PUT /api/User/Update/{id} UserUpdateDto
+    UC->>US: UpdateUserAsync
+
+    alt Email already exists
+        US-->>UC: throw
+        UC-->>UI: 400
+        UI-->>Actor: Inline email error
+    else OK
+        US->>Repo: Update user
+        Repo->>DB: UPDATE
+        UC-->>UI: 200 — table refresh, role badge
+    end

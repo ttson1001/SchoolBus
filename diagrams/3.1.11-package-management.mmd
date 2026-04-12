@@ -1,0 +1,35 @@
+%% =============================================================================
+%% 3.1.11 Package Management (Services) — specification + flow
+%% Route UI: /packages | API: PackageController Search, Create, Update, Delete, Active
+%% Entity: Name, Price, DurationDays, Description, Status, ImageUrl, Type
+%% BR11: Đổi giá package cũ → tạo bản ghi version mới (logic cần bổ sung — hiện Update có thể ghi đè trực tiếp)
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Trigger"]
+        T["Sidebar → Package Management /packages"]
+    end
+
+    subgraph add["Add / edit package"]
+        A1["Add New Package"]
+        A2["Name, WYSIWYG description, price with comma format"]
+        A3["Thumbnail, Duration max days"]
+        A4["Toggle Draft → Publish"]
+        A5["Save Product"]
+        T --> A1
+        A1 --> A2
+        A2 --> A3
+        A3 --> A4
+        A4 --> A5
+    end
+
+    subgraph sync["Mobile sync"]
+        S["Published package visible on Guardian app catalog"]
+        A5 --> S
+    end
+
+    subgraph br["BR11"]
+        BR["Price change on legacy package → new DB row version — preserves order history pricing"]
+    end
+
+    A5 -.-> BR

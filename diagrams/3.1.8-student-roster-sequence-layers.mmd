@@ -1,0 +1,46 @@
+%% 3.1.8 Student Roster — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/students-roster)
+    participant SC as Controller (StudentController)
+    participant SS as Service (StudentService)
+    participant Repo as Repository (IRepository Student)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Student Roster
+    UI->>SC: GET /api/Student/Search (keyword, campusId, status, paging)
+    SC->>SS: SearchStudentAsync
+    SS->>Repo: Query students + Guardian + Campus
+    Repo->>DB: SELECT
+    DB-->>Repo: rows
+    SS-->>SC: PagedResult StudentDto
+    SC-->>UI: 200 — grid
+
+    Actor->>UI: Filter by Campus — e.g. Thu Duc
+    UI->>SC: GET /api/Student/Search?campusId=...&...
+    SC->>SS: SearchStudentAsync
+    SS->>Repo: Filter by CampusId
+    Repo->>DB: SELECT
+    SS-->>SC: filtered page
+    SC-->>UI: 200 — table updates (transition animation FE)
+
+    Note over UI,SC: Filter by Route / Classroom — client-side hoặc tham số mở rộng nếu backend bổ sung.
+
+    Actor->>UI: Double-click row or View — Nguyen Van B
+    UI->>UI: Router push → Child Analysis / student detail
+
+    UI->>SC: GET /api/Student/Get/{id}
+    SC->>SS: GetStudentByIdAsync(id)
+    SS->>Repo: Include Guardian, Campus
+    Repo->>DB: SELECT
+    SS-->>SC: StudentDto
+    SC-->>UI: 200 — profile + guardian
+
+    opt Recent boarding / face history
+        UI->>UI: GET Attendance or logs by studentId (AttendanceController / FaceRecognition logs as designed)
+    end
+
+    Note over Actor,DB: BR08 — trên màn chi tiết: Admin cập nhật trạng thái học sinh (ví dụ DISABLED) qua PUT /api/Student/Update/{id} (StudentUpdateDto.Status).

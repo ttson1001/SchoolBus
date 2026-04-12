@@ -1,0 +1,16 @@
+%% =============================================================================
+%% 3.2.8 Edit Pickup Point — flow | §3.1.4
+%% API: PUT /api/BusStation/Update/{id} BusStationUpdateDto
+%% Goong autocomplete + map pin — FE; BR04: 5 m proximity on save
+%% =============================================================================
+
+flowchart TD
+    A["Pickup row"] --> B["Pencil"]
+    B --> C["Modal pre-filled + Goong search"]
+    C --> D["New address → new Lat/Lng + rename"]
+    D --> E["Update"]
+    E --> F{"BR04 conflict 5m?"}
+    F -->|Yes| X["400 Toast too close"]
+    F -->|No| G["Toast success"]
+
+    style X fill:#fff0f0

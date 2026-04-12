@@ -1,0 +1,14 @@
+%% =============================================================================
+%% 3.2.5 Edit Driver — flow | §3.1.7
+%% API: PUT /api/User/Update/{id} — DriverLicense*, Phone; Email optional change
+%% Avatar: User entity không có AvatarUrl — có thể Cloudinary + field mở rộng hoặc Student-only pattern
+%% BR07: Expiry date phải sau hôm nay — UserService
+%% =============================================================================
+
+flowchart TD
+    A["Driver row"] --> B["Pencil"]
+    B --> C["Modal: Email read-only, license, datepicker"]
+    C --> D["New expiry future / new avatar file"]
+    D --> E["Update"]
+    E --> F["Toast success"]
+    F --> G["Past dates disabled in picker BR07"]

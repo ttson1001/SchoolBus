@@ -1,0 +1,30 @@
+%% =============================================================================
+%% 3.1.12 Order Management — specification + flow
+%% Route UI: /orders | API: OrderController Search, Get, Cancel — PayOS webhook sets PAID
+%% Manual reconcile to Success: spec mô tả thao tác tay; BE hiện chủ yếu PayOS webhook — có thể bổ sung endpoint admin reconcile
+%% BR12: Cancelled/Failed không quay lại Pending/Success — luồng một chiều (bổ sung validation trong OrderService nếu cần)
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Trigger"]
+        T["Sidebar → Order Management /orders"]
+    end
+
+    subgraph day["End of day — staff"]
+        D1["Filter Status = Pending"]
+        D2["See stuck bank orders e.g. 5 rows"]
+        D3["External bank reconciliation"]
+        D4["Action: set order to Success manually"]
+        D5["Row turns Green — guardian owns route"]
+        T --> D1
+        D1 --> D2
+        D2 --> D3
+        D3 --> D4
+        D4 --> D5
+    end
+
+    subgraph br["BR12"]
+        BR["Cancelled or Failed cannot return to Pending or Success"]
+    end
+
+    D4 -.-> BR

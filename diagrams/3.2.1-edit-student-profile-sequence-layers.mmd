@@ -1,0 +1,27 @@
+%% 3.2.1 Edit Student Profile — sequence (layered)
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (Student Detail)
+    participant SC as Controller (StudentController)
+    participant SS as Service (StudentService)
+    participant Repo as Repository (IRepository Student)
+    participant DB as Database (SQL Server)
+
+    UI->>SC: GET /api/Student/Get/{id} — load detail
+    SC-->>UI: StudentDto
+
+    Actor->>UI: Edit → change FullName, CampusId, ...
+    alt Required field empty (FE)
+        UI-->>Actor: Inline error — block request
+    else Valid
+        UI->>SC: PUT /api/Student/Update/{id} StudentUpdateDto
+        SC->>SS: UpdateStudentAsync
+        SS->>SS: ValidateCampus, dedupe rules
+        SS->>Repo: Update + SaveChanges
+        Repo->>DB: UPDATE Students
+        SS-->>SC: StudentDto
+        SC-->>UI: 200
+        UI-->>Actor: Toast — profile updated, read-only mode
+    end

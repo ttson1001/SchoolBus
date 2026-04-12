@@ -1,0 +1,28 @@
+%% 3.2.2 Delete Student — sequence (layered)
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (Student Detail)
+    participant SC as Controller (StudentController)
+    participant SS as Service (StudentService)
+    participant Repo as Repository (IRepository Student)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Confirm Delete
+    UI->>SC: DELETE /api/Student/Delete/{id}
+    SC->>SS: DeleteStudentAsync(id)
+
+    alt Has active orders or trips (spec — implement guard)
+        SS->>Repo: Check related Order StudentBusAssignment ...
+        Repo->>DB: SELECT
+        SS-->>SC: throw conflict
+        SC-->>UI: 400
+        UI-->>Actor: Cannot delete — active subscriptions
+    else Allowed
+        SS->>Repo: Delete(student)
+        Repo->>DB: DELETE
+        SS-->>SC: OK
+        SC-->>UI: 200
+        UI->>UI: Router → Student Roster
+    end

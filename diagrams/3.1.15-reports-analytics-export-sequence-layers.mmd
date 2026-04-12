@@ -1,0 +1,30 @@
+%% 3.1.15 Reports — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+%% Placeholder API: POST /api/Reports/revenue-export hoặc tương đương — implement sau
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/reports)
+    participant RC as Controller (ReportsController — future)
+    participant RS as Service (ReportExportService — future)
+    participant Repo as Repository (Order Payment aggregates)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Reports tab e.g. Revenue
+    Actor->>UI: Select month, format Excel, Generate Report
+
+    UI->>UI: Validate date range ≤ 2 years (BR15)
+
+    UI->>RC: POST /api/Reports/Generate (month, format, year)
+    RC->>RS: BuildRevenueReportAsync(range)
+    RS->>RS: Check range span ≤ 2 years else 400
+    RS->>Repo: Aggregate revenue from Orders / Payments
+    Repo->>DB: SELECT (heavy)
+    DB-->>Repo: aggregates
+    RS->>RS: Render Excel/PDF buffer
+    RS-->>RC: File bytes + filename
+    RC-->>UI: 200 application/octet-stream or file URL
+    UI-->>Actor: Download BaoCao_T9_FaceRide.xlsx
+
+    Note over Actor,DB: BR15 — từ chối export nếu from/to vượt 2 năm liên tiếp; tối ưu query/paging nội bộ.

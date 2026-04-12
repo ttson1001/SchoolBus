@@ -11,15 +11,18 @@ namespace BE_API.Service
     {
         private readonly IRepository<Bus> _busRepo;
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
+        private readonly IRepository<BusSchedule> _busScheduleRepo;
         private readonly IRepository<Campus> _campusRepo;
 
         public BusService(
             IRepository<Bus> busRepo,
             IRepository<BusAssignment> busAssignmentRepo,
+            IRepository<BusSchedule> busScheduleRepo,
             IRepository<Campus> campusRepo)
         {
             _busRepo = busRepo;
             _busAssignmentRepo = busAssignmentRepo;
+            _busScheduleRepo = busScheduleRepo;
             _campusRepo = campusRepo;
         }
 
@@ -64,13 +67,11 @@ namespace BE_API.Service
         {
             await ValidateCampusAsync(campusId);
 
-            var buses = await _busAssignmentRepo.Get()
-                .Include(x => x.BusSchedule)
-                .ThenInclude(x => x.Route)
-                .Include(x => x.BusSchedule)
-                .ThenInclude(x => x.Bus)
-                .Where(x => x.BusSchedule.Route.CampusId == campusId)
-                .Select(x => x.BusSchedule.Bus)
+            var buses = await _busScheduleRepo.Get()
+                .Include(x => x.Bus)
+                .Include(x => x.Route)
+                .Where(x => x.Route.CampusId == campusId)
+                .Select(x => x.Bus)
                 .Distinct()
                 .OrderByDescending(x => x.Id)
                 .ToListAsync();

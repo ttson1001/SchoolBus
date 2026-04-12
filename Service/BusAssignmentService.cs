@@ -1,5 +1,5 @@
+using BE_API.Dto.Bus;
 using BE_API.Dto.BusAssignment;
-using BE_API.Dto.BusSchedule;
 using BE_API.Dto.Common;
 using BE_API.Dto.User;
 using BE_API.Entites;
@@ -13,22 +13,22 @@ namespace BE_API.Service
     public class BusAssignmentService : IBusAssignmentService
     {
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
-        private readonly IRepository<BusSchedule> _busScheduleRepo;
+        private readonly IRepository<Bus> _busRepo;
         private readonly IRepository<User> _userRepo;
 
         public BusAssignmentService(
             IRepository<BusAssignment> busAssignmentRepo,
-            IRepository<BusSchedule> busScheduleRepo,
+            IRepository<Bus> busRepo,
             IRepository<User> userRepo)
         {
             _busAssignmentRepo = busAssignmentRepo;
-            _busScheduleRepo = busScheduleRepo;
+            _busRepo = busRepo;
             _userRepo = userRepo;
         }
 
         public async Task<PagedResult<BusAssignmentDto>> SearchAsync(
             string? keyword,
-            long? busScheduleId,
+            long? busId,
             long? driverId,
             long? teacherId,
             DateTime? activeDate,
@@ -41,16 +41,14 @@ namespace BE_API.Service
             {
                 keyword = keyword.Trim().ToLower();
                 query = query.Where(x =>
-                    x.BusSchedule.Bus.LicensePlate.ToLower().Contains(keyword) ||
-                    (x.BusSchedule.Bus.BusNumber != null && x.BusSchedule.Bus.BusNumber.ToLower().Contains(keyword)) ||
+                    x.Bus.LicensePlate.ToLower().Contains(keyword) ||
+                    (x.Bus.BusNumber != null && x.Bus.BusNumber.ToLower().Contains(keyword)) ||
                     ((x.Driver.FullName ?? x.Driver.Email).ToLower().Contains(keyword)) ||
-                    ((x.Teacher.FullName ?? x.Teacher.Email).ToLower().Contains(keyword)) ||
-                    x.BusSchedule.Route.Name.ToLower().Contains(keyword) ||
-                    x.BusSchedule.Route.Campus.Name.ToLower().Contains(keyword));
+                    ((x.Teacher.FullName ?? x.Teacher.Email).ToLower().Contains(keyword)));
             }
 
-            if (busScheduleId.HasValue)
-                query = query.Where(x => x.BusScheduleId == busScheduleId.Value);
+            if (busId.HasValue)
+                query = query.Where(x => x.BusId == busId.Value);
 
             if (driverId.HasValue)
                 query = query.Where(x => x.DriverId == driverId.Value);
@@ -60,9 +58,9 @@ namespace BE_API.Service
 
             if (activeDate.HasValue)
             {
-                var selectedDate = activeDate.Value.Date;
-                var nextDate = selectedDate.AddDays(1);
-                query = query.Where(x => x.ActiveDate.HasValue && x.ActiveDate.Value >= selectedDate && x.ActiveDate.Value < nextDate);
+                var start = activeDate.Value.Date;
+                var end = start.AddDays(1);
+                query = query.Where(x => x.ActiveDate.HasValue && x.ActiveDate.Value >= start && x.ActiveDate.Value < end);
             }
 
             var totalItems = await query.CountAsync();
@@ -94,21 +92,33 @@ namespace BE_API.Service
 
         public async Task<BusAssignmentDto> CreateAsync(BusAssignmentCreateDto dto)
         {
-            var normalizedActiveDate = dto.ActiveDate?.Date;
-            var busSchedule = await ValidateBusScheduleAsync(dto.BusScheduleId, normalizedActiveDate);
+            var activeDate = NormalizeActiveDate(dto.ActiveDate);
+            var bus = await ValidateBusAsync(dto.BusId);
             var driver = await ValidateUserByRoleAsync(dto.DriverId, "driver");
             var teacher = await ValidateUserByRoleAsync(dto.TeacherId, "teacher");
+            var existingAssignment = await FindByBusAndDateAsync(bus.Id, activeDate);
 
             ValidateDriverTeacherPair(driver.Id, teacher.Id);
-            await EnsureAssignmentNotDuplicatedAsync(busSchedule.Id, driver.Id, teacher.Id, normalizedActiveDate, null);
-            await EnsureDriverTeacherAvailabilityAsync(busSchedule, driver.Id, teacher.Id, normalizedActiveDate, null);
+            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, activeDate, existingAssignment?.Id);
+
+            if (existingAssignment != null)
+            {
+                existingAssignment.DriverId = driver.Id;
+                existingAssignment.TeacherId = teacher.Id;
+                existingAssignment.ActiveDate = activeDate;
+
+                _busAssignmentRepo.Update(existingAssignment);
+                await _busAssignmentRepo.SaveChangesAsync();
+
+                return await GetByIdAsync(existingAssignment.Id);
+            }
 
             var assignment = new BusAssignment
             {
-                BusScheduleId = busSchedule.Id,
+                BusId = bus.Id,
                 DriverId = driver.Id,
                 TeacherId = teacher.Id,
-                ActiveDate = normalizedActiveDate
+                ActiveDate = activeDate
             };
 
             await _busAssignmentRepo.AddAsync(assignment);
@@ -123,23 +133,36 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Bus assignment không tồn tại");
 
-            var busScheduleId = dto.BusScheduleId ?? assignment.BusScheduleId;
+            var busId = dto.BusId ?? assignment.BusId;
             var driverId = dto.DriverId ?? assignment.DriverId;
             var teacherId = dto.TeacherId ?? assignment.TeacherId;
-            var normalizedActiveDate = dto.ActiveDate.HasValue ? dto.ActiveDate.Value.Date : assignment.ActiveDate?.Date;
+            var activeDate = NormalizeActiveDate(dto.ActiveDate);
 
-            var busSchedule = await ValidateBusScheduleAsync(busScheduleId, normalizedActiveDate);
+            var bus = await ValidateBusAsync(busId);
             var driver = await ValidateUserByRoleAsync(driverId, "driver");
             var teacher = await ValidateUserByRoleAsync(teacherId, "teacher");
+            var existingAssignment = await FindByBusAndDateAsync(bus.Id, activeDate);
 
             ValidateDriverTeacherPair(driver.Id, teacher.Id);
-            await EnsureAssignmentNotDuplicatedAsync(busSchedule.Id, driver.Id, teacher.Id, normalizedActiveDate, id);
-            await EnsureDriverTeacherAvailabilityAsync(busSchedule, driver.Id, teacher.Id, normalizedActiveDate, id);
+            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, activeDate, existingAssignment?.Id == id ? id : existingAssignment?.Id);
 
-            assignment.BusScheduleId = busSchedule.Id;
+            if (existingAssignment != null && existingAssignment.Id != id)
+            {
+                existingAssignment.DriverId = driver.Id;
+                existingAssignment.TeacherId = teacher.Id;
+                existingAssignment.ActiveDate = activeDate;
+
+                _busAssignmentRepo.Update(existingAssignment);
+                _busAssignmentRepo.Delete(assignment);
+                await _busAssignmentRepo.SaveChangesAsync();
+
+                return await GetByIdAsync(existingAssignment.Id);
+            }
+
+            assignment.BusId = bus.Id;
             assignment.DriverId = driver.Id;
             assignment.TeacherId = teacher.Id;
-            assignment.ActiveDate = normalizedActiveDate;
+            assignment.ActiveDate = activeDate;
 
             _busAssignmentRepo.Update(assignment);
             await _busAssignmentRepo.SaveChangesAsync();
@@ -160,61 +183,26 @@ namespace BE_API.Service
         private IQueryable<BusAssignment> GetQueryable()
         {
             return _busAssignmentRepo.Get()
-                .Include(x => x.BusSchedule)
-                .ThenInclude(x => x.Bus)
-                .Include(x => x.BusSchedule)
-                .ThenInclude(x => x.Route)
-                .ThenInclude(x => x.Campus)
+                .Include(x => x.Bus)
                 .Include(x => x.Driver)
                 .ThenInclude(x => x.Role)
                 .Include(x => x.Teacher)
                 .ThenInclude(x => x.Role);
         }
 
-        private async Task<BusSchedule> ValidateBusScheduleAsync(long busScheduleId, DateTime? activeDate)
+        private async Task<Bus> ValidateBusAsync(long busId)
         {
-            if (busScheduleId <= 0)
-                throw new Exception("BusScheduleId phải lớn hơn 0");
+            if (busId <= 0)
+                throw new Exception("BusId phải lớn hơn 0");
 
-            var schedule = await _busScheduleRepo.Get()
-                .Include(x => x.Bus)
-                .Include(x => x.Route)
-                .ThenInclude(x => x.Campus)
-                .FirstOrDefaultAsync(x => x.Id == busScheduleId)
-                ?? throw new Exception("Bus schedule không tồn tại");
+            var bus = await _busRepo.Get()
+                .FirstOrDefaultAsync(x => x.Id == busId)
+                ?? throw new Exception("Bus không tồn tại");
 
-            if (!schedule.IsActive)
-                throw new Exception("Bus schedule đang không hoạt động");
+            if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+                throw new Exception($"Bus '{bus.LicensePlate}' đang không hoạt động");
 
-            if (!string.Equals(schedule.Bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"Bus '{schedule.Bus.LicensePlate}' đang không hoạt động");
-
-            if (!schedule.Route.IsEnabled)
-                throw new Exception("Bus route đang không hoạt động");
-
-            if (!schedule.Route.Campus.IsActive)
-                throw new Exception($"Campus '{schedule.Route.Campus.Name}' đang không hoạt động");
-
-            if (activeDate.HasValue)
-            {
-                var normalizedActiveDate = activeDate.Value.Date;
-                var actualDayOfWeek = (int)normalizedActiveDate.DayOfWeek;
-
-                if (schedule.StartDate.Date > normalizedActiveDate ||
-                    (schedule.EndDate.HasValue && schedule.EndDate.Value.Date < normalizedActiveDate))
-                {
-                    throw new Exception("ActiveDate không nằm trong thời gian áp dụng của bus schedule");
-                }
-
-                if (schedule.DayOfWeek != actualDayOfWeek)
-                {
-                    throw new Exception(
-                        $"ActiveDate {normalizedActiveDate:yyyy-MM-dd} là {GetDayOfWeekName(actualDayOfWeek)} " +
-                        $"nhưng bus schedule đang là {GetDayOfWeekName(schedule.DayOfWeek)}");
-                }
-            }
-
-            return schedule;
+            return bus;
         }
 
         private async Task<User> ValidateUserByRoleAsync(long userId, string roleName)
@@ -249,56 +237,17 @@ namespace BE_API.Service
                 throw new Exception("Driver và teacher không được là cùng một người");
         }
 
-        private async Task EnsureAssignmentNotDuplicatedAsync(
-            long busScheduleId,
-            long driverId,
-            long teacherId,
-            DateTime? activeDate,
-            long? excludedId)
+        private async Task EnsureStaffAvailabilityAsync(long driverId, long teacherId, DateTime activeDate, long? excludedId)
         {
-            var start = activeDate?.Date;
-            var end = start?.AddDays(1);
-
-            var duplicated = await _busAssignmentRepo.Get()
-                .AnyAsync(x =>
-                    x.BusScheduleId == busScheduleId &&
-                    x.DriverId == driverId &&
-                    x.TeacherId == teacherId &&
-                    x.ActiveDate >= start &&
-                    x.ActiveDate < end &&
-                    (!excludedId.HasValue || x.Id != excludedId.Value));
-
-            if (duplicated)
-                throw new Exception("Bus assignment đã tồn tại với đầy đủ thông tin trùng nhau");
-        }
-
-        private async Task EnsureDriverTeacherAvailabilityAsync(
-            BusSchedule busSchedule,
-            long driverId,
-            long teacherId,
-            DateTime? activeDate,
-            long? excludedId)
-        {
-            var start = activeDate?.Date;
-            var end = start?.AddDays(1);
-            var targetBusId = busSchedule.BusId;
-
-            var sameBusSameDate = await _busAssignmentRepo.Get()
-                .Include(x => x.BusSchedule)
-                .AnyAsync(x =>
-                    x.BusSchedule.BusId == targetBusId &&
-                    x.ActiveDate >= start &&
-                    x.ActiveDate < end &&
-                    (!excludedId.HasValue || x.Id != excludedId.Value));
-
-            if (sameBusSameDate)
-                throw new Exception("Bus đã được phân công trong ngày này");
+            var start = activeDate.Date;
+            var end = start.AddDays(1);
 
             var sameDriverSameDate = await _busAssignmentRepo.Get()
                 .AnyAsync(x =>
                     x.DriverId == driverId &&
-                    x.ActiveDate >= start &&
-                    x.ActiveDate < end &&
+                    x.ActiveDate.HasValue &&
+                    x.ActiveDate.Value >= start &&
+                    x.ActiveDate.Value < end &&
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
             if (sameDriverSameDate)
@@ -307,12 +256,31 @@ namespace BE_API.Service
             var sameTeacherSameDate = await _busAssignmentRepo.Get()
                 .AnyAsync(x =>
                     x.TeacherId == teacherId &&
-                    x.ActiveDate >= start &&
-                    x.ActiveDate < end &&
+                    x.ActiveDate.HasValue &&
+                    x.ActiveDate.Value >= start &&
+                    x.ActiveDate.Value < end &&
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
             if (sameTeacherSameDate)
                 throw new Exception("Teacher đã được phân công cho bus khác trong ngày này");
+        }
+
+        private async Task<BusAssignment?> FindByBusAndDateAsync(long busId, DateTime activeDate)
+        {
+            var start = activeDate.Date;
+            var end = start.AddDays(1);
+
+            return await _busAssignmentRepo.Get()
+                .FirstOrDefaultAsync(x =>
+                    x.BusId == busId &&
+                    x.ActiveDate.HasValue &&
+                    x.ActiveDate.Value >= start &&
+                    x.ActiveDate.Value < end);
+        }
+
+        private static DateTime NormalizeActiveDate(DateTime? activeDate)
+        {
+            return (activeDate ?? DateTime.Now).Date;
         }
 
         private static string Capitalize(string value)
@@ -322,28 +290,13 @@ namespace BE_API.Service
                 : char.ToUpperInvariant(value[0]) + value[1..];
         }
 
-        private static string GetDayOfWeekName(int dayOfWeek)
-        {
-            return dayOfWeek switch
-            {
-                0 => "Chủ nhật",
-                1 => "Thứ hai",
-                2 => "Thứ ba",
-                3 => "Thứ tư",
-                4 => "Thứ năm",
-                5 => "Thứ sáu",
-                6 => "Thứ bảy",
-                _ => $"Ngày {dayOfWeek}"
-            };
-        }
-
         private static BusAssignmentDto MapToDto(BusAssignment assignment)
         {
             return new BusAssignmentDto
             {
                 Id = assignment.Id,
-                BusScheduleId = assignment.BusScheduleId,
-                BusSchedule = MapToBusScheduleDto(assignment.BusSchedule),
+                BusId = assignment.BusId,
+                Bus = MapToBusDto(assignment.Bus),
                 DriverId = assignment.DriverId,
                 Driver = MapToUserDto(assignment.Driver),
                 TeacherId = assignment.TeacherId,
@@ -352,24 +305,18 @@ namespace BE_API.Service
             };
         }
 
-        private static BusScheduleDto MapToBusScheduleDto(BusSchedule schedule)
+        private static BusDto MapToBusDto(Bus bus)
         {
-            return new BusScheduleDto
+            return new BusDto
             {
-                Id = schedule.Id,
-                BusId = schedule.BusId,
-                BusLabel = schedule.Bus.BusNumber ?? schedule.Bus.LicensePlate,
-                RouteId = schedule.RouteId,
-                RouteName = schedule.Route.Name,
-                CampusId = schedule.Route.CampusId,
-                CampusName = schedule.Route.Campus?.Name ?? string.Empty,
-                StartDate = schedule.StartDate,
-                EndDate = schedule.EndDate,
-                StartTime = schedule.StartTime,
-                EndTime = schedule.EndTime,
-                DayOfWeek = schedule.DayOfWeek,
-                ShiftType = schedule.ShiftType,
-                IsActive = schedule.IsActive
+                Id = bus.Id,
+                LicensePlate = bus.LicensePlate,
+                Capacity = bus.Capacity,
+                Status = bus.Status,
+                BusNumber = bus.BusNumber,
+                ImageUrl = bus.ImageUrl,
+                Color = bus.Color,
+                BusType = bus.BusType
             };
         }
 

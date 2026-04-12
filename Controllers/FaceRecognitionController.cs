@@ -14,6 +14,7 @@ namespace BE_API.Controllers
 
         private const string CREATE_SUBJECT_SUCCESS = "Tạo subject khuôn mặt thành công";
         private const string REGISTER_FACE_SUCCESS = "Đăng ký khuôn mặt học sinh thành công";
+        private const string GET_SUBJECT_FACES_SUCCESS = "Lấy danh sách ảnh khuôn mặt theo subject thành công";
         private const string RECOGNIZE_FACE_SUCCESS = "Nhận diện khuôn mặt thành công";
         private const string RECOGNIZE_CHECKIN_SUCCESS = "Nhận diện và check in thành công";
         private const string RECOGNIZE_CHECKOUT_SUCCESS = "Nhận diện và check out thành công";
@@ -59,6 +60,26 @@ namespace BE_API.Controllers
                     subject
                 };
                 response.Message = REGISTER_FACE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lấy tất cả ảnh mẫu đã đăng ký theo subject")]
+        public async Task<IActionResult> GetSubjectFaces([FromQuery] string subject)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _faceRecognitionService.GetSubjectFacesAsync(subject);
+                response.Data = data;
+                response.Message = GET_SUBJECT_FACES_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

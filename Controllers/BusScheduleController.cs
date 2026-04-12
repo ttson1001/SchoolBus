@@ -61,13 +61,13 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        public async Task<IActionResult> Search(long? busId, long? routeId, long? campusId)
+        public async Task<IActionResult> Search(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _busScheduleService.SearchBusSchedulesAsync(busId, routeId, campusId);
+                var data = await _busScheduleService.SearchBusSchedulesAsync(busId, routeId, campusId, fromDate, toDate);
                 response.Data = data;
                 response.Message = BUS_SCHEDULE_LIST_SUCCESS;
                 return Ok(response);

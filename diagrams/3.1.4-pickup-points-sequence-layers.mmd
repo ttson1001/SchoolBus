@@ -1,0 +1,59 @@
+%% 3.1.4 Pickup Points — sequence diagram only
+%% Sidebar /pickup-points | BusStation API | Goong Autocomplete + map preview (UI)
+%% BR04: Cấm hai điểm trùng tọa độ trong bán kính 5 m — cần triển khai trong BusStationService nếu chưa có.
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (Pickup Points)
+    participant Goong as Goong Map API
+    participant Ctl as Controller (BusStationController)
+    participant Svc as Service (BusStationService)
+    participant Repo as Repository (IRepository BusStation)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Pickup Points (/pickup-points)
+    UI->>Ctl: GET /api/BusStation/Search
+    Ctl->>Svc: SearchBusStationAsync(...)
+    Svc->>Repo: Query stations
+    Repo->>DB: SELECT
+    DB-->>Repo: rows
+    Repo-->>Svc: list
+    Svc-->>Ctl: paged result
+    Ctl-->>UI: 200 — table (Location Name, Lat, Lng, Address)
+
+    Actor->>UI: Click Create Route Start Point
+    UI->>UI: Modal — Search Address, map preview area
+
+    loop Debounce while typing
+        Actor->>UI: Type e.g. Landmark in Search Address
+        UI->>Goong: Autocomplete API (debounced)
+        Goong-->>UI: Up to 5 suggestions (dropdown)
+    end
+
+    Actor->>UI: Pick one result (Landmark 81, Vinhomes Central Park)
+    UI->>UI: Autofill Lat, Lng, address fields + render mini map pin (iframe/embed)
+
+    Actor->>UI: Confirm
+
+    UI->>Ctl: POST /api/BusStation/Create (BusStationCreateDto)
+    Ctl->>Svc: CreateBusStationAsync(dto)
+
+    alt BR04 — another station within 5 m of (Lat, Lng)
+        Svc->>Repo: Query nearby coordinates (5 m radius)
+        Repo->>DB: SELECT
+        DB-->>Repo: existing row
+        Repo-->>Svc: duplicate
+        Svc-->>Ctl: throw
+        Ctl-->>UI: 400 Bad Request
+        UI-->>Actor: Error — identical coordinates within 5 m not allowed
+    else BR04 OK — unique location
+        Svc->>Repo: Add(BusStation) + SaveChanges
+        Repo->>DB: INSERT
+        DB-->>Repo: OK
+        Repo-->>Svc: saved
+        Svc-->>Ctl: success
+        Ctl-->>UI: 200 OK
+        UI->>UI: Close Modal, reload Search
+        UI-->>Actor: New pickup point row in table
+    end

@@ -1,0 +1,55 @@
+%% =============================================================================
+%% 3.1.5 Campus Management — specification + Mermaid flow
+%% Route: /campuses | API: CampusController (Search, Get, Create, Update, Delete)
+%% Entity: Code, Name, Address, Phone, ImageUrl, IsActive
+%% =============================================================================
+%%
+%% Function trigger: Sidebar -> Campus Management (/campuses).
+%%
+%% Actors / roles: Admin
+%% Purpose: Catalog of facilities / school branches to segment students.
+%%
+%% Interface: Table + Modal — Campus Code, Name, Address, Phone, ImageURL.
+%%
+%% Screen layout: (wireframe — design team)
+%% //////////////////////////////////////////////////////////////////////////////
+%%
+%% Business rule BR05: When creating a student account, it must link to 1 active Campus
+%%   (see StudentService ValidateCampusAsync / CampusId on create).
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Function trigger"]
+        T["Open /campuses from sidebar"]
+    end
+
+    subgraph list["Campus list"]
+        L1["Table of facilities e.g. 2 rows"]
+        L2["Columns: Code, Name, Address, Phone, Image, ..."]
+        T --> L1
+        L1 --> L2
+    end
+
+    subgraph editFlow["Edit facility — spec example"]
+        E1["Click Pencil on row 1"]
+        E2["Form slides out / Modal — Contact Phone Number"]
+        E3["Clear old phone, type new Hotline"]
+        E4["Click Update"]
+        L2 --> E1
+        E1 --> E2
+        E2 --> E3
+        E3 --> E4
+        E4 --> P["PUT /api/Campus/Update/{id}"]
+    end
+
+    subgraph api["REST response"]
+        P --> R{"200 Success?"}
+        R -->|Yes| U["Row 1 flashes with new phone"]
+        R -->|No| X["Show error"]
+    end
+
+    subgraph br["BR05 — Student create"]
+        BR["New Student must set CampusId to an active campus"]
+    end
+
+    style U fill:#e8f5e9

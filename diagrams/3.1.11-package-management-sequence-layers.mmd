@@ -1,0 +1,36 @@
+%% 3.1.11 Package Management — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/packages)
+    participant PC as Controller (PackageController)
+    participant PS as Service (PackageService)
+    participant Repo as Repository (IRepository Package)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Package Management
+    UI->>PC: GET /api/Package/Search
+    PC->>PS: SearchPackageAsync
+    PS->>Repo: Query packages
+    Repo->>DB: SELECT
+    PS-->>PC: list
+    PC-->>UI: 200 — table or cards
+
+    Actor->>UI: Add New Package — form + Draft/Publish toggle
+    UI->>PC: POST /api/Package/Create (PackageCreateDto)
+    PC->>PS: CreatePackageAsync
+    PS->>Repo: Insert Package row
+    Repo->>DB: INSERT
+    PS-->>PC: OK
+    PC-->>UI: 200 — if Published, mobile catalog can GET Active
+
+    Note over UI,DB: BR11 — nếu sửa giá bản ghi đã có đơn: tạo Package mới (version) thay vì UPDATE giá tại chỗ — cần implement trong PackageService.
+
+    opt Publish flow
+        UI->>PC: PUT /api/Package/Update/{id} status Publish
+        PC->>PS: UpdatePackageAsync
+        PS->>Repo: UPDATE
+        Repo->>DB: UPDATE
+    end

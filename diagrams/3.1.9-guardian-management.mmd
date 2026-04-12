@@ -1,0 +1,35 @@
+%% =============================================================================
+%% 3.1.9 Guardian Management — specification + flow
+%% Route UI: /guardians-manage | Backend: User role guardian — UserController Search/Get/Delete(Update)
+%% Student count: GET Student by guardianId or aggregate in FE
+%% BR09: Khóa guardian — vô hiệu mọi phiên app (JWT hết hạn / blacklist / xóa device token — cần chính sách BE)
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Trigger"]
+        T["Sidebar → Guardian Management /guardians-manage"]
+    end
+
+    subgraph grid["Interface"]
+        G["Columns: Name, Phone, # students, red Block toggle"]
+        T --> G
+    end
+
+    subgraph lockFlow["Block account — violation"]
+        L1["Search guardian name"]
+        L2["Eye → Household detail page"]
+        L3["Fiery red Block Account at top"]
+        L4["Confirm dialog — reason optional"]
+        L5["Row shows Banned — app kicked"]
+        G --> L1
+        L1 --> L2
+        L2 --> L3
+        L3 --> L4
+        L4 --> L5
+    end
+
+    subgraph br["BR09"]
+        BR["Lock invalidates parent app access — all mobile tokens rejected"]
+    end
+
+    L5 -.-> BR

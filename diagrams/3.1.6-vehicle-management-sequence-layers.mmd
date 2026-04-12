@@ -1,0 +1,49 @@
+%% 3.1.6 Vehicle Management — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+%% Driver dropdown: GET User/Search với role driver | Tạo xe: POST Bus/Create (chưa gắn driver trong Bus entity — gán lái qua BusAssignment + lịch nếu có).
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin
+    participant UI as UI (/vehicles)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant BC as Controller (BusController)
+    participant BS as Service (BusService)
+    participant Repo as Repository (Bus User)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Open Vehicle Management
+    UI->>BC: GET /api/Bus/Search (grid)
+    BC->>BS: SearchBusAsync
+    BS->>Repo: Query buses
+    Repo->>DB: SELECT
+    DB-->>Repo: rows
+    BS-->>BC: paged
+    BC-->>UI: 200 — Status, Capacity, ...
+
+    Note over UI,US: Load driver dropdown (filter by name)
+    UI->>UC: GET /api/User/Search?role=driver&...
+    UC->>US: SearchUserAsync
+    US->>Repo: Query users role driver
+    Repo->>DB: SELECT
+    US-->>UC: driver list
+    UC-->>UI: 200 — pick e.g. Mr. Nguyen Van A
+
+    Actor->>UI: Plate, Capacity, select driver, Submit
+
+    alt Capacity invalid e.g. -1 (frontend only)
+        UI->>UI: Red border — block submit
+    else Valid
+        UI->>BC: POST /api/Bus/Create BusCreateDto
+        BC->>BS: CreateBusAsync(dto)
+        BS->>BS: ValidateCapacity greater than 0 (server)
+        BS->>Repo: Add Bus + SaveChanges
+        Repo->>DB: INSERT
+        DB-->>Repo: OK
+        BS-->>BC: success message
+        BC-->>UI: 200 Bus created successfully
+        UI-->>Actor: Toast / refresh grid
+    end
+
+    Note over Actor,DB: BR06 — chặn mua package khi bus full: kiểm tra ở Order/Package service khi available seats = 0.

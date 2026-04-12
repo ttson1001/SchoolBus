@@ -77,7 +77,7 @@ namespace BE_API.Service
             return MapToDto(schedule);
         }
 
-        public async Task<List<BusScheduleDto>> SearchBusSchedulesAsync(long? busId, long? routeId, long? campusId)
+        public async Task<List<BusScheduleDto>> SearchBusSchedulesAsync(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate)
         {
             if (busId.HasValue)
                 await ValidateBusAsync(busId.Value);
@@ -87,6 +87,12 @@ namespace BE_API.Service
 
             if (campusId.HasValue)
                 await ValidateCampusAsync(campusId.Value);
+
+            var normalizedFromDate = fromDate?.Date;
+            var normalizedToDate = toDate?.Date;
+
+            if (normalizedFromDate.HasValue && normalizedToDate.HasValue && normalizedFromDate.Value > normalizedToDate.Value)
+                throw new Exception("Từ ngày phải nhỏ hơn hoặc bằng đến ngày");
 
             var query = GetScheduleQueryable();
 
@@ -98,6 +104,22 @@ namespace BE_API.Service
 
             if (campusId.HasValue)
                 query = query.Where(x => x.Route.CampusId == campusId.Value);
+
+            if (normalizedFromDate.HasValue && normalizedToDate.HasValue)
+            {
+                query = query.Where(x =>
+                    x.StartDate.Date <= normalizedToDate.Value &&
+                    (!x.EndDate.HasValue || x.EndDate.Value.Date >= normalizedFromDate.Value));
+            }
+            else if (normalizedFromDate.HasValue)
+            {
+                query = query.Where(x =>
+                    !x.EndDate.HasValue || x.EndDate.Value.Date >= normalizedFromDate.Value);
+            }
+            else if (normalizedToDate.HasValue)
+            {
+                query = query.Where(x => x.StartDate.Date <= normalizedToDate.Value);
+            }
 
             var schedules = await query
                 .OrderBy(x => x.Route.CampusId)

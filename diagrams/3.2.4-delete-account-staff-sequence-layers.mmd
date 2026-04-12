@@ -1,0 +1,20 @@
+%% 3.2.4 Delete Account (Staff) — sequence (layered)
+
+sequenceDiagram
+    autonumber
+    actor Actor as Super Admin
+    participant UI as UI (/accounts)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant Repo as Repository (IRepository User)
+    participant DB as Database (SQL Server)
+
+    Actor->>UI: Confirm Delete Account
+    UI->>UC: DELETE /api/User/Delete/{id}
+    UC->>US: DeleteUserAsync — Status DISABLED
+    US->>Repo: Update
+    Repo->>DB: UPDATE
+    UC-->>UI: 200
+    UI-->>Actor: Toast — row fades out
+
+    Note over UI,DB: Staff logged in elsewhere — JWT valid until expiry; mọi API có kiểm tra Status sẽ từ chối.

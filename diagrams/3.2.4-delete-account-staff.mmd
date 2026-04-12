@@ -1,0 +1,13 @@
+%% =============================================================================
+%% 3.2.4 Delete Account (Staff) — flow | §3.1.10
+%% API: DELETE /api/User/Delete/{id} — soft-disable (Status DISABLED)
+%% JWT invalidation: tới khi hết hạn trừ khi có blacklist — spec: next API fails
+%% =============================================================================
+
+flowchart TD
+    A["Staff row"] --> B["Trash icon"]
+    B --> C["Confirm: lose all access"]
+    C --> D["Confirm Delete"]
+    D --> E["DELETE User/Delete"]
+    E --> F["Toast — row removed"]
+    F --> G["Session: 401 on next call if status checked"]

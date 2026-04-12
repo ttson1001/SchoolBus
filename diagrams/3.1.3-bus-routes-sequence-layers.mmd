@@ -1,0 +1,64 @@
+%% 3.1.3 Bus Routes — sequence diagram (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+%% Create path + list refresh; BR03 on delete (implement in BusRouteService — hiện code có thể chưa kiểm tra BR03).
+
+sequenceDiagram
+    autonumber
+    actor Actor as Admin or Staff
+    participant UI as UI (Bus Routes page)
+    participant RC as Controller (BusRouteController)
+    participant RS as Service (BusRouteService)
+    participant RR as Repository (BusRoute / BusRouteStation)
+    participant DB as Database (SQL Server)
+
+    Note over Actor,DB: Page open — fill table
+    Actor->>UI: Open Bus Routes from sidebar
+    UI->>RC: GET /api/BusRoute/Search (keyword, campusId, paging)
+    RC->>RS: SearchBusRouteAsync(...)
+    RS->>RR: Query routes + campus + stations
+    RR->>DB: EF read
+    DB-->>RR: rows
+    RR-->>RS: data
+    RS-->>RC: PagedResult
+    RC-->>UI: 200 + table data
+
+    Note over Actor,DB: Load pickup points for Modal dropdown (Pickup Points module)
+    UI->>UI: Open Add Bus Route → Modal + overlay
+    UI->>RC: GET /api/BusStation/Search (paging) for station dropdown list
+    RC-->>UI: 200 stations for dropdowns
+
+    Note over Actor,DB: Save new route
+    Actor->>UI: Fill Name, Code (if any), add stop rows (+), pick stations, Save
+    alt Route Name empty (client validation)
+        UI->>UI: No HTTP call — red border under Name
+        UI-->>Actor: Inline error: Route Name cannot be empty
+    else Valid form
+        UI->>RC: POST /api/BusRoute/Create (BusRouteCreateDto: Name, CampusId, StationIds)
+        RC->>RS: CreateBusRouteAsync(dto)
+        RS->>RR: Add BusRoute + BusRouteStation rows
+        RR->>DB: INSERT
+        DB-->>RR: OK
+        RR-->>RS: persisted entity
+        RS-->>RC: BusRouteDto
+        RC-->>UI: 200 success
+        UI->>UI: Close Modal, reload Search, Toast green
+        UI-->>Actor: New row visible (e.g. at top)
+    end
+
+    Note over Actor,DB: Delete — BR03
+    Actor->>UI: Click Delete on a row
+    UI->>RC: DELETE /api/BusRoute/Delete/{id}
+    RC->>RS: DeleteBusRouteAsync(id)
+    RS->>RS: Assert BR03 — no active BusSchedule / assignment using route
+    alt BR03 blocks delete
+        RS-->>RC: throw (cannot delete)
+        RC-->>UI: 400 + message
+        UI-->>Actor: Show error — suggest status change only
+    else Delete allowed
+        RS->>RR: Delete route stations then route
+        RR->>DB: DELETE
+        DB-->>RR: OK
+        RS-->>RC: success
+        RC-->>UI: 200
+        UI-->>Actor: Table refresh
+    end

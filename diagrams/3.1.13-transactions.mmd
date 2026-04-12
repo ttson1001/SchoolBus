@@ -1,0 +1,33 @@
+%% =============================================================================
+%% 3.1.13 Transactions — specification + flow
+%% Route UI: /transactions | API: TransactionLogController Search, Get (audit ledger)
+%% UI: read-only grid — no Edit/Delete; Eye = view raw JSON payload
+%% BR13: Immutable ledger — không sửa/xóa bản ghi (BE hiện có POST/PUT/DELETE TransactionLog — nên hạn chế role hoặc bỏ khỏi public admin)
+%% =============================================================================
+
+flowchart TD
+    subgraph trigger["Trigger"]
+        T["Sidebar → Transactions /transactions"]
+    end
+
+    subgraph monthEnd["Month-end review"]
+        M1["Accountant opens toolbar date range"]
+        M2["Pick From–To e.g. 1/10/2026 – 30/10/2026"]
+        M3["Click Filter"]
+        T --> M1
+        M1 --> M2
+        M2 --> M3
+    end
+
+    subgraph grid["Read-only grid"]
+        G["Dense rows: TXN-..., +500,000 VND, user C, ..."]
+        V["Only action: Eye — View raw JSON"]
+        M3 --> G
+        G --> V
+    end
+
+    subgraph br["BR13"]
+        BR["Ledger immutable — no altering stored parameters"]
+    end
+
+    V -.-> BR

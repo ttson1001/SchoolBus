@@ -382,15 +382,6 @@ namespace BE_API.Service
 
         private async Task ValidateRouteRunsOnRideDateAsync(long routeId, DateTime rideDate)
         {
-            var hasAssignment = await _busAssignmentRepo.Get()
-                .Include(x => x.BusSchedule)
-                .AnyAsync(x =>
-                    x.BusSchedule.RouteId == routeId &&
-                    (!x.ActiveDate.HasValue || x.ActiveDate.Value.Date == rideDate.Date));
-
-            if (hasAssignment)
-                return;
-
             var dayOfWeek = (int)rideDate.DayOfWeek;
             var hasSchedule = await _busScheduleRepo.Get()
                 .AnyAsync(x =>

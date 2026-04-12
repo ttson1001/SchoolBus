@@ -1,0 +1,32 @@
+%% 3.1.10 Account Management (Staff) — sequence (layered)
+%% Actor > UI > Controller > Service > Repository > Database
+
+sequenceDiagram
+    autonumber
+    actor Actor as Super Admin
+    participant UI as UI (/accounts)
+    participant UC as Controller (UserController)
+    participant US as Service (UserService)
+    participant Repo as Repository (IRepository User Role)
+    participant DB as Database (SQL Server)
+
+    Note over Actor,DB: BR10 — route guard: only Super Admin (JWT Role claim + policy)
+
+    Actor->>UI: Add Staff — fill form, Role Staff
+    UI->>UC: POST /api/User/Create UserCreateDto
+    UC->>US: CreateUserAsync
+    US->>Repo: Add user + hash password + role Staff
+    Repo->>DB: INSERT
+    US-->>UC: UserDto
+    UC-->>UI: 200
+
+    Actor->>UI: Import — drag new_staff.csv into drop zone
+    UI->>UC: POST /api/User/Import multipart form
+    UC->>US: ImportAsync(dto)
+    US->>US: Parse Excel rows, validate
+    loop Each row
+        US->>Repo: Add users
+        Repo->>DB: INSERT batch
+    end
+    US-->>UC: UserImportResultDto
+    UC-->>UI: 200 — progress complete, refresh list
