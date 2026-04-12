@@ -31,6 +31,7 @@ namespace BE_API.Controllers
             long? campusId,
             long? busId,
             long? studentId,
+            long? guardianId,
             string? status,
             int page = 1,
             int pageSize = 10)
@@ -39,7 +40,7 @@ namespace BE_API.Controllers
 
             try
             {
-                var data = await _attendanceService.SearchAttendanceAsync(keyword, date, campusId, busId, studentId, status, page, pageSize);
+                var data = await _attendanceService.SearchAttendanceAsync(keyword, date, campusId, busId, studentId, guardianId, status, page, pageSize);
                 response.Data = data;
                 response.Message = ATTENDANCE_LIST_SUCCESS;
                 return Ok(response);

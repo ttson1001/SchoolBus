@@ -24,25 +24,28 @@ namespace BE_API.Service
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<FaceRecognitionLog> _faceRecognitionLogRepo;
         private readonly IAttendanceService _attendanceService;
+        private readonly ICloudinaryService _cloudinaryService;
 
         public FaceRecognitionService(
             IHttpClientFactory httpClientFactory,
             IOptions<CompreFaceSettings> settings,
             IRepository<Student> studentRepo,
             IRepository<FaceRecognitionLog> faceRecognitionLogRepo,
-            IAttendanceService attendanceService)
+            IAttendanceService attendanceService,
+            ICloudinaryService cloudinaryService)
         {
             _httpClientFactory = httpClientFactory;
             _settings = settings.Value;
             _studentRepo = studentRepo;
             _faceRecognitionLogRepo = faceRecognitionLogRepo;
             _attendanceService = attendanceService;
+            _cloudinaryService = cloudinaryService;
         }
 
         public async Task<string> CreateSubjectAsync(string subject)
         {
             if (string.IsNullOrWhiteSpace(subject))
-                throw new Exception("Subject không được để trống");
+                throw new Exception("Subject khong duoc de trong");
 
             var client = CreateClient();
             var payload = JsonSerializer.Serialize(new { subject = subject.Trim() });
@@ -55,7 +58,7 @@ namespace BE_API.Service
             var content = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                throw new Exception($"Không tạo được subject trên CompreFace: {content}");
+                throw new Exception($"Khong tao duoc subject tren CompreFace: {content}");
 
             return subject.Trim();
         }
@@ -64,7 +67,7 @@ namespace BE_API.Service
         {
             var student = await _studentRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == studentId)
-                ?? throw new Exception("Student không tồn tại");
+                ?? throw new Exception("Student khong ton tai");
 
             ValidateImageFile(file);
 
@@ -79,7 +82,7 @@ namespace BE_API.Service
             var responseText = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                throw new Exception($"Không đăng ký khuôn mặt cho học sinh: {responseText}");
+                throw new Exception($"Khong dang ky khuon mat cho hoc sinh: {responseText}");
 
             return subject;
         }
@@ -87,7 +90,7 @@ namespace BE_API.Service
         public async Task<FaceSubjectImagesDto> GetSubjectFacesAsync(string subject)
         {
             if (string.IsNullOrWhiteSpace(subject))
-                throw new Exception("Subject không được để trống");
+                throw new Exception("Subject khong duoc de trong");
 
             var normalizedSubject = subject.Trim();
             var client = CreateClient();
@@ -102,7 +105,7 @@ namespace BE_API.Service
                 var responseText = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
-                    throw new Exception($"Không lấy được danh sách ảnh của subject: {responseText}");
+                    throw new Exception($"Khong lay duoc danh sach anh cua subject: {responseText}");
 
                 using var document = JsonDocument.Parse(responseText);
                 var root = document.RootElement;
@@ -161,7 +164,9 @@ namespace BE_API.Service
             var recognition = await RecognizeStudentAsync(dto.File);
 
             if (!recognition.IsMatched || !recognition.StudentId.HasValue)
-                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+                throw new Exception(recognition.Message ?? "Khong nhan dien duoc hoc sinh phu hop");
+
+            var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkin");
 
             var attendance = await _attendanceService.ManualCheckInAsync(new AttendanceManualDto
             {
@@ -170,7 +175,7 @@ namespace BE_API.Service
                 StationId = dto.StationId,
                 Date = dto.Date,
                 Time = dto.Time,
-                ImageUrl = null
+                ImageUrl = imageUrl
             });
 
             return new FaceRecognitionAttendanceResultDto
@@ -185,7 +190,9 @@ namespace BE_API.Service
             var recognition = await RecognizeStudentAsync(dto.File);
 
             if (!recognition.IsMatched || !recognition.StudentId.HasValue)
-                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+                throw new Exception(recognition.Message ?? "Khong nhan dien duoc hoc sinh phu hop");
+
+            var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkout");
 
             var attendance = await _attendanceService.ManualCheckOutAsync(new AttendanceManualDto
             {
@@ -194,7 +201,7 @@ namespace BE_API.Service
                 StationId = dto.StationId,
                 Date = dto.Date,
                 Time = dto.Time,
-                ImageUrl = null
+                ImageUrl = imageUrl
             });
 
             return new FaceRecognitionAttendanceResultDto
@@ -214,9 +221,22 @@ namespace BE_API.Service
             var responseText = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                throw new Exception($"Không nhận diện được khuôn mặt: {responseText}");
+                throw new Exception($"Khong nhan dien duoc khuon mat: {responseText}");
 
             return responseText;
+        }
+
+        private async Task<string?> TryUploadAttendanceImageAsync(IFormFile file, string folder)
+        {
+            try
+            {
+                var uploadResult = await _cloudinaryService.UploadImageAsync(file, folder);
+                return uploadResult.Url;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static async Task AddImageToFormDataAsync(MultipartFormDataContent content, IFormFile file)
@@ -341,10 +361,10 @@ namespace BE_API.Service
         private HttpClient CreateClient()
         {
             if (string.IsNullOrWhiteSpace(_settings.BaseUrl))
-                throw new Exception("Chưa cấu hình CompreFace:BaseUrl");
+                throw new Exception("Chua cau hinh CompreFace:BaseUrl");
 
             if (string.IsNullOrWhiteSpace(_settings.ApiKey))
-                throw new Exception("Chưa cấu hình CompreFace:ApiKey");
+                throw new Exception("Chua cau hinh CompreFace:ApiKey");
 
             var client = _httpClientFactory.CreateClient();
             client.BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/'));
@@ -372,12 +392,12 @@ namespace BE_API.Service
         private static void ValidateImageFile(IFormFile? file)
         {
             if (file == null || file.Length == 0)
-                throw new Exception("File ảnh không được để trống");
+                throw new Exception("File anh khong duoc de trong");
 
             if (string.IsNullOrWhiteSpace(file.ContentType) ||
                 !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
-                throw new Exception("File tải lên phải là ảnh");
+                throw new Exception("File tai len phai la anh");
             }
         }
 
@@ -400,7 +420,7 @@ namespace BE_API.Service
                     IsMatched = false,
                     ConfidenceScore = 0,
                     SimilarityThreshold = threshold,
-                    Message = "Không tìm thấy khuôn mặt trong ảnh"
+                    Message = "Khong tim thay khuon mat trong anh"
                 };
             }
 
@@ -414,7 +434,7 @@ namespace BE_API.Service
                     IsMatched = false,
                     ConfidenceScore = 0,
                     SimilarityThreshold = threshold,
-                    Message = "Không nhận diện được học sinh phù hợp"
+                    Message = "Khong nhan dien duoc hoc sinh phu hop"
                 };
             }
 
@@ -435,8 +455,8 @@ namespace BE_API.Service
                 ConfidenceScore = similarity,
                 SimilarityThreshold = threshold,
                 Message = matched
-                    ? "Nhận diện khuôn mặt thành công"
-                    : $"Độ giống {similarity:0.000} chưa đạt ngưỡng {threshold:0.000}"
+                    ? "Nhan dien khuon mat thanh cong"
+                    : $"Do giong {similarity:0.000} chua dat nguong {threshold:0.000}"
             };
         }
 

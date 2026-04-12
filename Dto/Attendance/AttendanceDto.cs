@@ -5,6 +5,8 @@ namespace BE_API.Dto.Attendance
         public long Id { get; set; }
         public long StudentId { get; set; }
         public string StudentName { get; set; } = null!;
+        public long GuardianId { get; set; }
+        public string GuardianName { get; set; } = null!;
         public long BusId { get; set; }
         public string BusLicensePlate { get; set; } = null!;
         public DateTime Date { get; set; }

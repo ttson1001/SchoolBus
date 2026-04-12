@@ -45,7 +45,7 @@ namespace BE_API.Service
             _firebaseNotificationService = firebaseNotificationService;
         }
 
-        public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, long? campusId, long? busId, long? studentId, string? status, int page, int pageSize)
+        public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, long? campusId, long? busId, long? studentId, long? guardianId, string? status, int page, int pageSize)
         {
             var query = GetAttendanceQueryable();
 
@@ -63,6 +63,9 @@ namespace BE_API.Service
 
             if (studentId.HasValue)
                 query = query.Where(x => x.StudentId == studentId.Value);
+
+            if (guardianId.HasValue)
+                query = query.Where(x => x.Student.GuardianId == guardianId.Value);
 
             if (!string.IsNullOrWhiteSpace(status))
             {
@@ -279,6 +282,8 @@ namespace BE_API.Service
         {
             return _attendanceRepo.Get()
                 .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
+                .Include(x => x.Student)
                 .ThenInclude(x => x.Campus)
                 .Include(x => x.Bus)
                 .Include(x => x.CheckInStation)
@@ -470,6 +475,8 @@ namespace BE_API.Service
                 Id = attendance.Id,
                 StudentId = attendance.StudentId,
                 StudentName = attendance.Student.FullName,
+                GuardianId = attendance.Student.GuardianId,
+                GuardianName = attendance.Student.Guardian?.FullName ?? string.Empty,
                 BusId = attendance.BusId,
                 BusLicensePlate = attendance.Bus.LicensePlate,
                 Date = attendance.Date,
