@@ -57,11 +57,11 @@ namespace BE_API.Database
 
             modelBuilder.Entity<Attendance>()
                 .Property(x => x.CheckInImageUrl)
-                .HasMaxLength(1000);
+                .HasColumnType("nvarchar(max)");
 
             modelBuilder.Entity<Attendance>()
                 .Property(x => x.CheckOutImageUrl)
-                .HasMaxLength(1000);
+                .HasColumnType("nvarchar(max)");
 
             modelBuilder.Entity<FaceRecognitionLog>()
                 .Property(x => x.ConfidenceScore)

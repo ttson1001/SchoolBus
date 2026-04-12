@@ -110,6 +110,36 @@ namespace BE_API.Service
             return students.Select(MapToStudentDto).ToList();
         }
 
+        public async Task<List<StudentDto>> GetStudentsByGuardianPhoneAsync(string phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                throw new Exception("PhoneNumber khong duoc de trong");
+
+            var normalizedPhoneNumber = phoneNumber.Trim();
+
+            var guardian = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x =>
+                    x.Phone != null &&
+                    x.Phone.Trim().ToLower() == normalizedPhoneNumber.ToLower())
+                ?? throw new Exception("Khong tim thay guardian voi so dien thoai da cung cap");
+
+            if (!string.Equals(guardian.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("So dien thoai nay khong thuoc tai khoan guardian");
+
+            if (guardian.Status != AccountStatus.ACTIVE)
+                throw new Exception("Guardian dang khong hoat dong");
+
+            var students = await _studentRepo.Get()
+                .Include(x => x.Guardian)
+                .Include(x => x.Campus)
+                .Where(x => x.GuardianId == guardian.Id)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
+            return students.Select(MapToStudentDto).ToList();
+        }
+
         public async Task CreateStudentAsync(StudentCreateDto dto)
         {
             var normalizedFullName = NormalizeRequiredFullName(dto.FullName);

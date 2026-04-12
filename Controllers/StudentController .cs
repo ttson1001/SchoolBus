@@ -100,6 +100,25 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GetByGuardianPhone([FromQuery] string phoneNumber)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _studentService.GetStudentsByGuardianPhoneAsync(phoneNumber);
+                response.Data = data;
+                response.Message = STUDENT_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [Authorize]
         [HttpGet("[action]")]
         public async Task<IActionResult> GetMyStudents()
