@@ -5,7 +5,7 @@ namespace BE_API.Service.IService
 {
     public interface IStudentBusAssignmentService
     {
-        Task<PagedResult<StudentBusAssignmentDto>> SearchAsync(string? keyword, long? studentId, long? guardianId, long? busId, long? routeId, DateTime? rideDate, int page, int pageSize);
+        Task<PagedResult<StudentBusAssignmentDto>> SearchAsync(string? keyword, long? studentId, long? guardianId, long? routeId, DateTime? rideDate, int page, int pageSize);
         Task<StudentBusAssignmentDto> CreateAsync(StudentBusAssignmentCreateDto dto);
         Task<StudentBusAssignmentDto> CreateByScheduleAsync(StudentBusAssignmentByScheduleCreateDto dto);
         Task<StudentBusAssignmentDto> GetByIdAsync(long id);

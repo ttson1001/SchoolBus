@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using BE_API.Configuration;
+using BE_API.Dto.Attendance;
 using BE_API.Dto.FaceRecognition;
 using BE_API.Entites;
 using BE_API.Repository;
@@ -18,17 +19,20 @@ namespace BE_API.Service
         private readonly CompreFaceSettings _settings;
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<FaceRecognitionLog> _faceRecognitionLogRepo;
+        private readonly IAttendanceService _attendanceService;
 
         public FaceRecognitionService(
             IHttpClientFactory httpClientFactory,
             IOptions<CompreFaceSettings> settings,
             IRepository<Student> studentRepo,
-            IRepository<FaceRecognitionLog> faceRecognitionLogRepo)
+            IRepository<FaceRecognitionLog> faceRecognitionLogRepo,
+            IAttendanceService attendanceService)
         {
             _httpClientFactory = httpClientFactory;
             _settings = settings.Value;
             _studentRepo = studentRepo;
             _faceRecognitionLogRepo = faceRecognitionLogRepo;
+            _attendanceService = attendanceService;
         }
 
         public async Task<string> CreateSubjectAsync(string subject)
@@ -83,6 +87,62 @@ namespace BE_API.Service
         {
             ValidateImageFile(file);
 
+            var responseText = await SendRecognizeRequestAsync(file);
+            var result = ParseRecognitionResult(responseText, _settings.SimilarityThreshold);
+            await SaveRecognitionLogAsync(result);
+            return result;
+        }
+
+        public async Task<FaceRecognitionAttendanceResultDto> RecognizeCheckInAsync(FaceRecognitionAttendanceFormDto dto)
+        {
+            var recognition = await RecognizeStudentAsync(dto.File);
+
+            if (!recognition.IsMatched || !recognition.StudentId.HasValue)
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+
+            var attendance = await _attendanceService.ManualCheckInAsync(new AttendanceManualDto
+            {
+                StudentId = recognition.StudentId.Value,
+                BusId = dto.BusId,
+                StationId = dto.StationId,
+                Date = dto.Date,
+                Time = dto.Time,
+                ImageUrl = null
+            });
+
+            return new FaceRecognitionAttendanceResultDto
+            {
+                Recognition = recognition,
+                Attendance = attendance
+            };
+        }
+
+        public async Task<FaceRecognitionAttendanceResultDto> RecognizeCheckOutAsync(FaceRecognitionAttendanceFormDto dto)
+        {
+            var recognition = await RecognizeStudentAsync(dto.File);
+
+            if (!recognition.IsMatched || !recognition.StudentId.HasValue)
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+
+            var attendance = await _attendanceService.ManualCheckOutAsync(new AttendanceManualDto
+            {
+                StudentId = recognition.StudentId.Value,
+                BusId = dto.BusId,
+                StationId = dto.StationId,
+                Date = dto.Date,
+                Time = dto.Time,
+                ImageUrl = null
+            });
+
+            return new FaceRecognitionAttendanceResultDto
+            {
+                Recognition = recognition,
+                Attendance = attendance
+            };
+        }
+
+        private async Task<string> SendRecognizeRequestAsync(IFormFile file)
+        {
             var client = CreateClient();
             using var content = new MultipartFormDataContent();
             using var stream = file.OpenReadStream();
@@ -96,23 +156,24 @@ namespace BE_API.Service
             if (!response.IsSuccessStatusCode)
                 throw new Exception($"Không nhận diện được khuôn mặt: {responseText}");
 
-            var result = ParseRecognitionResult(responseText, _settings.SimilarityThreshold);
+            return responseText;
+        }
 
-            if (result.IsMatched && result.StudentId.HasValue)
+        private async Task SaveRecognitionLogAsync(FaceRecognitionResultDto result)
+        {
+            if (!result.IsMatched || !result.StudentId.HasValue)
+                return;
+
+            var log = new FaceRecognitionLog
             {
-                var log = new FaceRecognitionLog
-                {
-                    StudentId = result.StudentId.Value,
-                    ConfidenceScore = result.ConfidenceScore,
-                    RecognizedAt = DateTime.UtcNow,
-                    ImageUrl = null
-                };
+                StudentId = result.StudentId.Value,
+                ConfidenceScore = result.ConfidenceScore,
+                RecognizedAt = DateTime.UtcNow,
+                ImageUrl = null
+            };
 
-                await _faceRecognitionLogRepo.AddAsync(log);
-                await _faceRecognitionLogRepo.SaveChangesAsync();
-            }
-
-            return result;
+            await _faceRecognitionLogRepo.AddAsync(log);
+            await _faceRecognitionLogRepo.SaveChangesAsync();
         }
 
         private HttpClient CreateClient()
@@ -151,8 +212,11 @@ namespace BE_API.Service
             if (file == null || file.Length == 0)
                 throw new Exception("File ảnh không được để trống");
 
-            if (string.IsNullOrWhiteSpace(file.ContentType) || !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(file.ContentType) ||
+                !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
                 throw new Exception("File tải lên phải là ảnh");
+            }
         }
 
         private static string BuildStudentSubject(long studentId)
@@ -165,7 +229,9 @@ namespace BE_API.Service
             using var document = JsonDocument.Parse(responseText);
             var root = document.RootElement;
 
-            if (!root.TryGetProperty("result", out var resultArray) || resultArray.ValueKind != JsonValueKind.Array || resultArray.GetArrayLength() == 0)
+            if (!root.TryGetProperty("result", out var resultArray) ||
+                resultArray.ValueKind != JsonValueKind.Array ||
+                resultArray.GetArrayLength() == 0)
             {
                 return new FaceRecognitionResultDto
                 {
@@ -177,7 +243,9 @@ namespace BE_API.Service
             }
 
             var firstFace = resultArray[0];
-            if (!firstFace.TryGetProperty("subjects", out var subjects) || subjects.ValueKind != JsonValueKind.Array || subjects.GetArrayLength() == 0)
+            if (!firstFace.TryGetProperty("subjects", out var subjects) ||
+                subjects.ValueKind != JsonValueKind.Array ||
+                subjects.GetArrayLength() == 0)
             {
                 return new FaceRecognitionResultDto
                 {

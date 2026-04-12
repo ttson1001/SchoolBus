@@ -309,7 +309,7 @@ namespace BE_API.Service
                 .Include(x => x.Route)
                 .Include(x => x.PickupStation)
                 .Include(x => x.DropOffStation)
-                .Where(x => x.StudentId == dto.StudentId && x.BusId == dto.BusId);
+                .Where(x => x.StudentId == dto.StudentId);
 
             var assignment = await assignmentQuery
                 .FirstOrDefaultAsync(x => x.RideDate.HasValue && x.RideDate.Value.Date == attendanceDate);

@@ -8,5 +8,7 @@ namespace BE_API.Service.IService
         Task<string> CreateSubjectAsync(string subject);
         Task<string> RegisterStudentFaceAsync(long studentId, IFormFile file);
         Task<FaceRecognitionResultDto> RecognizeStudentAsync(IFormFile file);
+        Task<FaceRecognitionAttendanceResultDto> RecognizeCheckInAsync(FaceRecognitionAttendanceFormDto dto);
+        Task<FaceRecognitionAttendanceResultDto> RecognizeCheckOutAsync(FaceRecognitionAttendanceFormDto dto);
     }
 }

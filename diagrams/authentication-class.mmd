@@ -1,0 +1,141 @@
+%% Class diagram — Authentication & account management (BE_API)
+%% - Login / profile: AccountController, AccountService, JwtService
+%% - User provisioning (admin): UserController, UserService — CreateUser / Teacher / Driver (BCrypt)
+%% - Không có endpoint Register riêng trong AccountController; tạo user qua UserController.Create
+
+classDiagram
+  direction TB
+
+  class AccountController {
+    -IAccountService accountService
+    +Login(LoginDto)
+    +Me()
+    +SendEmail(SendEmailRequest)
+    -GetCurrentUserId() long
+  }
+
+  class UserController {
+    -IUserService userService
+    +Search(keyword, role, status, page, pageSize)
+    +Get(id)
+    +Import(UserImportRequestDto)
+    +Create(UserCreateDto)
+    +Update(id, UserUpdateDto)
+    +Delete(id)
+    +CreateTeacher(TeacherCreateDto)
+    +CreateDriver(DriverCreateDto)
+  }
+
+  class IAccountService {
+    <<interface>>
+    +LoginAsync(LoginDto) LoginReponseDto
+    +GetMeAsync(long userId) AccountDto
+    +SendEmailAsync(SendEmailRequest) void
+  }
+
+  class AccountService {
+    +LoginAsync(LoginDto) LoginReponseDto
+    +GetMeAsync(long) AccountDto
+    +SendEmailAsync(SendEmailRequest) void
+  }
+
+  class IUserService {
+    <<interface>>
+    +CreateUserAsync(UserCreateDto) UserDto
+    +UpdateUserAsync(long, UserUpdateDto) UserDto
+    +DeleteUserAsync(long) UserDto
+    +GetUserByIdAsync(long) UserDto
+    +SearchUserAsync(...) PagedResult
+    +ImportAsync(UserImportRequestDto) UserImportResultDto
+    +CreateTeacherAsync(TeacherCreateDto) TeacherDto
+    +CreateDriverAsync(DriverCreateDto) DriverDto
+  }
+
+  class UserService {
+    +CreateUserAsync(...) UserDto
+    +UpdateUserAsync(...) UserDto
+  }
+
+  class IJwtService {
+    <<interface>>
+    +GenerateToken(User, int? expires) string
+    +ValidateToken(string token) ClaimsPrincipal
+  }
+
+  class JwtService {
+    +GenerateToken(User, int?) string
+    +ValidateToken(string) ClaimsPrincipal
+  }
+
+  class IRepository~User~ {
+    <<interface>>
+    +Get() IQueryable
+    +AddAsync(User)
+    +Update(User)
+    +SaveChangesAsync()
+  }
+
+  class IRepository~Role~ {
+    <<interface>>
+    +Get() IQueryable
+    +AddAsync(Role)
+    +Update(Role)
+    +SaveChangesAsync()
+  }
+
+  class LoginDto {
+    +Email string
+    +Password string
+    +DeviceToken string?
+  }
+
+  class LoginReponseDto {
+    +Token string
+  }
+
+  class AccountDto {
+    +Id long
+    +Email string
+    +FullName string
+    +Phone string?
+    +RoleName string
+    +Status string
+    +CreatedAt DateTime
+  }
+
+  class SendEmailRequest {
+    +To string
+    +Subject string
+    +Body string
+  }
+
+  class User {
+    +Id long
+    +Email string
+    +PasswordHash string
+    +FullName string?
+    +RoleId long
+    +Status AccountStatus
+    +Role Role
+  }
+
+  class Role {
+    +Id long
+    +Name string
+  }
+
+  AccountController --> IAccountService
+  UserController --> IUserService
+
+  AccountService ..|> IAccountService
+  AccountService --> IJwtService
+  AccountService --> IRepository~User~
+  AccountService --> IRepository~Role~
+
+  UserService ..|> IUserService
+  UserService --> IRepository~User~
+  UserService --> IRepository~Role~
+
+  JwtService ..|> IJwtService
+
+  User --> Role

@@ -29,7 +29,6 @@ namespace BE_API.Controllers
             string? keyword,
             long? studentId,
             long? guardianId,
-            long? busId,
             long? routeId,
             DateTime? rideDate,
             int page = 1,
@@ -39,7 +38,7 @@ namespace BE_API.Controllers
 
             try
             {
-                var data = await _assignmentService.SearchAsync(keyword, studentId, guardianId, busId, routeId, rideDate, page, pageSize);
+                var data = await _assignmentService.SearchAsync(keyword, studentId, guardianId, routeId, rideDate, page, pageSize);
                 response.Data = data;
                 response.Message = ASSIGNMENT_LIST_SUCCESS;
                 return Ok(response);

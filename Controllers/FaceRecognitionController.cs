@@ -15,6 +15,8 @@ namespace BE_API.Controllers
         private const string CREATE_SUBJECT_SUCCESS = "Tạo subject khuôn mặt thành công";
         private const string REGISTER_FACE_SUCCESS = "Đăng ký khuôn mặt học sinh thành công";
         private const string RECOGNIZE_FACE_SUCCESS = "Nhận diện khuôn mặt thành công";
+        private const string RECOGNIZE_CHECKIN_SUCCESS = "Nhận diện và check in thành công";
+        private const string RECOGNIZE_CHECKOUT_SUCCESS = "Nhận diện và check out thành công";
 
         public FaceRecognitionController(IFaceRecognitionService faceRecognitionService)
         {
@@ -78,6 +80,48 @@ namespace BE_API.Controllers
                 var data = await _faceRecognitionService.RecognizeStudentAsync(dto.File);
                 response.Data = data;
                 response.Message = RECOGNIZE_FACE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        [Consumes("multipart/form-data")]
+        [SwaggerOperation(Summary = "Nhận diện và check in học sinh bằng khuôn mặt")]
+        public async Task<IActionResult> RecognizeCheckIn([FromForm] FaceRecognitionAttendanceFormDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _faceRecognitionService.RecognizeCheckInAsync(dto);
+                response.Data = data;
+                response.Message = RECOGNIZE_CHECKIN_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        [Consumes("multipart/form-data")]
+        [SwaggerOperation(Summary = "Nhận diện và check out học sinh bằng khuôn mặt")]
+        public async Task<IActionResult> RecognizeCheckOut([FromForm] FaceRecognitionAttendanceFormDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _faceRecognitionService.RecognizeCheckOutAsync(dto);
+                response.Data = data;
+                response.Message = RECOGNIZE_CHECKOUT_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)
