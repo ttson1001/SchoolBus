@@ -148,50 +148,33 @@ namespace BE_API.Service
             var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
 
             var attendance = await GetAttendanceQueryable()
-                .FirstOrDefaultAsync(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate);
+                .Where(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate)
+                .OrderByDescending(x => x.CheckInTime ?? TimeSpan.MinValue)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefaultAsync();
 
-            if (attendance != null && attendance.CheckInTime.HasValue)
-                throw new Exception("Hoc sinh da check in trong ngay nay");
+            if (attendance != null && attendance.CheckInTime.HasValue && !attendance.CheckOutTime.HasValue)
+                throw new Exception("Hoc sinh da check in, chi co the check out");
 
-            if (attendance == null)
+            attendance = new Attendance
             {
-                attendance = new Attendance
-                {
-                    StudentId = validation.Student.Id,
-                    BusId = validation.Bus.Id,
-                    Date = validation.AttendanceDate,
-                    Method = AttendanceMethod.MANUAL,
-                    Status = AttendanceStatus.PRESENT,
-                    CheckInTime = validation.CheckTime,
-                    CheckInStationId = validation.Station.Id,
-                    CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl),
-                    Note = note
-                };
+                StudentId = validation.Student.Id,
+                BusId = validation.Bus.Id,
+                Date = validation.AttendanceDate,
+                Method = AttendanceMethod.MANUAL,
+                Status = AttendanceStatus.PRESENT,
+                CheckInTime = validation.CheckTime,
+                CheckInStationId = validation.Station.Id,
+                CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl),
+                Note = note
+            };
 
-                await _attendanceRepo.AddAsync(attendance);
-                await _attendanceRepo.SaveChangesAsync();
+            await _attendanceRepo.AddAsync(attendance);
+            await _attendanceRepo.SaveChangesAsync();
 
-                attendance = await GetAttendanceQueryable()
-                    .FirstOrDefaultAsync(x => x.Id == attendance.Id)
-                    ?? throw new Exception("Attendance khong ton tai");
-            }
-            else
-            {
-                attendance.BusId = validation.Bus.Id;
-                attendance.CheckInTime = validation.CheckTime;
-                attendance.CheckInStationId = validation.Station.Id;
-                attendance.CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl);
-                attendance.Method = AttendanceMethod.MANUAL;
-                attendance.Status = AttendanceStatus.PRESENT;
-                attendance.Note = note;
-
-                _attendanceRepo.Update(attendance);
-                await _attendanceRepo.SaveChangesAsync();
-
-                attendance.Student = validation.Student;
-                attendance.Bus = validation.Bus;
-                attendance.CheckInStation = validation.Station;
-            }
+            attendance = await GetAttendanceQueryable()
+                .FirstOrDefaultAsync(x => x.Id == attendance.Id)
+                ?? throw new Exception("Attendance khong ton tai");
 
             await CreateGuardianNotificationAsync(
                 validation.Student,
@@ -213,7 +196,14 @@ namespace BE_API.Service
             var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
 
             var attendance = await GetAttendanceQueryable()
-                .FirstOrDefaultAsync(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate)
+                .Where(x =>
+                    x.StudentId == dto.StudentId &&
+                    x.Date.Date == validation.AttendanceDate &&
+                    x.CheckInTime.HasValue &&
+                    !x.CheckOutTime.HasValue)
+                .OrderByDescending(x => x.CheckInTime ?? TimeSpan.MinValue)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefaultAsync()
                 ?? throw new Exception("Khong tim thay attendance de check out");
 
             if (!attendance.CheckInTime.HasValue)
