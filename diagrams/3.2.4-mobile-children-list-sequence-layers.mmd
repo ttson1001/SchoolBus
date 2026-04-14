@@ -1,0 +1,25 @@
+%% 3.2.4 View Children List — sequence
+%% GET /api/Student/GetMyStudents (Authorize, guardian role) or GetByGuardian/{id}
+%% BR19: Guardians only see their own dependents
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant SC as StudentController
+    participant SS as StudentService
+    participant Repo as IRepository Student
+    participant DB as SQL Server
+
+    Guardian->>App: Open Children / My Kids tab
+    App->>SC: GET /api/Student/GetMyStudents Bearer
+    SC->>SS: GetStudentsByGuardianIdAsync(userId)
+    SS->>Repo: WHERE GuardianId = ...
+    Repo->>DB: SELECT + Campus
+    SS-->>SC: List StudentDto
+    SC-->>App: 200 OK
+    alt Empty
+        App->>Guardian: Empty state — no children
+    else Has items
+        App->>Guardian: Cards — avatar, name, campus
+    end

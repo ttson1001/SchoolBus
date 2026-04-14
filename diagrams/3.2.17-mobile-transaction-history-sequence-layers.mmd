@@ -1,0 +1,21 @@
+%% 3.2.17 View Transaction History — sequence
+%% GET /api/Wallet/TransactionHistory/{walletId}?fromDate&toDate&method&status
+%% Or TransactionLog/Search if using shared ledger API
+%% BR71: Append-only ledger
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant WC as WalletController
+    participant WS as WalletService
+    participant Repo as TransactionLog Wallet
+    participant DB as SQL Server
+
+    Guardian->>App: Open transaction log in Wallet
+    App->>WC: GET /api/Wallet/TransactionHistory/{walletId} with filters
+    WC->>WS: GetTransactionHistoryAsync
+    WS->>Repo: Query logs
+    Repo->>DB: SELECT
+    WS-->>WC: paged history
+    WC-->>App: 200 OK — green credits / red debits

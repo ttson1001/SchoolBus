@@ -1,0 +1,48 @@
+%% Class diagram — User & role management (admin/staff/driver/guardian/teacher)
+%% UserController + UserService; shared User entity with role-specific fields
+
+classDiagram
+  direction TB
+
+  namespace Controllers {
+    class UserController {
+      +Search(keyword, role, status)
+      +Get(id) Import Create Update Delete
+      +CreateTeacher CreateDriver
+    }
+  }
+
+  namespace Services {
+    class IUserService {
+      <<interface>>
+      +SearchUserAsync(...)
+      +CreateUserAsync(UserCreateDto)
+      +UpdateUserAsync(id, UserUpdateDto)
+      +DeleteUserAsync(id)
+      +CreateDriverAsync(DriverCreateDto)
+      +CreateTeacherAsync(TeacherCreateDto)
+      +ImportAsync(...)
+    }
+    class UserService
+  }
+
+  namespace Domain {
+    class User {
+      +Id Email PasswordHash FullName Phone
+      +RoleId Status
+      +DriverLicenseNumber Class ExpiryDate
+    }
+    class Role {
+      +Id Name
+    }
+    class Wallet {
+      +Id UserId Balance
+    }
+  }
+
+  UserController --> IUserService
+  UserService ..|> IUserService
+  UserService --> User : IRepository
+  UserService --> Role : IRepository
+  User "1" --> "1" Wallet : optional
+  User "n" --> "1" Role

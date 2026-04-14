@@ -1,0 +1,26 @@
+%% Class diagram — Live GPS tracking & notifications
+%% BusTrackingController, FirebaseNotificationService, Notification entity
+
+classDiagram
+  direction TB
+
+  namespace Tracking {
+    class Bus {
+      +Id LicensePlate
+    }
+    class BusTracking {
+      +Id BusId Latitude Longitude Speed TrackedAt
+    }
+  }
+
+  namespace Notifications {
+    class Notification {
+      +Id UserId Message Type IsRead CreatedAt
+    }
+    class User {
+      +Id DeviceToken
+    }
+  }
+
+  Bus "1" --> "*" BusTracking : positions
+  User "1" --> "*" Notification

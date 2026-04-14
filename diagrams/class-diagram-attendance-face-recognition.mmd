@@ -1,0 +1,31 @@
+%% Class diagram — Attendance & face recognition (CompreFace integration)
+%% AttendanceController, FaceRecognitionController
+
+classDiagram
+  direction TB
+
+  namespace Domain {
+    class Student {
+      +Id FullName
+    }
+    class Bus {
+      +Id LicensePlate
+    }
+    class BusStation {
+      +Id Name
+    }
+    class Attendance {
+      +Id StudentId BusId CheckInOut times
+      +CheckInStationId CheckOutStationId
+      +CheckInImageUrl CheckOutImageUrl Note
+    }
+    class FaceRecognitionLog {
+      +Id StudentId ImageUrl ConfidenceScore RecognizedAt
+    }
+  }
+
+  Student "1" --> "*" Attendance
+  Bus "1" --> "*" Attendance
+  BusStation "1" --> "*" Attendance : check-in station
+  BusStation "1" --> "*" Attendance : check-out station
+  Student "1" --> "*" FaceRecognitionLog

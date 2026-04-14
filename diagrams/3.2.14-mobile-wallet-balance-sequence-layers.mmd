@@ -1,0 +1,20 @@
+%% 3.2.14 View Wallet Balance — sequence
+%% GET /api/Wallet/GetByUser/{userId} — userId = guardian user id
+%% BR65: Balance >= 0 — enforce in WalletService if required
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant WC as WalletController
+    participant WS as WalletService
+    participant Repo as IRepository Wallet
+    participant DB as SQL Server
+
+    Guardian->>App: Home dashboard / Wallet tab
+    App->>WC: GET /api/Wallet/GetByUser/{guardianUserId}
+    WC->>WS: GetWalletByUserIdAsync
+    WS->>Repo: Wallet by UserId
+    Repo->>DB: SELECT
+    WS-->>WC: WalletDto
+    WC-->>App: 200 OK — show balance in VND

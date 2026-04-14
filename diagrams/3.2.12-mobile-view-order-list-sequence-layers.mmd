@@ -1,0 +1,20 @@
+%% 3.2.12 View Order List — sequence
+%% GET /api/Order/Search?guardianId=&status=&...
+%% BR59: Newest first — verify OrderService Search ordering
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant OC as OrderController
+    participant OS as OrderService
+    participant Repo as IRepository Order
+    participant DB as SQL Server
+
+    Guardian->>App: Open My Orders / History
+    App->>OC: GET /api/Order/Search?guardianId=...&status=...
+    OC->>OS: SearchOrderAsync
+    OS->>Repo: Query + Include Package, Student
+    Repo->>DB: SELECT
+    OS-->>OC: paged orders (newest first per backend)
+    OC-->>App: 200 OK — tabs Pending / Paid / Expired

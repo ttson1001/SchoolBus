@@ -1,0 +1,68 @@
+%% =============================================================================
+%% BE_API — System architecture (layered, Mermaid)
+%% Inspired by FaceRide-style diagram: clients → API layers → DB + external services.
+%% This repo: ASP.NET Core Web API, EF Core + SQL Server, JWT, Swagger.
+%% Not in codebase (vs. some reference diagrams): SignalR, OpenAI, PostgreSQL, AWS RDS — omitted.
+%% =============================================================================
+
+flowchart TB
+    subgraph clients["Clients"]
+        WEB["Web Admin (React)"]
+        MOB["Mobile App (Guardian / Driver)"]
+    end
+
+    subgraph transport["Transport"]
+        HTTPS["HTTPS / JSON REST"]
+    end
+
+    subgraph be["BE_API — ASP.NET Core"]
+        subgraph presentation["Presentation layer"]
+            CTRL["Controllers (api/*)"]
+            SWAG["Swagger OpenAPI"]
+        end
+        subgraph business["Business layer"]
+            SVC["Services (domain + integrations)"]
+        end
+        subgraph data["Data access layer"]
+            REPO["IRepository / Repository"]
+            CTX["BeContext EF Core"]
+        end
+    end
+
+    subgraph external["External services"]
+        CFACE["CompreFace API"]
+        PAYOS["PayOS"]
+        CLD["Cloudinary"]
+        FB["Firebase Admin"]
+        SMTP["SMTP MailKit"]
+    end
+
+    subgraph storage["Data store"]
+        SQL[("Microsoft SQL Server")]
+    end
+
+    WEB --> HTTPS
+    MOB --> HTTPS
+    HTTPS --> CTRL
+    SWAG -.-> CTRL
+
+    CTRL --> SVC
+    SVC --> REPO
+    REPO --> CTX
+    CTX --> SQL
+
+    SVC --> CFACE
+    SVC --> PAYOS
+    SVC --> CLD
+    SVC --> FB
+    SVC --> SMTP
+
+    subgraph crosscutting["Cross-cutting"]
+        JWT["JWT Bearer auth"]
+        CORS["CORS"]
+        HTTP["HttpClient"]
+    end
+
+    HTTPS -.-> JWT
+    HTTPS -.-> CORS
+    SVC -.-> HTTP

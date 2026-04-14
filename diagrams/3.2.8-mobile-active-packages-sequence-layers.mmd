@@ -1,0 +1,20 @@
+%% 3.2.8 View Active Packages — sequence
+%% GET /api/Package/Active
+%% BR36: Only active packages appear in the catalog
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant PC as PackageController
+    participant PS as PackageService
+    participant Repo as IRepository Package
+    participant DB as SQL Server
+
+    Guardian->>App: Open Services / Buy Package
+    App->>PC: GET /api/Package/Active?keyword&page&pageSize
+    PC->>PS: GetActivePackagesAsync
+    PS->>Repo: Filter active status
+    Repo->>DB: SELECT
+    PS-->>PC: paged packages
+    PC-->>App: 200 OK — cards: price, duration, thumbnail

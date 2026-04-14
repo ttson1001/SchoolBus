@@ -1,0 +1,64 @@
+%% Class diagram — Authentication & session (BE_API)
+%% Scope: JWT login, profile Me, email; maps to AccountController + JwtService + User/Role
+
+classDiagram
+  direction TB
+
+  namespace Controllers {
+    class AccountController {
+      +Login(LoginDto)
+      +Me()
+      +SendEmail(SendEmailRequest)
+    }
+  }
+
+  namespace Services {
+    class IAccountService {
+      <<interface>>
+      +LoginAsync(LoginDto) LoginReponseDto
+      +GetMeAsync(long) AccountDto
+      +SendEmailAsync(SendEmailRequest)
+    }
+    class AccountService
+    class IJwtService {
+      <<interface>>
+      +GenerateToken(User, int?) string
+      +ValidateToken(string) ClaimsPrincipal
+    }
+    class JwtService
+  }
+
+  namespace Dto_Account {
+    class LoginDto {
+      +Email
+      +Password
+      +DeviceToken
+    }
+    class LoginReponseDto {
+      +Token
+    }
+    class AccountDto {
+      +Id Email FullName Phone RoleName Status
+    }
+  }
+
+  namespace Domain {
+    class User {
+      +Id Email PasswordHash RoleId Status
+      +DeviceToken
+    }
+    class Role {
+      +Id Name
+    }
+  }
+
+  AccountController --> IAccountService
+  AccountService ..|> IAccountService
+  AccountService --> IJwtService
+  AccountService --> User : repository
+  AccountService --> Role : repository
+  JwtService ..|> IJwtService
+  User "n" --> "1" Role : RoleId
+  IAccountService ..> LoginDto
+  IAccountService ..> LoginReponseDto
+  IAccountService ..> AccountDto

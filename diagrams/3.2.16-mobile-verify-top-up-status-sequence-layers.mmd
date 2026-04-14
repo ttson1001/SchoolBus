@@ -1,0 +1,28 @@
+%% 3.2.16 Verify Top-up Status — sequence
+%% GET /api/Wallet/GetPayOsTopUpStatus/{orderCode} polling
+%% POST /api/Wallet/HandlePayOsWebhook — PayOS calls backend (parallel)
+%% BR69: Verify PayOS signature before crediting wallet
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant WC as WalletController
+    participant WS as WalletService
+    participant PayOS as PayOS
+    participant DB as SQL Server
+
+    par App polling
+        loop Until success or timeout
+            App->>WC: GET /api/Wallet/GetPayOsTopUpStatus/{orderCode}
+            WC->>WS: GetPayOsTopUpStatusAsync
+            WS->>DB: READ payment state
+            WC-->>App: status
+        end
+    and Webhook
+        PayOS->>WC: POST /api/Wallet/HandlePayOsWebhook
+        WC->>WS: HandlePayOsWebhookAsync — verify signature (BR69)
+        WS->>DB: Credit wallet + log
+    end
+
+    App->>Guardian: Top-up successful — updated balance

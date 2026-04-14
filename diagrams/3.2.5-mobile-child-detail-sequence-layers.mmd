@@ -1,0 +1,21 @@
+%% 3.2.5 View Child Detail — sequence
+%% GET /api/Student/Get/{id} — ensure student.GuardianId matches token (enforce in backend policy)
+%% BR20: Read-only for guardians — no PUT from app
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant SC as StudentController
+    participant SS as StudentService
+    participant Repo as IRepository Student
+    participant DB as SQL Server
+
+    Guardian->>App: Tap child card
+    App->>SC: GET /api/Student/Get/{id} Bearer
+    SC->>SS: GetStudentByIdAsync(id)
+    SS->>Repo: Include Guardian, Campus
+    Repo->>DB: SELECT
+    SS-->>SC: StudentDto
+    SC-->>App: 200 OK
+    App->>Guardian: Demographics, class (if modeled), Face ID / leave actions (UI)

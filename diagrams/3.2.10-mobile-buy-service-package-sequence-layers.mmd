@@ -1,0 +1,30 @@
+%% 3.2.10 Buy Service Package — sequence
+%% POST /api/Order/Create OrderCreateDto (GuardianId, StudentId, PackageId) — wallet debit, Order PAID
+%% Route/station wizard: not in OrderCreateDto — use StudentBusAssignment (POST) after purchase
+%% BR55: Sufficient balance — OrderService checks wallet.Balance >= package.Price
+
+sequenceDiagram
+    autonumber
+    actor Guardian as Guardian
+    participant App as Mobile App
+    participant OC as OrderController
+    participant OS as OrderService
+    participant Repo as Order Wallet Package Student
+    participant DB as SQL Server
+
+    Guardian->>App: Select child, package, confirm (route/station UI → assignment later)
+    App->>OC: POST /api/Order/Create OrderCreateDto
+    OC->>OS: CreateOrderAsync
+    OS->>Repo: Validate guardian, student, package
+    OS->>Repo: Wallet balance check (BR55)
+    alt Insufficient funds
+        OS-->>OC: throw
+        OC-->>App: 400 Bad Request
+    else Sufficient funds
+        OS->>Repo: Debit wallet + Order PAID + Payment + TransactionLog
+        Repo->>DB: UPDATE / INSERT
+        OS-->>OC: OrderDto
+        OC-->>App: 200 OK
+    end
+
+    Note over App,DB: Route/station assignment: POST /api/StudentBusAssignment/Create (separate business flow).
