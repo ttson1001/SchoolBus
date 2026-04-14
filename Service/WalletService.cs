@@ -221,6 +221,20 @@ namespace BE_API.Service
         {
             var verifiedData = await _payOsClient.Webhooks.VerifyAsync(webhook);
 
+            // PayOS sends this fixed payload when verifying the webhook URL (see payOS README Webhook verification).
+            if (IsPayOsUrlVerificationPing(verifiedData))
+            {
+                return new WalletPayOsWebhookResultDto
+                {
+                    UserId = 0,
+                    OrderCode = verifiedData.OrderCode,
+                    Amount = verifiedData.Amount,
+                    Status = "PAYOS_URL_VERIFICATION",
+                    PaidAt = null,
+                    WalletBalance = 0
+                };
+            }
+
             var transactionLog = await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Method == "PAYOS" && x.Code == verifiedData.OrderCode.ToString())
                 ?? throw new Exception("Khong tim thay giao dich nap tien payOS");
@@ -255,6 +269,13 @@ namespace BE_API.Service
             await _transactionLogRepo.SaveChangesAsync();
 
             return MapToWebhookResultDto(userId, verifiedData.OrderCode, transactionLog, wallet.Balance);
+        }
+
+        private static bool IsPayOsUrlVerificationPing(WebhookData data)
+        {
+            return data.OrderCode == 123
+                && data.Amount == 3000
+                && string.Equals(data.Description, "VQRIO123", StringComparison.Ordinal);
         }
 
         public async Task<WalletPayOsWebhookResultDto> GetPayOsTopUpStatusAsync(long orderCode)

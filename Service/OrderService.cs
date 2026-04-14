@@ -201,6 +201,27 @@ namespace BE_API.Service
         public async Task<OrderPayOsStatusDto> HandlePayOsWebhookAsync(Webhook webhook)
         {
             var verifiedData = await _payOsClient.Webhooks.VerifyAsync(webhook);
+
+            if (IsPayOsUrlVerificationPing(verifiedData))
+            {
+                return new OrderPayOsStatusDto
+                {
+                    OrderId = 0,
+                    GuardianId = 0,
+                    StudentId = 0,
+                    PackageId = 0,
+                    PackageName = string.Empty,
+                    OrderCode = verifiedData.OrderCode,
+                    Amount = verifiedData.Amount,
+                    OrderStatus = "PAYOS_URL_VERIFICATION",
+                    TransactionStatus = "PAYOS_URL_VERIFICATION",
+                    PaidAt = null,
+                    StartDate = null,
+                    EndDate = null,
+                    CreatedAt = DateTime.UtcNow
+                };
+            }
+
             var transactionLog = await GetPayOsOrderTransactionAsync(verifiedData.OrderCode);
             var order = await GetOrderForTransactionAsync(transactionLog);
 
@@ -589,6 +610,13 @@ namespace BE_API.Service
         {
             if (decimal.Truncate(amount) != amount)
                 throw new Exception("Gia goi thanh toan qua payOS phai la so nguyen VND");
+        }
+
+        private static bool IsPayOsUrlVerificationPing(WebhookData data)
+        {
+            return data.OrderCode == 123
+                && data.Amount == 3000
+                && string.Equals(data.Description, "VQRIO123", StringComparison.Ordinal);
         }
 
         private async Task<long> GeneratePayOsOrderCodeAsync()
