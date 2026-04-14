@@ -11,17 +11,19 @@ namespace BE_API.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IWalletService _walletService;
 
-        private const string ORDER_GET_SUCCESS = "Lấy order thành công";
-        private const string ORDER_LIST_SUCCESS = "Lấy danh sách order thành công";
-        private const string ORDER_CREATE_SUCCESS = "Tạo order thành công";
-        private const string ORDER_PAYOS_LINK_SUCCESS = "Tạo link thanh toán payOS cho order thành công";
-        private const string ORDER_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS mua gói thành công";
-        private const string ORDER_CANCEL_SUCCESS = "Hủy order thành công";
+        private const string ORDER_GET_SUCCESS = "Lay order thanh cong";
+        private const string ORDER_LIST_SUCCESS = "Lay danh sach order thanh cong";
+        private const string ORDER_CREATE_SUCCESS = "Tao order thanh cong";
+        private const string ORDER_PAYOS_LINK_SUCCESS = "Tao link thanh toan payOS cho order thanh cong";
+        private const string ORDER_PAYOS_WEBHOOK_SUCCESS = "Xu ly webhook payOS thanh cong";
+        private const string ORDER_CANCEL_SUCCESS = "Huy order thanh cong";
 
-        public OrderController(IOrderService orderService)
+        public OrderController(IOrderService orderService, IWalletService walletService)
         {
             _orderService = orderService;
+            _walletService = walletService;
         }
 
         [HttpPost("[action]")]
@@ -69,7 +71,17 @@ namespace BE_API.Controllers
 
             try
             {
-                var data = await _orderService.HandlePayOsWebhookAsync(webhook);
+                object data;
+
+                try
+                {
+                    data = await _orderService.HandlePayOsWebhookAsync(webhook);
+                }
+                catch (Exception ex) when (string.Equals(ex.Message, "Khong tim thay giao dich mua goi payOS", StringComparison.OrdinalIgnoreCase))
+                {
+                    data = await _walletService.HandlePayOsWebhookAsync(webhook);
+                }
+
                 response.Data = data;
                 response.Message = ORDER_PAYOS_WEBHOOK_SUCCESS;
                 return Ok(response);

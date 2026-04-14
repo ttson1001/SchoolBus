@@ -221,7 +221,6 @@ namespace BE_API.Service
         {
             var verifiedData = await _payOsClient.Webhooks.VerifyAsync(webhook);
 
-            // PayOS sends this fixed payload when verifying the webhook URL (see payOS README Webhook verification).
             if (IsPayOsUrlVerificationPing(verifiedData))
             {
                 return new WalletPayOsWebhookResultDto
