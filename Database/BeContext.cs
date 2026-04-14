@@ -30,6 +30,7 @@ namespace BE_API.Database
         public DbSet<TransactionLog> TransactionLogs => Set<TransactionLog>();
 
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
         public DbSet<BusTracking> BusTrackings => Set<BusTracking>();
 
@@ -42,6 +43,22 @@ namespace BE_API.Database
             modelBuilder.Entity<User>()
                 .Property(x => x.DeviceToken)
                 .HasMaxLength(1024);
+
+            modelBuilder.Entity<SystemSetting>()
+                .Property(x => x.Key)
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<SystemSetting>()
+                .Property(x => x.Value)
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<SystemSetting>()
+                .Property(x => x.Description)
+                .HasMaxLength(500);
+
+            modelBuilder.Entity<SystemSetting>()
+                .HasIndex(x => x.Key)
+                .IsUnique();
 
             modelBuilder.Entity<Student>()
                 .Property(x => x.AvatarUrl)

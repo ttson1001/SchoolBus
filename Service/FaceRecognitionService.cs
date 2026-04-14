@@ -25,6 +25,7 @@ namespace BE_API.Service
         private readonly IRepository<FaceRecognitionLog> _faceRecognitionLogRepo;
         private readonly IAttendanceService _attendanceService;
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly ISystemSettingService _systemSettingService;
 
         public FaceRecognitionService(
             IHttpClientFactory httpClientFactory,
@@ -32,7 +33,8 @@ namespace BE_API.Service
             IRepository<Student> studentRepo,
             IRepository<FaceRecognitionLog> faceRecognitionLogRepo,
             IAttendanceService attendanceService,
-            ICloudinaryService cloudinaryService)
+            ICloudinaryService cloudinaryService,
+            ISystemSettingService systemSettingService)
         {
             _httpClientFactory = httpClientFactory;
             _settings = settings.Value;
@@ -40,6 +42,7 @@ namespace BE_API.Service
             _faceRecognitionLogRepo = faceRecognitionLogRepo;
             _attendanceService = attendanceService;
             _cloudinaryService = cloudinaryService;
+            _systemSettingService = systemSettingService;
         }
 
         public async Task<string> CreateSubjectAsync(string subject)
@@ -154,7 +157,8 @@ namespace BE_API.Service
             ValidateImageFile(file);
 
             var responseText = await SendRecognizeRequestAsync(file);
-            var result = ParseRecognitionResult(responseText, _settings.SimilarityThreshold);
+            var threshold = await _systemSettingService.ResolveSimilarityThresholdAsync(_settings.SimilarityThreshold);
+            var result = ParseRecognitionResult(responseText, threshold);
             await SaveRecognitionLogAsync(result);
             return result;
         }
