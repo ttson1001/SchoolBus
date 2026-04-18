@@ -5,6 +5,7 @@ namespace BE_API.Entites
     public class Student : IEntity
     {
         public long Id { get; set; }
+        public string StudentCode { get; set; } = null!;
         public string FullName { get; set; } = null!;
         public string? AvatarUrl { get; set; }
         public DateTime? DateOfBirth { get; set; }

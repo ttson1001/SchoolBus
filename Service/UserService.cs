@@ -6,6 +6,7 @@ using BE_API.Repository;
 using BE_API.Service.IService;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using System.Net.Mail;
 
 namespace BE_API.Service
 {
@@ -90,6 +91,10 @@ namespace BE_API.Service
             var roles = await _roleRepo.Get().ToListAsync(cancellationToken);
             var users = await _userRepo.Get().ToListAsync(cancellationToken);
             var existingEmails = users.Select(x => x.Email.Trim().ToLower()).ToHashSet();
+            var existingPhones = users
+                .Where(x => !string.IsNullOrWhiteSpace(x.Phone))
+                .Select(x => x.Phone!.Trim())
+                .ToHashSet();
 
             var result = new UserImportResultDto();
             var newUsers = new List<User>();
@@ -121,19 +126,23 @@ namespace BE_API.Service
                     for (int col = 1; col <= colCount; col++)
                         data[headers[col - 1]] = worksheet.Cells[row, col].Text.Trim();
 
-                    var email = GetRequiredValue(data, "email", row).ToLower();
+                    var email = NormalizeRequiredEmail(GetRequiredValue(data, "email", row));
                     var password = GetRequiredValue(data, "password", row);
+                    var phone = NormalizePhone(GetOptionalValue(data, "phone"));
                     var currentRole = FindRole(data, roles, row);
 
                     if (existingEmails.Contains(email))
                         throw new Exception($"Dong {row}: email '{email}' da ton tai.");
+
+                    if (!string.IsNullOrWhiteSpace(phone) && existingPhones.Contains(phone))
+                        throw new Exception($"Dong {row}: so dien thoai '{phone}' da ton tai.");
 
                     var user = new User
                     {
                         Email = email,
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                         FullName = GetOptionalValue(data, "fullname"),
-                        Phone = GetOptionalValue(data, "phone"),
+                        Phone = phone,
                         RoleId = currentRole.Id,
                         Status = ParseStatus(GetOptionalValue(data, "status"), row),
                         CreatedAt = DateTime.UtcNow
@@ -141,6 +150,8 @@ namespace BE_API.Service
 
                     newUsers.Add(user);
                     existingEmails.Add(email);
+                    if (!string.IsNullOrWhiteSpace(phone))
+                        existingPhones.Add(phone);
                     result.SuccessRows++;
                 }
                 catch (Exception ex)
@@ -206,14 +217,30 @@ namespace BE_API.Service
                 user.FullName = NormalizeOptional(dto.FullName);
 
             if (dto.Phone != null)
-                user.Phone = NormalizeOptional(dto.Phone);
+            {
+                var normalizedPhone = NormalizePhone(dto.Phone);
+
+                if (!string.IsNullOrWhiteSpace(normalizedPhone))
+                {
+                    var existedPhone = await _userRepo.Get()
+                        .FirstOrDefaultAsync(x =>
+                            x.Phone != null &&
+                            x.Phone == normalizedPhone &&
+                            x.Id != id, cancellationToken);
+
+                    if (existedPhone != null)
+                        throw new Exception("So dien thoai da ton tai.");
+                }
+
+                user.Phone = normalizedPhone;
+            }
 
             if (dto.DeviceToken != null)
                 user.DeviceToken = NormalizeOptional(dto.DeviceToken);
 
             if (dto.DriverLicenseNumber != null)
             {
-                var normalizedDriverLicenseNumber = NormalizeOptional(dto.DriverLicenseNumber);
+                var normalizedDriverLicenseNumber = NormalizeDriverLicenseNumber(dto.DriverLicenseNumber);
 
                 if (!string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
                 {
@@ -360,8 +387,9 @@ namespace BE_API.Service
                 throw new Exception("Role khong duoc de trong.");
 
             var normalizedEmail = NormalizeRequiredEmail(email);
+            var normalizedPhone = NormalizePhone(phone);
             var normalizedRoleName = roleName.Trim().ToLower();
-            var normalizedDriverLicenseNumber = NormalizeOptional(driverLicenseNumber);
+            var normalizedDriverLicenseNumber = NormalizeDriverLicenseNumber(driverLicenseNumber);
             var normalizedDriverLicenseClass = NormalizeOptional(driverLicenseClass);
 
             var existedUser = await _userRepo.Get()
@@ -369,6 +397,15 @@ namespace BE_API.Service
 
             if (existedUser != null)
                 throw new Exception("Email da ton tai.");
+
+            if (!string.IsNullOrWhiteSpace(normalizedPhone))
+            {
+                var existedPhone = await _userRepo.Get()
+                    .FirstOrDefaultAsync(x => x.Phone != null && x.Phone == normalizedPhone, cancellationToken);
+
+                if (existedPhone != null)
+                    throw new Exception("So dien thoai da ton tai.");
+            }
 
             if (!string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
             {
@@ -396,7 +433,7 @@ namespace BE_API.Service
                 Email = normalizedEmail,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password.Trim()),
                 FullName = NormalizeOptional(fullName),
-                Phone = NormalizeOptional(phone),
+                Phone = normalizedPhone,
                 DriverLicenseNumber = normalizedDriverLicenseNumber,
                 DriverLicenseClass = normalizedDriverLicenseClass,
                 DriverLicenseExpiryDate = driverLicenseExpiryDate?.Date,
@@ -498,7 +535,44 @@ namespace BE_API.Service
             if (string.IsNullOrWhiteSpace(email))
                 throw new Exception("Email khong duoc de trong.");
 
-            return email.Trim().ToLower();
+            var normalizedEmail = email.Trim().ToLower();
+
+            try
+            {
+                _ = new MailAddress(normalizedEmail);
+            }
+            catch
+            {
+                throw new Exception("Email khong hop le.");
+            }
+
+            return normalizedEmail;
+        }
+
+        private static string? NormalizePhone(string? phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+                return null;
+
+            var normalizedPhone = phone.Trim();
+
+            if (normalizedPhone.Length < 9 || normalizedPhone.Length > 15 || normalizedPhone.Any(x => !char.IsDigit(x)))
+                throw new Exception("So dien thoai khong hop le.");
+
+            return normalizedPhone;
+        }
+
+        private static string? NormalizeDriverLicenseNumber(string? driverLicenseNumber)
+        {
+            if (string.IsNullOrWhiteSpace(driverLicenseNumber))
+                return null;
+
+            var normalizedDriverLicenseNumber = driverLicenseNumber.Trim();
+
+            if (normalizedDriverLicenseNumber.Length > 50)
+                throw new Exception("So bang lai khong hop le.");
+
+            return normalizedDriverLicenseNumber;
         }
 
         private static string? NormalizeOptional(string? value)

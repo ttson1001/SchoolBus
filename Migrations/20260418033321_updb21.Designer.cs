@@ -4,6 +4,7 @@ using BE_API.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BE_API.Migrations
 {
     [DbContext(typeof(BeContext))]
-    partial class BeContextModelSnapshot : ModelSnapshot
+    [Migration("20260418033321_updb21")]
+    partial class updb21
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -123,6 +126,9 @@ namespace BE_API.Migrations
                         .HasColumnType("bigint");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ActiveDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<long>("BusId")
                         .HasColumnType("bigint");

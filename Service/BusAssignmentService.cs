@@ -31,7 +31,6 @@ namespace BE_API.Service
             long? busId,
             long? driverId,
             long? teacherId,
-            DateTime? activeDate,
             int page,
             int pageSize)
         {
@@ -56,18 +55,10 @@ namespace BE_API.Service
             if (teacherId.HasValue)
                 query = query.Where(x => x.TeacherId == teacherId.Value);
 
-            if (activeDate.HasValue)
-            {
-                var start = activeDate.Value.Date;
-                var end = start.AddDays(1);
-                query = query.Where(x => x.ActiveDate.HasValue && x.ActiveDate.Value >= start && x.ActiveDate.Value < end);
-            }
-
             var totalItems = await query.CountAsync();
 
             var items = await query
-                .OrderByDescending(x => x.ActiveDate)
-                .ThenByDescending(x => x.Id)
+                .OrderByDescending(x => x.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -92,20 +83,18 @@ namespace BE_API.Service
 
         public async Task<BusAssignmentDto> CreateAsync(BusAssignmentCreateDto dto)
         {
-            var activeDate = NormalizeActiveDate(dto.ActiveDate);
             var bus = await ValidateBusAsync(dto.BusId);
             var driver = await ValidateUserByRoleAsync(dto.DriverId, "driver");
             var teacher = await ValidateUserByRoleAsync(dto.TeacherId, "teacher");
-            var existingAssignment = await FindByBusAndDateAsync(bus.Id, activeDate);
+            var existingAssignment = await FindByBusIdAsync(bus.Id);
 
             ValidateDriverTeacherPair(driver.Id, teacher.Id);
-            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, activeDate, existingAssignment?.Id);
+            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, existingAssignment?.Id);
 
             if (existingAssignment != null)
             {
                 existingAssignment.DriverId = driver.Id;
                 existingAssignment.TeacherId = teacher.Id;
-                existingAssignment.ActiveDate = activeDate;
 
                 _busAssignmentRepo.Update(existingAssignment);
                 await _busAssignmentRepo.SaveChangesAsync();
@@ -117,8 +106,7 @@ namespace BE_API.Service
             {
                 BusId = bus.Id,
                 DriverId = driver.Id,
-                TeacherId = teacher.Id,
-                ActiveDate = activeDate
+                TeacherId = teacher.Id
             };
 
             await _busAssignmentRepo.AddAsync(assignment);
@@ -136,21 +124,19 @@ namespace BE_API.Service
             var busId = dto.BusId ?? assignment.BusId;
             var driverId = dto.DriverId ?? assignment.DriverId;
             var teacherId = dto.TeacherId ?? assignment.TeacherId;
-            var activeDate = NormalizeActiveDate(dto.ActiveDate);
 
             var bus = await ValidateBusAsync(busId);
             var driver = await ValidateUserByRoleAsync(driverId, "driver");
             var teacher = await ValidateUserByRoleAsync(teacherId, "teacher");
-            var existingAssignment = await FindByBusAndDateAsync(bus.Id, activeDate);
+            var existingAssignment = await FindByBusIdAsync(bus.Id);
 
             ValidateDriverTeacherPair(driver.Id, teacher.Id);
-            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, activeDate, existingAssignment?.Id == id ? id : existingAssignment?.Id);
+            await EnsureStaffAvailabilityAsync(driver.Id, teacher.Id, existingAssignment?.Id == id ? id : existingAssignment?.Id);
 
             if (existingAssignment != null && existingAssignment.Id != id)
             {
                 existingAssignment.DriverId = driver.Id;
                 existingAssignment.TeacherId = teacher.Id;
-                existingAssignment.ActiveDate = activeDate;
 
                 _busAssignmentRepo.Update(existingAssignment);
                 _busAssignmentRepo.Delete(assignment);
@@ -162,7 +148,6 @@ namespace BE_API.Service
             assignment.BusId = bus.Id;
             assignment.DriverId = driver.Id;
             assignment.TeacherId = teacher.Id;
-            assignment.ActiveDate = activeDate;
 
             _busAssignmentRepo.Update(assignment);
             await _busAssignmentRepo.SaveChangesAsync();
@@ -237,50 +222,29 @@ namespace BE_API.Service
                 throw new Exception("Driver và teacher không được là cùng một người");
         }
 
-        private async Task EnsureStaffAvailabilityAsync(long driverId, long teacherId, DateTime activeDate, long? excludedId)
+        private async Task EnsureStaffAvailabilityAsync(long driverId, long teacherId, long? excludedId)
         {
-            var start = activeDate.Date;
-            var end = start.AddDays(1);
-
-            var sameDriverSameDate = await _busAssignmentRepo.Get()
+            var sameDriver = await _busAssignmentRepo.Get()
                 .AnyAsync(x =>
                     x.DriverId == driverId &&
-                    x.ActiveDate.HasValue &&
-                    x.ActiveDate.Value >= start &&
-                    x.ActiveDate.Value < end &&
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
-            if (sameDriverSameDate)
-                throw new Exception("Driver đã được phân công cho bus khác trong ngày này");
+            if (sameDriver)
+                throw new Exception("Driver đã được phân công cho xe khác");
 
-            var sameTeacherSameDate = await _busAssignmentRepo.Get()
+            var sameTeacher = await _busAssignmentRepo.Get()
                 .AnyAsync(x =>
                     x.TeacherId == teacherId &&
-                    x.ActiveDate.HasValue &&
-                    x.ActiveDate.Value >= start &&
-                    x.ActiveDate.Value < end &&
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
-            if (sameTeacherSameDate)
-                throw new Exception("Teacher đã được phân công cho bus khác trong ngày này");
+            if (sameTeacher)
+                throw new Exception("Teacher đã được phân công cho xe khác");
         }
 
-        private async Task<BusAssignment?> FindByBusAndDateAsync(long busId, DateTime activeDate)
+        private async Task<BusAssignment?> FindByBusIdAsync(long busId)
         {
-            var start = activeDate.Date;
-            var end = start.AddDays(1);
-
             return await _busAssignmentRepo.Get()
-                .FirstOrDefaultAsync(x =>
-                    x.BusId == busId &&
-                    x.ActiveDate.HasValue &&
-                    x.ActiveDate.Value >= start &&
-                    x.ActiveDate.Value < end);
-        }
-
-        private static DateTime NormalizeActiveDate(DateTime? activeDate)
-        {
-            return (activeDate ?? DateTime.Now).Date;
+                .FirstOrDefaultAsync(x => x.BusId == busId);
         }
 
         private static string Capitalize(string value)
@@ -300,8 +264,7 @@ namespace BE_API.Service
                 DriverId = assignment.DriverId,
                 Driver = MapToUserDto(assignment.Driver),
                 TeacherId = assignment.TeacherId,
-                Teacher = MapToUserDto(assignment.Teacher),
-                ActiveDate = assignment.ActiveDate
+                Teacher = MapToUserDto(assignment.Teacher)
             };
         }
 

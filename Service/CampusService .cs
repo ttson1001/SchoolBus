@@ -50,10 +50,15 @@ namespace BE_API.Service
             if (string.IsNullOrWhiteSpace(dto.Address))
                 throw new Exception("Địa chỉ không được để trống");
 
+            var normalizedCode = dto.Code.Trim();
+            var normalizedName = dto.Name.Trim();
+
+            await ValidateCampusDuplicateAsync(normalizedCode, normalizedName);
+
             var campus = new Campus
             {
-                Code = dto.Code.Trim(),
-                Name = dto.Name.Trim(),
+                Code = normalizedCode,
+                Name = normalizedName,
                 Address = dto.Address.Trim(),
                 Phone = NormalizeOptional(dto.Phone),
                 IsActive = dto.IsActive ?? true,
@@ -70,11 +75,16 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Campus không tồn tại");
 
+            var nextCode = string.IsNullOrWhiteSpace(dto.Code) ? campus.Code : dto.Code.Trim();
+            var nextName = string.IsNullOrWhiteSpace(dto.Name) ? campus.Name : dto.Name.Trim();
+
+            await ValidateCampusDuplicateAsync(nextCode, nextName, id);
+
             if (!string.IsNullOrWhiteSpace(dto.Code))
-                campus.Code = dto.Code.Trim();
+                campus.Code = nextCode;
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
-                campus.Name = dto.Name.Trim();
+                campus.Name = nextName;
 
             if (!string.IsNullOrWhiteSpace(dto.Address))
                 campus.Address = dto.Address.Trim();
@@ -119,6 +129,28 @@ namespace BE_API.Service
             }
 
             return query;
+        }
+
+        private async Task ValidateCampusDuplicateAsync(string code, string name, long? excludeId = null)
+        {
+            var normalizedCode = code.Trim().ToLower();
+            var normalizedName = name.Trim().ToLower();
+
+            var duplicatedCampus = await _campusRepo.Get()
+                .Where(x => !excludeId.HasValue || x.Id != excludeId.Value)
+                .Where(x =>
+                    x.Code.ToLower() == normalizedCode ||
+                    x.Name.ToLower() == normalizedName)
+                .Select(x => new { x.Code, x.Name })
+                .FirstOrDefaultAsync();
+
+            if (duplicatedCampus == null)
+                return;
+
+            if (string.Equals(duplicatedCampus.Code, code, StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Code campus đã tồn tại");
+
+            throw new Exception("Tên campus đã tồn tại");
         }
 
         private static async Task<PagedResult<CampusDto>> BuildCampusPagedResultAsync(IQueryable<Campus> query, int page, int pageSize)

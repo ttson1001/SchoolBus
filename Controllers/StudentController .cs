@@ -16,6 +16,7 @@ namespace BE_API.Controllers
         private const string STUDENT_LIST_SUCCESS = "Lấy danh sách student thành công";
         private const string STUDENT_GET_SUCCESS = "Lấy student thành công";
         private const string STUDENT_CREATE_SUCCESS = "Tạo student thành công";
+        private const string STUDENT_IMPORT_SUCCESS = "Import student thành công";
         private const string STUDENT_UPDATE_SUCCESS = "Cập nhật student thành công";
         private const string STUDENT_DELETE_SUCCESS = "Xóa student thành công";
 
@@ -51,6 +52,25 @@ namespace BE_API.Controllers
             try
             {
                 var data = await _studentService.GetStudentByIdAsync(id);
+                response.Data = data;
+                response.Message = STUDENT_GET_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{studentCode}")]
+        public async Task<IActionResult> GetByCode(string studentCode)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _studentService.GetStudentByCodeAsync(studentCode);
                 response.Data = data;
                 response.Message = STUDENT_GET_SUCCESS;
                 return Ok(response);
@@ -154,6 +174,25 @@ namespace BE_API.Controllers
             {
                 await _studentService.CreateStudentAsync(dto);
                 response.Message = STUDENT_CREATE_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpPost("[action]")]
+        public async Task<IActionResult> ImportByGuardianEmail([FromForm] StudentImportByGuardianEmailRequestDto dto, CancellationToken cancellationToken)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _studentService.ImportByGuardianEmailAsync(dto, cancellationToken);
+                response.Data = data;
+                response.Message = STUDENT_IMPORT_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

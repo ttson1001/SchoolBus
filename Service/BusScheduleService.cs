@@ -35,7 +35,8 @@ namespace BE_API.Service
                 dto.StartTime,
                 dto.EndTime,
                 dto.DayOfWeek,
-                dto.ShiftType);
+                dto.ShiftType,
+                true);
 
             await EnsureBusScheduleNotOverlappedAsync(
                 dto.BusId,
@@ -363,10 +364,15 @@ namespace BE_API.Service
                 TimeSpan startTime,
                 TimeSpan endTime,
                 int dayOfWeek,
-                string shiftType)
+                string shiftType,
+                bool requireFutureStartDate = false)
         {
             var normalizedStartDate = startDate.Date;
             var normalizedEndDate = endDate?.Date;
+            var today = DateTime.UtcNow.Date;
+
+            if (requireFutureStartDate && normalizedStartDate <= today)
+                throw new Exception("StartDate phải lớn hơn ngày hiện tại");
 
             if (normalizedEndDate.HasValue && normalizedEndDate.Value < normalizedStartDate)
                 throw new Exception("EndDate phải lớn hơn hoặc bằng StartDate");

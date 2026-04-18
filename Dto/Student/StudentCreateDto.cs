@@ -4,6 +4,10 @@ namespace BE_API.Dto.Student
 {
     public class StudentCreateDto
     {
+        [Required(ErrorMessage = "StudentCode không được để trống")]
+        [MaxLength(50, ErrorMessage = "StudentCode không được vượt quá 50 ký tự")]
+        public string StudentCode { get; set; } = null!;
+
         [Required(ErrorMessage = "FullName không được để trống")]
         [MaxLength(100, ErrorMessage = "FullName không được vượt quá 100 ký tự")]
         public string FullName { get; set; } = null!;

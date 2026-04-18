@@ -31,7 +31,7 @@ namespace BE_API.Service
             var licensePlate = ValidateLicensePlate(dto.LicensePlate);
             var capacity = ValidateCapacity(dto.Capacity);
             var status = NormalizeStatus(dto.Status);
-            var busNumber = NormalizeOptional(dto.BusNumber);
+            var busNumber = ValidateBusNumber(dto.BusNumber);
             var imageUrl = NormalizeOptional(dto.ImageUrl);
             var color = NormalizeOptional(dto.Color);
             var busType = NormalizeOptional(dto.BusType);
@@ -100,7 +100,7 @@ namespace BE_API.Service
 
             if (dto.BusNumber != null)
             {
-                var busNumber = NormalizeOptional(dto.BusNumber);
+                var busNumber = ValidateBusNumber(dto.BusNumber);
                 await EnsureBusNumberUniqueAsync(busNumber, id);
                 bus.BusNumber = busNumber;
             }
@@ -218,6 +218,14 @@ namespace BE_API.Service
                 throw new Exception("Sức chứa không hợp lệ");
 
             return capacity;
+        }
+
+        private static string ValidateBusNumber(string? busNumber)
+        {
+            if (string.IsNullOrWhiteSpace(busNumber))
+                throw new Exception("Số xe không được để trống");
+
+            return busNumber.Trim();
         }
 
         private static string NormalizeStatus(string? status)

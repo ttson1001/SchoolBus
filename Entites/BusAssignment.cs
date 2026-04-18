@@ -11,8 +11,6 @@
 
         public long TeacherId { get; set; }
         public User Teacher { get; set; } = null!;
-
-        public DateTime? ActiveDate { get; set; }
     }
 
 }

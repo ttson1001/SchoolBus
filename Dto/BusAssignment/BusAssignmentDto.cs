@@ -12,6 +12,5 @@ namespace BE_API.Dto.BusAssignment
         public UserDto Driver { get; set; } = null!;
         public long TeacherId { get; set; }
         public UserDto Teacher { get; set; } = null!;
-        public DateTime? ActiveDate { get; set; }
     }
 }

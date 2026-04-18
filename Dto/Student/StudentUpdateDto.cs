@@ -2,6 +2,7 @@ namespace BE_API.Dto.Student
 {
     public class StudentUpdateDto
     {
+        public string? StudentCode { get; set; }
         public string? FullName { get; set; }
         public string? AvatarUrl { get; set; }
         public DateTime? DateOfBirth { get; set; }
