@@ -40,6 +40,7 @@ builder.Services.AddControllers()
 builder.Services.Configure<PayOsSettings>(builder.Configuration.GetSection("PayOS"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection("Firebase"));
+builder.Services.Configure<FaceAISettings>(builder.Configuration.GetSection("FaceAI"));
 builder.Services.Configure<CompreFaceSettings>(builder.Configuration.GetSection("CompreFace"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
 builder.Services.AddScoped<PayOSClient>(serviceProvider =>

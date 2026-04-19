@@ -20,6 +20,7 @@ namespace BE_API.Database
         public DbSet<BusRouteStation> BusRouteStations => Set<BusRouteStation>();
         public DbSet<BusAssignment> BusAssignments => Set<BusAssignment>();
         public DbSet<BusSchedule> BusSchedules => Set<BusSchedule>();
+        public DbSet<BusTripProgress> BusTripProgresses => Set<BusTripProgress>();
 
         public DbSet<Attendance> Attendances => Set<Attendance>();
         public DbSet<FaceRecognitionLog> FaceRecognitionLogs => Set<FaceRecognitionLog>();
@@ -149,6 +150,34 @@ namespace BE_API.Database
                 .WithMany(x => x.Schedules)
                 .HasForeignKey(x => x.RouteId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusTripProgress>()
+                .HasOne(x => x.Bus)
+                .WithMany()
+                .HasForeignKey(x => x.BusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusTripProgress>()
+                .HasOne(x => x.BusSchedule)
+                .WithMany()
+                .HasForeignKey(x => x.BusScheduleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusTripProgress>()
+                .HasOne(x => x.Route)
+                .WithMany()
+                .HasForeignKey(x => x.RouteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusTripProgress>()
+                .HasOne(x => x.Station)
+                .WithMany()
+                .HasForeignKey(x => x.StationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusTripProgress>()
+                .HasIndex(x => new { x.BusScheduleId, x.RideDate, x.OrderIndex })
+                .IsUnique();
 
             modelBuilder.Entity<Order>()
                 .HasOne(x => x.Guardian)
