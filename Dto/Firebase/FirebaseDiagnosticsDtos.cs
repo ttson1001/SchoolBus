@@ -16,4 +16,15 @@ namespace BE_API.Dto.Firebase
         /// </summary>
         public string? DeviceToken { get; set; }
     }
+
+    /// <summary>
+    /// Body cho API test FCM công khai (không JWT).
+    /// </summary>
+    public class FirebasePublicTestDto
+    {
+        /// <summary>
+        /// FCM registration token từ thiết bị.
+        /// </summary>
+        public string DeviceIdToken { get; set; } = null!;
+    }
 }

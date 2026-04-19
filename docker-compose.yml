@@ -16,6 +16,8 @@ services:
       Firebase__Enabled: "true"
       Firebase__ProjectId: "schoolbus-ccd90"
       Firebase__CredentialsPath: "firebase/schoolbus-ccd90-firebase-adminsdk-fbsvc-eda64c6812.json"
+      # Cho phép POST /api/FirebaseTest/Send không JWT khi chạy Production trong Docker (Swagger test FCM)
+      Firebase__AllowPublicTestEndpoint: "true"
     ports:
       - "5280:5280"
     volumes:
