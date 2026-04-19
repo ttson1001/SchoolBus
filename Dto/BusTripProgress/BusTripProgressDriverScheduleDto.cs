@@ -15,5 +15,6 @@ namespace BE_API.Dto.BusTripProgress
         public bool IsUpcoming { get; set; }
         public bool IsCompleted { get; set; }
         public bool IsRecommended { get; set; }
+        public List<BusTripProgressStationStatusDto> Stations { get; set; } = new();
     }
 }

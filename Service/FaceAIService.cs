@@ -2,6 +2,8 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using BE_API.Configuration;
+using BE_API.Dto.Attendance;
+using BE_API.Dto.FaceRecognition;
 using BE_API.Entites;
 using BE_API.Repository;
 using BE_API.Service.IService;
@@ -17,17 +19,23 @@ namespace BE_API.Service
         private readonly FaceAISettings _settings;
         private readonly ISystemSettingService _systemSettingService;
         private readonly IRepository<Student> _studentRepo;
+        private readonly IAttendanceService _attendanceService;
+        private readonly ICloudinaryService _cloudinaryService;
 
         public FaceAIService(
             IHttpClientFactory httpClientFactory,
             IOptions<FaceAISettings> settings,
             ISystemSettingService systemSettingService,
-            IRepository<Student> studentRepo)
+            IRepository<Student> studentRepo,
+            IAttendanceService attendanceService,
+            ICloudinaryService cloudinaryService)
         {
             _httpClientFactory = httpClientFactory;
             _settings = settings.Value;
             _systemSettingService = systemSettingService;
             _studentRepo = studentRepo;
+            _attendanceService = attendanceService;
+            _cloudinaryService = cloudinaryService;
         }
 
         public Task<object?> HealthAsync()
@@ -144,7 +152,77 @@ namespace BE_API.Service
             return await SendAsync(HttpMethod.Post, $"/verify/top?{string.Join("&", queryParts)}", content);
         }
 
+        public async Task<FaceRecognitionAttendanceResultDto> RecognizeCheckInAsync(FaceRecognitionAttendanceFormDto dto)
+        {
+            var recognition = await RecognizeStudentAsync(dto.File);
+
+            if (!recognition.IsMatched || !recognition.StudentId.HasValue)
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+
+            var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkin");
+
+            var attendance = await _attendanceService.ManualCheckInAsync(new AttendanceManualDto
+            {
+                StudentId = recognition.StudentId.Value,
+                BusId = dto.BusId,
+                StationId = dto.StationId,
+                Date = dto.Date,
+                Time = dto.Time,
+                ImageUrl = imageUrl
+            });
+
+            return new FaceRecognitionAttendanceResultDto
+            {
+                Recognition = recognition,
+                Attendance = attendance
+            };
+        }
+
+        public async Task<FaceRecognitionAttendanceResultDto> RecognizeCheckOutAsync(FaceRecognitionAttendanceFormDto dto)
+        {
+            var recognition = await RecognizeStudentAsync(dto.File);
+
+            if (!recognition.IsMatched || !recognition.StudentId.HasValue)
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
+
+            var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkout");
+
+            var attendance = await _attendanceService.ManualCheckOutAsync(new AttendanceManualDto
+            {
+                StudentId = recognition.StudentId.Value,
+                BusId = dto.BusId,
+                StationId = dto.StationId,
+                Date = dto.Date,
+                Time = dto.Time,
+                ImageUrl = imageUrl
+            });
+
+            return new FaceRecognitionAttendanceResultDto
+            {
+                Recognition = recognition,
+                Attendance = attendance
+            };
+        }
+
+        private async Task<FaceRecognitionResultDto> RecognizeStudentAsync(IFormFile file)
+        {
+            var threshold = await ResolveThresholdAsync();
+            ValidateImageFile(file);
+
+            using var content = new MultipartFormDataContent();
+            await AddFileAsync(content, file);
+
+            var jsonNode = await SendJsonNodeAsync(HttpMethod.Post, $"/verify?threshold={threshold}", content);
+            return ParseRecognitionResult(jsonNode, threshold);
+        }
+
         private async Task<object?> SendAsync(HttpMethod method, string path, HttpContent? content = null)
+        {
+            var jsonNode = await SendJsonNodeAsync(method, path, content);
+            return jsonNode;
+        }
+
+        private async Task<JsonNode?> SendJsonNodeAsync(HttpMethod method, string path, HttpContent? content = null)
         {
             var client = CreateClient();
             using var request = new HttpRequestMessage(method, path)
@@ -188,6 +266,41 @@ namespace BE_API.Service
             await Task.CompletedTask;
         }
 
+        private async Task<string> GetStudentNameAsync(int studentId)
+        {
+            var student = await _studentRepo.Get()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == studentId);
+
+            if (student == null)
+                throw new Exception("Không tìm thấy học sinh trong hệ thống");
+
+            if (string.IsNullOrWhiteSpace(student.FullName))
+                throw new Exception("Học sinh chưa có tên để đồng bộ sang FaceAI");
+
+            return student.FullName.Trim();
+        }
+
+        private async Task<decimal> ResolveThresholdAsync()
+        {
+            var thresholdSetting = await _systemSettingService.GetSimilarityThresholdAsync();
+            ValidateThreshold(thresholdSetting.SimilarityThreshold);
+            return thresholdSetting.SimilarityThreshold;
+        }
+
+        private async Task<string?> TryUploadAttendanceImageAsync(IFormFile file, string folder)
+        {
+            try
+            {
+                var uploadResult = await _cloudinaryService.UploadImageAsync(file, folder);
+                return uploadResult.Url;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static void ValidateImageFile(IFormFile? file)
         {
             if (file == null || file.Length == 0)
@@ -215,26 +328,35 @@ namespace BE_API.Service
                 throw new Exception("TopK phải trong khoảng từ 1 đến 20");
         }
 
-        private async Task<string> GetStudentNameAsync(int studentId)
+        private static FaceRecognitionResultDto ParseRecognitionResult(JsonNode? jsonNode, decimal threshold)
         {
-            var student = await _studentRepo.Get()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == studentId);
+            if (jsonNode is not JsonObject jsonObject)
+            {
+                return new FaceRecognitionResultDto
+                {
+                    IsMatched = false,
+                    ConfidenceScore = 0,
+                    SimilarityThreshold = threshold,
+                    Message = "Không nhận được kết quả nhận diện từ FaceAI"
+                };
+            }
 
-            if (student == null)
-                throw new Exception("Không tìm thấy học sinh trong hệ thống");
+            var matched = jsonObject["match"]?.GetValue<bool>() ?? false;
+            var studentId = jsonObject["student_id"]?.GetValue<long?>();
+            var similarity = jsonObject["similarity"]?.GetValue<decimal?>() ?? 0m;
+            var subject = studentId?.ToString();
 
-            if (string.IsNullOrWhiteSpace(student.FullName))
-                throw new Exception("Học sinh chưa có tên để đồng bộ sang FaceAI");
-
-            return student.FullName.Trim();
-        }
-
-        private async Task<decimal> ResolveThresholdAsync()
-        {
-            var thresholdSetting = await _systemSettingService.GetSimilarityThresholdAsync();
-            ValidateThreshold(thresholdSetting.SimilarityThreshold);
-            return thresholdSetting.SimilarityThreshold;
+            return new FaceRecognitionResultDto
+            {
+                IsMatched = matched && studentId.HasValue,
+                StudentId = matched ? studentId : null,
+                Subject = subject,
+                ConfidenceScore = similarity,
+                SimilarityThreshold = threshold,
+                Message = matched
+                    ? "Nhận diện khuôn mặt thành công"
+                    : $"Độ giống {similarity:0.000} chưa đạt ngưỡng {threshold:0.000}"
+            };
         }
 
         private static string ExtractErrorMessage(string responseText)

@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.Attendance;
 using BE_API.Dto.Common;
 using BE_API.Entites;
@@ -338,7 +339,7 @@ namespace BE_API.Service
 
         private async Task<(long RouteId, string RouteName)> ResolveAttendanceRouteAsync(long busId, DateTime attendanceDate)
         {
-            var dayOfWeek = (int)attendanceDate.DayOfWeek;
+            var dayOfWeek = ScheduleDayOfWeek.FromDate(attendanceDate);
             var busSchedule = await _busScheduleRepo.Get()
                 .Include(x => x.Route)
                 .FirstOrDefaultAsync(x =>

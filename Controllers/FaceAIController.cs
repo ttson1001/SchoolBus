@@ -1,5 +1,6 @@
 using BE_API.Dto.Common;
 using BE_API.Dto.FaceAI;
+using BE_API.Dto.FaceRecognition;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
 
@@ -86,7 +87,21 @@ namespace BE_API.Controllers
             return await ExecuteAsync(() => _faceAIService.VerifyTopAsync(dto.File, dto.TopK), "Verify top FaceAI thành công");
         }
 
-        private static async Task<IActionResult> ExecuteAsync(Func<Task<object?>> action, string successMessage)
+        [HttpPost("[action]")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> RecognizeCheckIn([FromForm] FaceRecognitionAttendanceFormDto dto)
+        {
+            return await ExecuteAsync(() => _faceAIService.RecognizeCheckInAsync(dto), "Nhận diện và check in thành công");
+        }
+
+        [HttpPost("[action]")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> RecognizeCheckOut([FromForm] FaceRecognitionAttendanceFormDto dto)
+        {
+            return await ExecuteAsync(() => _faceAIService.RecognizeCheckOutAsync(dto), "Nhận diện và check out thành công");
+        }
+
+        private static async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> action, string successMessage)
         {
             var response = new ResponseDto();
 

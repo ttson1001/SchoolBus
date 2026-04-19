@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.BusSchedule;
 using BE_API.Entites;
 using BE_API.Repository;
@@ -179,7 +180,7 @@ namespace BE_API.Service
 
             var date = atTime.Date;
             var time = atTime.TimeOfDay;
-            var dayOfWeek = (int)atTime.DayOfWeek;
+            var dayOfWeek = ScheduleDayOfWeek.FromDate(atTime);
 
             var query = GetScheduleQueryable()
                 .Where(x =>

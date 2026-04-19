@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.BusTripProgress;
 using BE_API.Entites;
 using BE_API.Repository;
@@ -70,15 +71,46 @@ namespace BE_API.Service
             if (driverId <= 0)
                 throw new Exception("DriverId phải lớn hơn 0");
 
-            var selectedDate = (rideDate ?? DateTime.UtcNow).Date;
-            var selectedTime = atTime ?? DateTime.UtcNow.TimeOfDay;
-            var dayOfWeek = (int)selectedDate.DayOfWeek;
-
             var assignment = await _busAssignmentRepo.Get()
                 .Include(x => x.Bus)
                 .Include(x => x.Driver)
                 .FirstOrDefaultAsync(x => x.DriverId == driverId)
                 ?? throw new Exception("Tài xế chưa được phân công xe");
+
+            return await BuildSchedulesForAssignmentAsync(
+                assignment,
+                rideDate,
+                atTime,
+                "Tài xế không có lịch chạy nào trong ngày đã chọn");
+        }
+
+        public async Task<List<BusTripProgressDriverScheduleDto>> GetTeacherSchedulesAsync(long teacherId, DateTime? rideDate, TimeSpan? atTime)
+        {
+            if (teacherId <= 0)
+                throw new Exception("TeacherId phải lớn hơn 0");
+
+            var assignment = await _busAssignmentRepo.Get()
+                .Include(x => x.Bus)
+                .Include(x => x.Teacher)
+                .FirstOrDefaultAsync(x => x.TeacherId == teacherId)
+                ?? throw new Exception("Giáo viên chưa được phân công xe");
+
+            return await BuildSchedulesForAssignmentAsync(
+                assignment,
+                rideDate,
+                atTime,
+                "Giáo viên không có lịch chạy nào trong ngày đã chọn");
+        }
+
+        private async Task<List<BusTripProgressDriverScheduleDto>> BuildSchedulesForAssignmentAsync(
+            BusAssignment assignment,
+            DateTime? rideDate,
+            TimeSpan? atTime,
+            string emptyMessage)
+        {
+            var selectedDate = (rideDate ?? DateTime.UtcNow).Date;
+            var selectedTime = atTime ?? DateTime.UtcNow.TimeOfDay;
+            var dayOfWeek = ScheduleDayOfWeek.FromDate(selectedDate);
 
             var schedules = await _busScheduleRepo.Get()
                 .Include(x => x.Route)
@@ -93,7 +125,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!schedules.Any())
-                throw new Exception("Tài xế không có lịch chạy nào trong ngày đã chọn");
+                throw new Exception(emptyMessage);
 
             var runningSchedules = schedules
                 .Where(x => x.StartTime <= selectedTime && x.EndTime >= selectedTime)
@@ -104,11 +136,47 @@ namespace BE_API.Service
                 : schedules.FirstOrDefault(x => x.StartTime > selectedTime)?.Id
                     ?? schedules.Last().Id;
 
+            var scheduleIds = schedules.Select(x => x.Id).ToList();
+            var routeIds = schedules.Select(x => x.RouteId).Distinct().ToList();
+
+            var routeStations = await _routeStationRepo.Get()
+                .Include(x => x.Station)
+                .Where(x => routeIds.Contains(x.RouteId))
+                .OrderBy(x => x.RouteId)
+                .ThenBy(x => x.OrderIndex)
+                .ToListAsync();
+
+            var progressBySchedule = await GetProgressQueryable()
+                .Where(x => scheduleIds.Contains(x.BusScheduleId) && x.RideDate.Date == selectedDate)
+                .OrderBy(x => x.OrderIndex)
+                .ThenBy(x => x.ArrivedAt)
+                .ToListAsync();
+
             return schedules.Select(x =>
             {
                 var busLabel = !string.IsNullOrWhiteSpace(assignment.Bus.BusNumber)
                     ? assignment.Bus.BusNumber
                     : assignment.Bus.LicensePlate;
+
+                var stations = routeStations
+                    .Where(s => s.RouteId == x.RouteId)
+                    .Select(routeStation =>
+                    {
+                        var progress = progressBySchedule
+                            .FirstOrDefault(p =>
+                                p.BusScheduleId == x.Id &&
+                                p.OrderIndex == routeStation.OrderIndex);
+
+                        return new BusTripProgressStationStatusDto
+                        {
+                            StationId = routeStation.StationId,
+                            StationName = routeStation.Station.Name,
+                            OrderIndex = routeStation.OrderIndex,
+                            IsVisited = progress != null,
+                            ArrivedAt = progress?.ArrivedAt
+                        };
+                    })
+                    .ToList();
 
                 return new BusTripProgressDriverScheduleDto
                 {
@@ -124,7 +192,8 @@ namespace BE_API.Service
                     IsRunningNow = x.StartTime <= selectedTime && x.EndTime >= selectedTime,
                     IsUpcoming = selectedTime < x.StartTime,
                     IsCompleted = selectedTime > x.EndTime,
-                    IsRecommended = x.Id == recommendedScheduleId
+                    IsRecommended = x.Id == recommendedScheduleId,
+                    Stations = stations
                 };
             }).ToList();
         }
@@ -220,7 +289,7 @@ namespace BE_API.Service
             if (!scheduleById.IsActive)
                 throw new Exception($"BusScheduleId = {busScheduleId} đang ở trạng thái không hoạt động");
 
-            var dayOfWeek = (int)rideDate.DayOfWeek;
+            var dayOfWeek = ScheduleDayOfWeek.FromDate(rideDate);
 
             if (scheduleById.StartDate.Date > rideDate.Date)
                 throw new Exception(

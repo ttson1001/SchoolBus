@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.Common;
 using BE_API.Dto.StudentBusAssignment;
 using BE_API.Entites;
@@ -359,7 +360,7 @@ namespace BE_API.Service
             if (schedule.EndDate.HasValue && schedule.EndDate.Value.Date < rideDate.Date)
                 throw new Exception("RideDate khong nam trong thoi gian ap dung cua bus schedule");
 
-            if (schedule.DayOfWeek != (int)rideDate.DayOfWeek)
+            if (schedule.DayOfWeek != ScheduleDayOfWeek.FromDate(rideDate))
                 throw new Exception("RideDate khong khop DayOfWeek cua bus schedule");
 
             return schedule;
@@ -382,7 +383,7 @@ namespace BE_API.Service
 
         private async Task ValidateRouteRunsOnRideDateAsync(long routeId, DateTime rideDate)
         {
-            var dayOfWeek = (int)rideDate.DayOfWeek;
+            var dayOfWeek = ScheduleDayOfWeek.FromDate(rideDate);
             var hasSchedule = await _busScheduleRepo.Get()
                 .AnyAsync(x =>
                     x.RouteId == routeId &&
