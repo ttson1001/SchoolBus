@@ -12,6 +12,13 @@ services:
       Jwt__Issuer: "YourAppName"
       Jwt__Audience: "YourAppAudience"
       Jwt__ExpireMinutes: "60"
+      # Firebase Admin SDK (FCM) — file JSON trong ./firebase/ (mount vào /app/firebase)
+      Firebase__Enabled: "true"
+      Firebase__ProjectId: "schoolbus-ccd90"
+      Firebase__CredentialsPath: "firebase/schoolbus-ccd90-firebase-adminsdk-fbsvc-eda64c6812.json"
     ports:
       - "5280:5280"
+    volumes:
+      # Thư mục firebase/ chứa file Admin SDK JSON (đã gitignore); chỉ đọc trong container
+      - ./firebase:/app/firebase:ro
     restart: unless-stopped

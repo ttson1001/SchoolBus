@@ -1,29 +1,31 @@
 # Luồng giáo viên / cán bộ đưa đón: Đăng nhập → Tuyến hôm nay → Tra MASV → Check-in thủ công
 
-Tài liệu mô tả API để **teacher** (role `teacher`) đăng nhập app, xem **lịch xe / tuyến trong ngày** trên xe được phân công, **tìm học sinh theo mã** (`studentCode` / MASV), rồi **điểm danh bằng tay** qua **`Attendance/ManualCheckIn`** (không quét FaceAI).
+Tài liệu mô tả API để **teacher** (role `teacher`) đăng nhập app, xem **lịch xe / tuyến trong ngày** trên xe được phân công, **tìm học sinh theo mã** (`studentCode` / MASV), rồi **điểm danh bằng tay** qua `**Attendance/ManualCheckIn`** (không quét FaceAI).
 
 Envelope: `{ "message": "...", "data": ... }` (`ResponseDto`), JSON **camelCase**.
 
-**Điều kiện nền:** admin đã **`BusAssignment`** gắn **cùng xe** với **teacher**; có **`BusSchedule`** khớp ngày chạy. Xem [03-luong-chuan-bi-va-tao-lich-xe-bus.md](./03-luong-chuan-bi-va-tao-lich-xe-bus.md).
+**Điều kiện nền:** admin đã `**BusAssignment`** gắn **cùng xe** với **teacher**; có `**BusSchedule`** khớp ngày chạy. Xem [03-luong-chuan-bi-va-tao-lich-xe-bus.md](./03-luong-chuan-bi-va-tao-lich-xe-bus.md).
 
 ---
 
 ## 1. Bảng API theo giai đoạn
 
-| Giai đoạn | Method | Endpoint | Mục đích |
-|-----------|--------|----------|----------|
-| Đăng nhập | POST | `/api/Account/Login` | Lấy JWT |
-| Xác nhận role | GET | `/api/Account/Me` | `data.id` = **`teacherId`** (user id); `roleName` = **`teacher`** |
-| Tuyến / lịch hôm nay | GET | `/api/BusTripProgress/TeacherSchedules` | Lịch trong ngày + **trạm** (cùng cấu trúc như tài xế) |
-| Trạng thái chuyến (tuỳ chọn) | GET | `/api/BusTripProgress/Current` | Trạm tiếp theo, trạng thái chuyến |
-| Tra học sinh theo mã | GET | `/api/Student/GetByCode/{studentCode}` | Đổi MASV → `studentId`, thông tin HS |
-| Check-in thủ công | POST | `/api/Attendance/ManualCheckIn` | Ghi nhận có mặt (lên xe / tại trạm) — **`Method` = MANUAL** |
-| Check-out thủ công (tuỳ chọn) | POST | `/api/Attendance/ManualCheckOut` | Khi HS đã check-in cùng ngày, chưa check-out |
+
+| Giai đoạn                     | Method | Endpoint                                | Mục đích                                                          |
+| ----------------------------- | ------ | --------------------------------------- | ----------------------------------------------------------------- |
+| Đăng nhập                     | POST   | `/api/Account/Login`                    | Lấy JWT                                                           |
+| Xác nhận role                 | GET    | `/api/Account/Me`                       | `data.id` = `**teacherId`** (user id); `roleName` = `**teacher`** |
+| Tuyến / lịch hôm nay          | GET    | `/api/BusTripProgress/TeacherSchedules` | Lịch trong ngày + **trạm** (cùng cấu trúc như tài xế)             |
+| Trạng thái chuyến (tuỳ chọn)  | GET    | `/api/BusTripProgress/Current`          | Trạm tiếp theo, trạng thái chuyến                                 |
+| Tra học sinh theo mã          | GET    | `/api/Student/GetByCode/{studentCode}`  | Đổi MASV → `studentId`, thông tin HS                              |
+| Check-in thủ công             | POST   | `/api/Attendance/ManualCheckIn`         | Ghi nhận có mặt (lên xe / tại trạm) — `**Method` = MANUAL**       |
+| Check-out thủ công (tuỳ chọn) | POST   | `/api/Attendance/ManualCheckOut`        | Khi HS đã check-in cùng ngày, chưa check-out                      |
+
 
 **Lưu ý:**
 
-- `TeacherSchedules` cần **`teacherId`** = **`User.Id`** (trùng `BusAssignment.TeacherId`).
-- **Manual check-in** bắt buộc **`studentId`**, **`busId`**, **`stationId`** — lấy **`busId`** (và chọn **`stationId`**) từ lịch vừa xem; **`studentId`** từ **`GetByCode`**.
+- `TeacherSchedules` cần `**teacherId`** = `**User.Id`** (trùng `BusAssignment.TeacherId`).
+- **Manual check-in** bắt buộc `**studentId`**, `**busId`**, `**stationId**` — lấy `**busId**` (và chọn `**stationId**`) từ lịch vừa xem; `**studentId**` từ `**GetByCode**`.
 - `ValidateManualAttendance` yêu cầu **trạm thuộc route của xe trong ngày**; bus phải có **lịch chạy** khớp **thứ** (`ScheduleDayOfWeek`). Học sinh phải **tồn tại**, bus **ACTIVE**.
 - Nhiều controller **chưa** `[Authorize]` — FE vẫn nên gửi **Bearer** và chỉ mở màn teacher khi `roleName === "teacher"`.
 
@@ -66,11 +68,13 @@ POST /api/Attendance/ManualCheckIn  { studentId, busId, stationId, date?, time?,
 
 **GET** `/api/BusTripProgress/TeacherSchedules`
 
-| Query | Bắt buộc | Ghi chú |
-|-------|----------|--------|
-| `teacherId` | Có | = id user teacher |
-| `rideDate` | Không | Mặc định ngày UTC trong service |
-| `atTime` | Không | Giờ tham chiếu cho `isRunningNow` / gợi ý ca |
+
+| Query       | Bắt buộc | Ghi chú                                      |
+| ----------- | -------- | -------------------------------------------- |
+| `teacherId` | Có       | = id user teacher                            |
+| `rideDate`  | Không    | Mặc định ngày UTC trong service              |
+| `atTime`    | Không    | Giờ tham chiếu cho `isRunningNow` / gợi ý ca |
+
 
 **Lỗi:** *"Giáo viên chưa được phân công xe"* — không có `BusAssignment` với `TeacherId`.  
 **Lỗi:** *"Giáo viên không có lịch chạy nào trong ngày đã chọn"* — không có `BusSchedule` khớp.
@@ -84,7 +88,7 @@ POST /api/Attendance/ManualCheckIn  { studentId, busId, stationId, date?, time?,
 - `studentCode` là mã trong DB (`Student.StudentCode`), ví dụ `STU20260001`.
 - Nếu mã có ký tự đặc biệt, **encode** đúng trong URL.
 
-**Response `data`:** `StudentDto` — cần **`id`** = `studentId` cho bước sau.
+**Response `data`:** `StudentDto` — cần `**id`** = `studentId` cho bước sau.
 
 ### 3.3 Check-in thủ công
 
@@ -101,10 +105,10 @@ POST /api/Attendance/ManualCheckIn  { studentId, busId, stationId, date?, time?,
 }
 ```
 
-- **`date` / `time`:** null → server dùng **ngày/giờ hiện tại** (theo code `AttendanceService`).
-- **`imageUrl`:** tuỳ chọn (ảnh minh chứng nếu có upload trước).
+- `**date` / `time`:** null → server dùng **ngày/giờ hiện tại** (theo code `AttendanceService`).
+- `**imageUrl`:** tuỳ chọn (ảnh minh chứng nếu có upload trước).
 
-Sau khi thành công, bản ghi attendance có **`method`** kiểu **MANUAL** (theo enum lưu DB).
+Sau khi thành công, bản ghi attendance có `**method`** kiểu **MANUAL** (theo enum lưu DB).
 
 **Lỗi thường gặp:** trạm không thuộc route của bus trong ngày; bus chưa có lịch; HS đã check-in mà chưa check-out (phải **ManualCheckOut** trước khi check-in lại cùng ngày — xem logic trong `AttendanceService`).
 
@@ -180,7 +184,7 @@ Sau khi thành công, bản ghi attendance có **`method`** kiểu **MANUAL** (t
 ## 5. Gợi ý UI
 
 1. Màn **“Hôm nay”**: gọi `TeacherSchedules` với `rideDate` = ngày làm việc (lưu ý UTC vs local).
-2. User chọn **một ca** → cố định **`busId`** (và biết **`busScheduleId`** nếu cần gọi `Current`).
+2. User chọn **một ca** → cố định `**busId`** (và biết `**busScheduleId`** nếu cần gọi `Current`).
 3. Ô nhập **MASV** → `GetByCode` → hiển thị tên HS; nếu lỗi → “Không tìm thấy mã”.
 4. Chọn **trạm** trong danh sách trạm của tuyến (hoặc trạm mặc định theo nghiệp vụ).
 5. Nút **Check-in** → `ManualCheckIn`. Sau đó có thể **Check-out** bằng `ManualCheckOut` khi xuống xe (nếu quy trình có 2 bước).
@@ -189,12 +193,14 @@ Sau khi thành công, bản ghi attendance có **`method`** kiểu **MANUAL** (t
 
 ## 6. File tham chiếu trong repo
 
-| Thành phần | File |
-|------------|------|
-| Lịch teacher | `BusTripProgressController.TeacherSchedules`, `BusTripProgressService.GetTeacherSchedulesAsync` |
-| Tra HS theo mã | `StudentController.GetByCode`, `StudentService.GetStudentByCodeAsync` |
-| Điểm danh thủ công | `AttendanceController.ManualCheckIn` / `ManualCheckOut`, `AttendanceService` |
-| DTO | `AttendanceManualDto`, `Dto/BusTripProgress/BusTripProgressDriverScheduleDto.cs` (dùng chung cho driver/teacher) |
+
+| Thành phần         | File                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Lịch teacher       | `BusTripProgressController.TeacherSchedules`, `BusTripProgressService.GetTeacherSchedulesAsync`                  |
+| Tra HS theo mã     | `StudentController.GetByCode`, `StudentService.GetStudentByCodeAsync`                                            |
+| Điểm danh thủ công | `AttendanceController.ManualCheckIn` / `ManualCheckOut`, `AttendanceService`                                     |
+| DTO                | `AttendanceManualDto`, `Dto/BusTripProgress/BusTripProgressDriverScheduleDto.cs` (dùng chung cho driver/teacher) |
+
 
 ---
 

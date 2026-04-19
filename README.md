@@ -143,6 +143,7 @@ dotnet run
 
 ## Ghi chú
 
+- Tích hợp Firebase FCM (cấu hình, QA, payload push, Docker Compose): xem [docs/firebase-fcm-integration.md](docs/firebase-fcm-integration.md) và [docs/push-notification-payload.md](docs/push-notification-payload.md); file [docker-compose.yml](docker-compose.yml) mount thư mục `firebase/` và biến `Firebase__*`.
 - Thư mục entity trong dự án hiện tại là `Entites`.
 - Nếu bạn vừa thêm entity mới và cần tạo migration:
 

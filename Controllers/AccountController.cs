@@ -39,7 +39,7 @@ namespace BE_API.Controllers
 
         [Authorize]
         [HttpGet("[action]")]
-        [SwaggerOperation(Summary = "Lấy thông tin tài khoản hiện tại", Description = "Lấy profile user hiện tại trực tiếp từ token.")]
+        [SwaggerOperation(Summary = "Lấy thông tin tài khoản hiện tại", Description = "Lấy profile user hiện tại trực tiếp từ token. Field deviceToken phản ánh FCM token đã lưu khi login — mobile dùng để xác nhận tích hợp push.")]
         public async Task<IActionResult> Me()
         {
             var response = new ResponseDto();

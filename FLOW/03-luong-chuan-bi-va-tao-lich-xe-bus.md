@@ -8,15 +8,17 @@ Tài liệu mô tả **toàn bộ các bước cần có** (và các bước **n
 
 Controller dùng `BE_API.Dto.Common.ResponseDto`:
 
-| Field (JSON) | Kiểu | Ghi chú |
-|--------------|------|--------|
-| `message` | `string \| null` | Thông báo thành công hoặc lỗi |
-| `data` | `object \| array \| null` | Payload; có endpoint **tạo** chỉ trả `message`, **`data` có thể vắng / null** |
+
+| Field (JSON) | Kiểu    | Ghi chú |
+| ------------ | ------- | ------- |
+| `message`    | `string | null`   |
+| `data`       | `object | array   |
+
 
 - **Header:** `Content-Type: application/json` cho body JSON.
 - **Tên thuộc tính:** mặc định ASP.NET Core serialize **camelCase** (`busId`, `startDate`, `stationIds`, …).
-- **`TimeSpan`:** gửi/nhận dạng chuỗi **`"HH:mm:ss"`** (ví dụ `"06:00:00"`, `"17:30:00"`).
-- **`DateTime`:** ISO 8601 (ví dụ `"2026-04-21T00:00:00Z"` hoặc `"2026-04-21"` — phần ngày vẫn được service normalize).
+- `**TimeSpan`:** gửi/nhận dạng chuỗi `**"HH:mm:ss"`** (ví dụ `"06:00:00"`, `"17:30:00"`).
+- `**DateTime`:** ISO 8601 (ví dụ `"2026-04-21T00:00:00Z"` hoặc `"2026-04-21"` — phần ngày vẫn được service normalize).
 
 **Thành công (200):**
 
@@ -36,7 +38,7 @@ Controller dùng `BE_API.Dto.Common.ResponseDto`:
 }
 ```
 
-FE nên đọc **`message`** để hiển thị; **`data`** tuỳ endpoint (có thể `null`).
+FE nên đọc `**message**` để hiển thị; `**data**` tuỳ endpoint (có thể `null`).
 
 **Phân trang `PagedResult<T>`** (Search nhiều màn): `data` có dạng:
 
@@ -56,17 +58,19 @@ FE nên đọc **`message`** để hiển thị; **`data`** tuỳ endpoint (có 
 
 ## Mục tiêu cuối
 
-Gọi **`POST /api/BusSchedule/Create`** với `BusScheduleCreateDto` và nhận **200** + `data` là `BusScheduleDto`, không bị lỗi validate (bus/route/campus/ngày giờ/trùng lịch/`ShiftType`/`DayOfWeek`).
+Gọi `**POST /api/BusSchedule/Create**` với `BusScheduleCreateDto` và nhận **200** + `data` là `BusScheduleDto`, không bị lỗi validate (bus/route/campus/ngày giờ/trùng lịch/`ShiftType`/`DayOfWeek`).
 
 ---
 
 ## Phân loại bước
 
-| Loại | Nội dung |
-|------|----------|
+
+| Loại                                       | Nội dung                                                                                                                                                  |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Bắt buộc (theo ràng buộc khi tạo lịch)** | Có **xe** `ACTIVE`, có **tuyến** bật (`IsEnabled`) thuộc **campus** đang hoạt động — tức là trước đó phải có **campus**, **trạm**, **tuyến** (và **xe**). |
-| **Không bắt buộc để tạo bản ghi lịch** | **Phân công** tài xế / cán bộ (`BusAssignment`). Service tạo lịch **không** kiểm tra đã phân công hay chưa. |
-| **Nên làm trước khi chạy thực tế** | Tạo user **driver** / **teacher** và **BusAssignment** để app tài xế (`GetDriverSchedules`, xác nhận trạm, …) hoạt động đúng nghiệp vụ. |
+| **Không bắt buộc để tạo bản ghi lịch**     | **Phân công** tài xế / cán bộ (`BusAssignment`). Service tạo lịch **không** kiểm tra đã phân công hay chưa.                                               |
+| **Nên làm trước khi chạy thực tế**         | Tạo user **driver** / **teacher** và **BusAssignment** để app tài xế (`GetDriverSchedules`, xác nhận trạm, …) hoạt động đúng nghiệp vụ.                   |
+
 
 ---
 
@@ -101,6 +105,8 @@ flowchart TB
   A -.->|không chặn trong code| S
 ```
 
+
+
 Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo trước hoặc sau campus/trạm; **tuyến** bắt buộc sau khi đã có campus + trạm dùng trong `StationIds`.
 
 ---
@@ -109,10 +115,12 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 **Mục đích:** `BusRoute` cần `CampusId`; khi tạo lịch, `ValidateRouteAsync` kiểm tra **campus của tuyến đang active**.
 
-| | |
-|---|---|
-| **Tạo** | `POST /api/Campus/Create` — `CampusCreateDto` |
+
+|             |                                                                                |
+| ----------- | ------------------------------------------------------------------------------ |
+| **Tạo**     | `POST /api/Campus/Create` — `CampusCreateDto`                                  |
 | **Tra cứu** | `GET /api/Campus/Search`, `GET /api/Campus/Active`, `GET /api/Campus/Get/{id}` |
+
 
 **Lưu ý:** Campus phải ở trạng thái hoạt động (`IsActive`) thì tuyến mới pass validate khi tạo lịch.
 
@@ -129,7 +137,7 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 }
 ```
 
-**Response 200 — tạo thành công:** controller **không** gán `data` — FE nhận `message`, `data` thường **`null`**; lấy `campusId` bằng `GET /api/Campus/Search` / `Active` / `Get/{id}`.
+**Response 200 — tạo thành công:** controller **không** gán `data` — FE nhận `message`, `data` thường `**null`**; lấy `campusId` bằng `GET /api/Campus/Search` / `Active` / `Get/{id}`.
 
 ```json
 {
@@ -140,7 +148,7 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 *(Chuỗi `message` đúng theo hằng trong controller; có thể không có dấu chấm cuối.)*
 
-**Response 200 — `GET /api/Campus/Get/{id}`** (`data` là `CampusDto`):
+**Response 200 — `GET /api/Campus/Get/{id}*`* (`data` là `CampusDto`):
 
 ```json
 {
@@ -157,7 +165,7 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 }
 ```
 
-**Response 200 — `GET /api/Campus/Search?keyword=&page=1&pageSize=10`:** `data` là **`PagedResult<CampusDto>`** (xem mục envelope).
+**Response 200 — `GET /api/Campus/Search?keyword=&page=1&pageSize=10`:** `data` là `**PagedResult<CampusDto>`** (xem mục envelope).
 
 ---
 
@@ -165,10 +173,12 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 **Mục đích:** `BusRouteCreateDto` **bắt buộc** có `StationIds` **không rỗng** (service báo lỗi nếu danh sách trống). Thứ tự phần tử trong `StationIds` quyết định thứ tự trên tuyến (`OrderIndex` 1, 2, …).
 
-| | |
-|---|---|
-| **Tạo** | `POST /api/BusStation/Create` — `BusStationCreateDto` |
+
+|             |                                                              |
+| ----------- | ------------------------------------------------------------ |
+| **Tạo**     | `POST /api/BusStation/Create` — `BusStationCreateDto`        |
 | **Tra cứu** | `GET /api/BusStation/Search`, `GET /api/BusStation/Get/{id}` |
+
 
 **Request — `POST /api/BusStation/Create`**
 
@@ -183,7 +193,7 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 }
 ```
 
-**Response 200 — tạo:** `message` thành công, **`data` thường `null`** — lấy `stationId` qua Search/Get.
+**Response 200 — tạo:** `message` thành công, `**data` thường `null`** — lấy `stationId` qua Search/Get.
 
 **Response 200 — `GET /api/BusStation/Get/{id}`** (`BusStationDto`):
 
@@ -206,16 +216,18 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 ## Bước 3 — Xe bus (Bus)
 
-**Mục đích:** `BusScheduleCreateDto.BusId` trỏ tới xe; `ValidateBusAsync` yêu cầu xe **tồn tại** và `Status` = **`ACTIVE`** (so sánh không phân biệt hoa thường).
+**Mục đích:** `BusScheduleCreateDto.BusId` trỏ tới xe; `ValidateBusAsync` yêu cầu xe **tồn tại** và `Status` = `**ACTIVE`** (so sánh không phân biệt hoa thường).
 
-| | |
-|---|---|
-| **Tạo** | `POST /api/Bus/Create` — `BusCreateDto` |
+
+|             |                                                |
+| ----------- | ---------------------------------------------- |
+| **Tạo**     | `POST /api/Bus/Create` — `BusCreateDto`        |
 | **Tra cứu** | `GET /api/Bus/Search`, `GET /api/Bus/Get/{id}` |
+
 
 **Lưu ý:**
 
-- Nếu không gửi `status` khi tạo xe, `BusService` mặc định **`ACTIVE`**.
+- Nếu không gửi `status` khi tạo xe, `BusService` mặc định `**ACTIVE`**.
 - `GET /api/Bus/GetByCampus/{campusId}` chỉ trả xe **đã có lịch** gắn tuyến thuộc campus — xe mới chưa có lịch có thể **không** có trong API này; dùng `Search` / `Get/{id}` để lấy `busId`.
 
 **Request — `POST /api/Bus/Create`**
@@ -232,7 +244,7 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 }
 ```
 
-**Response 200 — tạo:** **`data` không có trong response** — dùng `GET /api/Bus/Search` hoặc `Get/{id}` để lấy `busId`.
+**Response 200 — tạo:** `**data` không có trong response** — dùng `GET /api/Bus/Search` hoặc `Get/{id}` để lấy `busId`.
 
 ```json
 {
@@ -263,12 +275,14 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 ## Bước 4 — Tuyến xe (BusRoute)
 
-**Mục đích:** Có `RouteId` hợp lệ cho lịch. `ValidateRouteAsync` yêu cầu tuyến tồn tại, **`IsEnabled`**, và **campus** của tuyến **active**.
+**Mục đích:** Có `RouteId` hợp lệ cho lịch. `ValidateRouteAsync` yêu cầu tuyến tồn tại, `**IsEnabled`**, và **campus** của tuyến **active**.
 
-| | |
-|---|---|
-| **Tạo** | `POST /api/BusRoute/Create` — `BusRouteCreateDto` (`Name`, `CampusId`, `StationIds`) |
-| **Tra cứu** | `GET /api/BusRoute/Get/{id}`, `GET /api/BusRoute/Search`, … |
+
+|             |                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------ |
+| **Tạo**     | `POST /api/BusRoute/Create` — `BusRouteCreateDto` (`Name`, `CampusId`, `StationIds`) |
+| **Tra cứu** | `GET /api/BusRoute/Get/{id}`, `GET /api/BusRoute/Search`, …                          |
+
 
 **Request — `POST /api/BusRoute/Create`**
 
@@ -317,15 +331,17 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 **Mục đích nghiệp vụ:** Gán người vận hành cho xe để luồng tài xế (lịch trong ngày, tiến trình trạm) có dữ liệu đúng. **Tạo `BusSchedule` không đọc bảng phân công** trong code hiện tại.
 
-| | |
-|---|---|
-| **Tạo user** | `POST /api/User/CreateDriver` (`DriverCreateDto`), `POST /api/User/CreateTeacher` (`TeacherCreateDto`) |
+
+|               |                                                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Tạo user**  | `POST /api/User/CreateDriver` (`DriverCreateDto`), `POST /api/User/CreateTeacher` (`TeacherCreateDto`)                              |
 | **Phân công** | `POST /api/BusAssignment/Create` — `BusAssignmentCreateDto`: `BusId`, `DriverId`, `TeacherId` (user đúng role `driver` / `teacher`) |
-| **Tra cứu** | `GET /api/User/Search`, `GET /api/BusAssignment/Search` |
+| **Tra cứu**   | `GET /api/User/Search`, `GET /api/BusAssignment/Search`                                                                             |
+
 
 `BusAssignmentService`: nếu đã có phân công cho **cùng xe** thì **cập nhật** driver/teacher (upsert theo `BusId`).
 
-**Request — `POST /api/User/CreateDriver`**
+**Request — `POST /api/User/CreateDriver*`*
 
 ```json
 {
@@ -435,23 +451,27 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 ## Bước 6 — Tạo lịch chạy (BusSchedule)
 
-| | |
-|---|---|
+
+|          |                                |
+| -------- | ------------------------------ |
 | **HTTP** | `POST /api/BusSchedule/Create` |
-| **Body** | `BusScheduleCreateDto` |
+| **Body** | `BusScheduleCreateDto`         |
+
 
 **Field (camelCase JSON)**
 
-| Field | Kiểu | Ghi chú |
-|-------|------|--------|
-| `busId` | number | Xe `ACTIVE` |
-| `routeId` | number | Tuyến bật, campus active |
+
+| Field       | Kiểu                   | Ghi chú                             |
+| ----------- | ---------------------- | ----------------------------------- |
+| `busId`     | number                 | Xe `ACTIVE`                         |
+| `routeId`   | number                 | Tuyến bật, campus active            |
 | `startDate` | string (ISO date/time) | Sau normalize chỉ còn **phần ngày** |
-| `endDate` | string \| null | Tuỳ chọn |
-| `startTime` | string | `"HH:mm:ss"` |
-| `endTime` | string | `"HH:mm:ss"` |
-| `dayOfWeek` | number | **0–6**: Thứ Hai = 0 … Chủ nhật = 6 |
-| `shiftType` | string | `PICKUP` \| `DROPOFF` \| `ROUNDTRIP` |
+| `endDate`   | string                 | null                                |
+| `startTime` | string                 | `"HH:mm:ss"`                        |
+| `endTime`   | string                 | `"HH:mm:ss"`                        |
+| `dayOfWeek` | number                 | **0–6**: Thứ Hai = 0 … Chủ nhật = 6 |
+| `shiftType` | string                 | `PICKUP`                            |
+
 
 **Request — `POST /api/BusSchedule/Create`**
 
@@ -522,25 +542,25 @@ Thứ tự **xe / campus / trạm** có thể linh hoạt: xe có thể tạo tr
 
 ### Ràng buộc trong `BusScheduleService`
 
-1. **Bus:** tồn tại, **`ACTIVE`**.
-2. **Route:** tồn tại, **`IsEnabled`**, campus của tuyến **active**.
-3. **`NormalizeSchedule` (tạo mới, `requireFutureStartDate: true`):**
-   - **`StartDate` phải lớn hơn ngày hiện tại theo `DateTime.UtcNow.Date`** (không được bằng “hôm nay”).
-   - Nếu có `EndDate`: `EndDate >= StartDate`.
-   - `EndTime > StartTime`.
-   - `DayOfWeek` chỉ **0–6**.
-4. **`ShiftType`:** sau chuẩn hoá phải là **`PICKUP`**, **`DROPOFF`**, hoặc **`ROUNDTRIP`** (không phân biệt hoa thường lúc gửi; lưu dạng upper).
-5. **`EnsureBusScheduleNotOverlappedAsync`:** không trùng khung giờ trên **cùng xe** và **cùng `DayOfWeek`** với lịch khác có giao cắt khoảng ngày hiệu lực (điều kiện thời gian trong service).
+1. **Bus:** tồn tại, `**ACTIVE`**.
+2. **Route:** tồn tại, `**IsEnabled`**, campus của tuyến **active**.
+3. `**NormalizeSchedule` (tạo mới, `requireFutureStartDate: true`):**
+  - `**StartDate` phải lớn hơn ngày hiện tại theo `DateTime.UtcNow.Date`** (không được bằng “hôm nay”).
+  - Nếu có `EndDate`: `EndDate >= StartDate`.
+  - `EndTime > StartTime`.
+  - `DayOfWeek` chỉ **0–6**.
+4. `**ShiftType`:** sau chuẩn hoá phải là `**PICKUP`**, `**DROPOFF`**, hoặc `**ROUNDTRIP**` (không phân biệt hoa thường lúc gửi; lưu dạng upper).
+5. `**EnsureBusScheduleNotOverlappedAsync`:** không trùng khung giờ trên **cùng xe** và **cùng `DayOfWeek`** với lịch khác có giao cắt khoảng ngày hiệu lực (điều kiện thời gian trong service).
 
 ### Quy ước `DayOfWeek` (quan trọng)
 
-Hệ thống dùng **`ScheduleDayOfWeek.FromDate`** (`BE_API.Common.ScheduleDayOfWeek`):
+Hệ thống dùng `**ScheduleDayOfWeek.FromDate**` (`BE_API.Common.ScheduleDayOfWeek`):
 
 - **Thứ Hai = 0**, …, **Chủ nhật = 6**.
 
-Khi tạo lịch, gửi **`DayOfWeek` đúng quy ước này** để:
+Khi tạo lịch, gửi `**DayOfWeek` đúng quy ước này** để:
 
-- `GetBusSchedulesAtTime` và **`BusTripProgressService.ValidateScheduleAsync`** so khớp ngày chạy với `schedule.DayOfWeek` **nhất quán**.
+- `GetBusSchedulesAtTime` và `**BusTripProgressService.ValidateScheduleAsync`** so khớp ngày chạy với `schedule.DayOfWeek` **nhất quán**.
 
 *(Không dùng trực tiếp `System.DayOfWeek` — Chủ nhật = 0 — cho trường lưu trong DB.)*
 
@@ -552,21 +572,21 @@ Khi tạo lịch, gửi **`DayOfWeek` đúng quy ước này** để:
 
 ## Checklist trước khi `POST /api/BusSchedule/Create`
 
-- [ ] Đã có `campusId` và campus **active**.
-- [ ] Đã có ít nhất một `stationId` và đã gắn vào tuyến qua `StationIds`.
-- [ ] Đã có `routeId` (tuyến **enabled**).
-- [ ] Đã có `busId` (xe **ACTIVE**).
-- [ ] `StartDate` **> hôm nay (UTC date)**.
-- [ ] `StartTime` / `EndTime` / `EndDate` (nếu có) hợp lệ.
-- [ ] `DayOfWeek` **0–6** theo quy ước **Thứ Hai = 0 … Chủ nhật = 6**.
-- [ ] `ShiftType` thuộc một trong **PICKUP / DROPOFF / ROUNDTRIP**.
-- [ ] Không trùng lịch với lịch khác của cùng xe (cùng ngày trong tuần và khung giờ).
+- Đã có `campusId` và campus **active**.
+- Đã có ít nhất một `stationId` và đã gắn vào tuyến qua `StationIds`.
+- Đã có `routeId` (tuyến **enabled**).
+- Đã có `busId` (xe **ACTIVE**).
+- `StartDate` **> hôm nay (UTC date)**.
+- `StartTime` / `EndTime` / `EndDate` (nếu có) hợp lệ.
+- `DayOfWeek` **0–6** theo quy ước **Thứ Hai = 0 … Chủ nhật = 6**.
+- `ShiftType` thuộc một trong **PICKUP / DROPOFF / ROUNDTRIP**.
+- Không trùng lịch với lịch khác của cùng xe (cùng ngày trong tuần và khung giờ).
 
 ---
 
 ## Ví dụ `GET` có phân trang (FE map `data.items`)
 
-**`GET /api/Campus/Search?keyword=&page=1&pageSize=10`**
+`**GET /api/Campus/Search?keyword=&page=1&pageSize=10`**
 
 ```json
 {
@@ -590,24 +610,26 @@ Khi tạo lịch, gửi **`DayOfWeek` đúng quy ước này** để:
 }
 ```
 
-**`GET /api/Bus/Search?keyword=&page=1&pageSize=10`** — cùng cấu trúc `data`, `items` là mảng `BusDto`.
+`**GET /api/Bus/Search?keyword=&page=1&pageSize=10**` — cùng cấu trúc `data`, `items` là mảng `BusDto`.
 
-**`GET /api/User/Search?role=driver&page=1&pageSize=10`** — `items` là mảng `UserDto` (dùng `id` làm `driverId` / `teacherId`).
+`**GET /api/User/Search?role=driver&page=1&pageSize=10**` — `items` là mảng `UserDto` (dùng `id` làm `driverId` / `teacherId`).
 
-**`GET /api/BusRoute/Search?campusId=1&page=1&pageSize=10`** — `items` là mảng `BusRouteDto` (thường gọn hơn bản `Get/{id}` tùy service; để đủ trạm + `orderIndex` nên dùng **`Get /api/BusRoute/Get/{id}`** sau khi có `routeId`).
+`**GET /api/BusRoute/Search?campusId=1&page=1&pageSize=10**` — `items` là mảng `BusRouteDto` (thường gọn hơn bản `Get/{id}` tùy service; để đủ trạm + `orderIndex` nên dùng `**Get /api/BusRoute/Get/{id}**` sau khi có `routeId`).
 
 ---
 
 ## Bảng tóm tắt endpoint (theo luồng này)
 
-| Bước | POST / hành động chính | GET tra cứu (ví dụ) |
-|------|-------------------------|----------------------|
-| Campus | `POST /api/Campus/Create` | Search / Get |
-| Trạm | `POST /api/BusStation/Create` | Search |
-| Xe | `POST /api/Bus/Create` | `GET /api/Bus/Search`, `GET /api/Bus/Get/{id}` |
-| Tuyến | `POST /api/BusRoute/Create` | `GET /api/BusRoute/Get/{id}`, Search |
-| User + Phân công (khuyến nghị) | `POST /api/User/CreateDriver`, `CreateTeacher`, `POST /api/BusAssignment/Create` | `GET /api/User/Search`, `GET /api/BusAssignment/Search` |
-| Lịch | `POST /api/BusSchedule/Create` | `GET /api/BusSchedule/GetByBus/{busId}`, `Get/{id}`, Search |
+
+| Bước                           | POST / hành động chính                                                           | GET tra cứu (ví dụ)                                         |
+| ------------------------------ | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Campus                         | `POST /api/Campus/Create`                                                        | Search / Get                                                |
+| Trạm                           | `POST /api/BusStation/Create`                                                    | Search                                                      |
+| Xe                             | `POST /api/Bus/Create`                                                           | `GET /api/Bus/Search`, `GET /api/Bus/Get/{id}`              |
+| Tuyến                          | `POST /api/BusRoute/Create`                                                      | `GET /api/BusRoute/Get/{id}`, Search                        |
+| User + Phân công (khuyến nghị) | `POST /api/User/CreateDriver`, `CreateTeacher`, `POST /api/BusAssignment/Create` | `GET /api/User/Search`, `GET /api/BusAssignment/Search`     |
+| Lịch                           | `POST /api/BusSchedule/Create`                                                   | `GET /api/BusSchedule/GetByBus/{busId}`, `Get/{id}`, Search |
+
 
 ---
 

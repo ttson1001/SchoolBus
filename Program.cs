@@ -147,23 +147,36 @@ static void EnsureMigrate(WebApplication webApp)
 
 static void EnsureFirebaseInitialized(WebApplication webApp)
 {
+    var logger = webApp.Logger;
     var settings = webApp.Configuration.GetSection("Firebase").Get<FirebaseSettings>() ?? new FirebaseSettings();
 
     if (!settings.Enabled)
+    {
+        logger.LogInformation("Firebase: disabled (Firebase:Enabled=false). Push notifications will not be sent.");
         return;
+    }
 
     if (FirebaseApp.DefaultInstance != null)
+    {
+        logger.LogInformation("Firebase Admin SDK already initialized.");
         return;
+    }
 
     if (string.IsNullOrWhiteSpace(settings.CredentialsPath))
+    {
+        logger.LogWarning("Firebase: Enabled but CredentialsPath is empty; Admin SDK will not initialize.");
         return;
+    }
 
     var credentialPath = Path.IsPathRooted(settings.CredentialsPath)
         ? settings.CredentialsPath
         : Path.Combine(webApp.Environment.ContentRootPath, settings.CredentialsPath);
 
     if (!File.Exists(credentialPath))
+    {
+        logger.LogWarning("Firebase: credentials file not found at {CredentialPath}; Admin SDK will not initialize.", credentialPath);
         return;
+    }
 
     var appOptions = new AppOptions
     {
@@ -173,5 +186,14 @@ static void EnsureFirebaseInitialized(WebApplication webApp)
     if (!string.IsNullOrWhiteSpace(settings.ProjectId))
         appOptions.ProjectId = settings.ProjectId;
 
-    FirebaseApp.Create(appOptions);
+    try
+    {
+        FirebaseApp.Create(appOptions);
+        logger.LogInformation("Firebase Admin SDK initialized successfully (ProjectId={ProjectId}).",
+            string.IsNullOrWhiteSpace(settings.ProjectId) ? "(default)" : settings.ProjectId);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Firebase: failed to create FirebaseApp. Push will be unavailable until configuration is fixed.");
+    }
 }
