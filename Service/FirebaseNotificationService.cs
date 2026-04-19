@@ -27,17 +27,28 @@ namespace BE_API.Service
             IDictionary<string, string>? data = null,
             CancellationToken cancellationToken = default)
         {
+            var (sent, _) = await SendDiagnosticAsync(deviceToken, title, body, data, cancellationToken);
+            return sent;
+        }
+
+        public async Task<(bool Sent, string Detail)> SendDiagnosticAsync(
+            string? deviceToken,
+            string title,
+            string body,
+            IDictionary<string, string>? data = null,
+            CancellationToken cancellationToken = default)
+        {
             if (!_firebaseSettings.Enabled)
-                return false;
+                return (false, "Firebase:Enabled = false trong cấu hình (appsettings hoặc Firebase__Enabled).");
 
             if (string.IsNullOrWhiteSpace(deviceToken))
-                return false;
+                return (false, "Thiếu FCM registration token (device token rỗng).");
 
             var app = FirebaseApp.DefaultInstance;
             if (app == null)
             {
                 _logger.LogWarning("Firebase chưa được khởi tạo nên không thể gửi push notification.");
-                return false;
+                return (false, "Firebase Admin SDK chưa khởi tạo. Kiểm tra Firebase:CredentialsPath, file JSON tồn tại, và log lúc start API.");
             }
 
             var message = new Message
@@ -59,12 +70,12 @@ namespace BE_API.Service
             {
                 var messaging = FirebaseMessaging.GetMessaging(app);
                 await messaging.SendAsync(message, cancellationToken);
-                return true;
+                return (true, "Đã gửi tới FCM thành công.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Gửi Firebase notification thất bại cho device token.");
-                return false;
+                return (false, $"Lỗi từ FCM: {ex.Message}");
             }
         }
     }

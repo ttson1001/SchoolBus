@@ -56,7 +56,7 @@ namespace BE_API.Controllers
             }
 
             var token = dto.DeviceIdToken.Trim();
-            var sent = await _firebaseNotification.SendAsync(
+            var (sent, detail) = await _firebaseNotification.SendDiagnosticAsync(
                 token,
                 "SchoolBus — test FCM (public)",
                 "Nếu bạn nhận được tin này, token và Firebase backend đang hoạt động.",
@@ -65,10 +65,10 @@ namespace BE_API.Controllers
                     ["type"] = "PUBLIC_TEST"
                 });
 
-            response.Data = new { sent };
+            response.Data = new { sent, detail };
             response.Message = sent
                 ? "Đã gửi tin thử qua FCM."
-                : "Không gửi được (Firebase tắt, chưa khởi tạo SDK, hoặc token không hợp lệ). Kiểm tra cấu hình và log server.";
+                : detail;
             return Ok(response);
         }
     }

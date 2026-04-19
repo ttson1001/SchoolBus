@@ -244,7 +244,7 @@ DTO dùng `**studentId` kiểu `int`**. Nếu `Student.Id` trong DB vượt `int
 
 Cấu trúc thực tế phụ thuộc bản FaceAI đang chạy.
 
-*Nếu triển khai FaceAI **bắt buộc** có subject trước khi gắn ảnh, gọi `CreateStudent` rồi mới `AddStudentFace`; nếu không, **chỉ `AddStudentFace`** là đủ cho luồng đơn giản.*
+*Nếu triển khai FaceAI **bắt buộc** có subject trước khi gắn ảnh, gọi `CreateStudent` rồi mới `AddStudentFace`; nếu không, **chỉ `AddStudentFace*`* là đủ cho luồng đơn giản.*
 
 #### (Tuỳ chọn) GET danh sách face metadata
 

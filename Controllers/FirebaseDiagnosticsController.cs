@@ -89,16 +89,16 @@ namespace BE_API.Controllers
                 if (string.IsNullOrWhiteSpace(token))
                     throw new Exception("Không có deviceToken: truyền trong body hoặc lưu token qua Login rồi gọi lại.");
 
-                var sent = await _firebaseNotification.SendAsync(
+                var (sent, detail) = await _firebaseNotification.SendDiagnosticAsync(
                     token,
                     "SchoolBus — thử nghiệm FCM",
                     "Nếu bạn thấy thông báo này, tích hợp Firebase đang hoạt động.",
                     new Dictionary<string, string> { ["type"] = "TEST", ["userId"] = userId.ToString() });
 
-                response.Data = new { sent };
+                response.Data = new { sent, detail };
                 response.Message = sent
                     ? "Đã gửi tin thử qua FCM."
-                    : "Không gửi được (Firebase tắt, chưa init, hoặc token rỗng). Xem GET Status và log server.";
+                    : detail;
                 return Ok(response);
             }
             catch (Exception ex)
