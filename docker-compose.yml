@@ -22,5 +22,5 @@ services:
       - "5280:5280"
     volumes:
       # Thư mục firebase/ chứa file Admin SDK JSON (đã gitignore); chỉ đọc trong container
-      - ./firebase:/app/firebase:ro
+      - /root/SchoolBus/firebase:/app/firebase:ro
     restart: unless-stopped
