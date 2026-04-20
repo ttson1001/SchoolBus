@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.Common;
 using BE_API.Dto.Student;
 using BE_API.Dto.User;
@@ -16,15 +17,18 @@ namespace BE_API.Service
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Campus> _campusRepo;
+        private readonly IAppTime _appTime;
 
         public StudentService(
             IRepository<Student> studentRepo,
             IRepository<User> userRepo,
-            IRepository<Campus> campusRepo)
+            IRepository<Campus> campusRepo,
+            IAppTime appTime)
         {
             _studentRepo = studentRepo;
             _userRepo = userRepo;
             _campusRepo = campusRepo;
+            _appTime = appTime;
         }
 
         public async Task<PagedResult<StudentDto>> SearchStudentAsync(string? keyword, long? campusId, long? guardianId, string? status, int page, int pageSize)
@@ -547,13 +551,13 @@ namespace BE_API.Service
             return normalizedAvatarUrl;
         }
 
-        private static DateTime ValidateDateOfBirth(DateTime? dateOfBirth)
+        private DateTime ValidateDateOfBirth(DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue)
                 throw new Exception("DateOfBirth không được để trống");
 
             var normalizedDate = dateOfBirth.Value.Date;
-            var today = DateTime.UtcNow.Date;
+            var today = _appTime.TodayDate;
 
             if (normalizedDate >= today)
                 throw new Exception("DateOfBirth phải nhỏ hơn ngày hiện tại");

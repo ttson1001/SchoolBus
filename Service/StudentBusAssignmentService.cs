@@ -19,6 +19,7 @@ namespace BE_API.Service
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
         private readonly IRepository<Order> _orderRepo;
+        private readonly IAppTime _appTime;
 
         public StudentBusAssignmentService(
             IRepository<StudentBusAssignment> assignmentRepo,
@@ -28,7 +29,8 @@ namespace BE_API.Service
             IRepository<BusRoute> routeRepo,
             IRepository<BusRouteStation> routeStationRepo,
             IRepository<BusAssignment> busAssignmentRepo,
-            IRepository<Order> orderRepo)
+            IRepository<Order> orderRepo,
+            IAppTime appTime)
         {
             _assignmentRepo = assignmentRepo;
             _studentRepo = studentRepo;
@@ -38,6 +40,7 @@ namespace BE_API.Service
             _routeStationRepo = routeStationRepo;
             _busAssignmentRepo = busAssignmentRepo;
             _orderRepo = orderRepo;
+            _appTime = appTime;
         }
 
         public async Task<PagedResult<StudentBusAssignmentDto>> SearchAsync(
@@ -209,7 +212,7 @@ namespace BE_API.Service
 
             var studentId = dto.StudentId ?? assignment.StudentId;
             var routeId = dto.RouteId ?? assignment.RouteId;
-            var rideDate = (dto.RideDate ?? assignment.RideDate ?? DateTime.Now).Date;
+            var rideDate = (dto.RideDate ?? assignment.RideDate ?? _appTime.TodayDate).Date;
             ValidateRideDate(rideDate);
             var pickupStationId = dto.PickupStationId ?? assignment.PickupStationId
                 ?? throw new Exception("PickupStationId khong duoc de trong");
@@ -243,7 +246,7 @@ namespace BE_API.Service
                 ?? throw new Exception("Student bus assignment khong ton tai");
 
             var studentId = dto.StudentId ?? assignment.StudentId;
-            var rideDate = (dto.RideDate ?? assignment.RideDate ?? DateTime.Now).Date;
+            var rideDate = (dto.RideDate ?? assignment.RideDate ?? _appTime.TodayDate).Date;
             ValidateRideDate(rideDate);
             var busScheduleId = dto.BusScheduleId ?? throw new Exception("BusScheduleId khong duoc de trong");
             var routeId = await ResolveRouteIdFromScheduleAsync(busScheduleId, rideDate);
@@ -449,9 +452,9 @@ namespace BE_API.Service
             return (pickupStation, dropOffStation);
         }
 
-        private static void ValidateRideDate(DateTime rideDate)
+        private void ValidateRideDate(DateTime rideDate)
         {
-            if (rideDate < DateTime.Today)
+            if (rideDate.Date < _appTime.TodayDate)
                 throw new Exception("RideDate phai la hom nay hoac trong tuong lai");
         }
 

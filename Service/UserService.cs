@@ -1,4 +1,5 @@
-﻿using BE_API.Dto.Common;
+﻿using BE_API.Common;
+using BE_API.Dto.Common;
 using BE_API.Dto.User;
 using BE_API.Entites;
 using BE_API.Entites.Enums;
@@ -14,11 +15,13 @@ namespace BE_API.Service
     {
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Role> _roleRepo;
+        private readonly IAppTime _appTime;
 
-        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo)
+        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo, IAppTime appTime)
         {
             _userRepo = userRepo;
             _roleRepo = roleRepo;
+            _appTime = appTime;
         }
 
         public async Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, int page, int pageSize)
@@ -262,7 +265,7 @@ namespace BE_API.Service
 
             if (dto.DriverLicenseExpiryDate.HasValue)
             {
-                if (dto.DriverLicenseExpiryDate.Value.Date <= DateTime.UtcNow.Date)
+                if (dto.DriverLicenseExpiryDate.Value.Date <= _appTime.TodayDate)
                     throw new Exception("Han bang lai phai lon hon ngay hien tai.");
 
                 user.DriverLicenseExpiryDate = dto.DriverLicenseExpiryDate.Value.Date;
@@ -425,7 +428,7 @@ namespace BE_API.Service
             if (normalizedRoleName == "driver" && string.IsNullOrWhiteSpace(normalizedDriverLicenseNumber))
                 throw new Exception("Driver phai co so bang lai.");
 
-            if (driverLicenseExpiryDate.HasValue && driverLicenseExpiryDate.Value.Date <= DateTime.UtcNow.Date)
+            if (driverLicenseExpiryDate.HasValue && driverLicenseExpiryDate.Value.Date <= _appTime.TodayDate)
                 throw new Exception("Han bang lai phai lon hon ngay hien tai.");
 
             var user = new User

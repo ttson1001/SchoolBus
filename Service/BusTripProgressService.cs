@@ -14,31 +14,37 @@ namespace BE_API.Service
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
         private readonly IRepository<BusSchedule> _busScheduleRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
+        private readonly IAppTime _appTime;
 
         public BusTripProgressService(
             IRepository<BusTripProgress> progressRepo,
             IRepository<Bus> busRepo,
             IRepository<BusAssignment> busAssignmentRepo,
             IRepository<BusSchedule> busScheduleRepo,
-            IRepository<BusRouteStation> routeStationRepo)
+            IRepository<BusRouteStation> routeStationRepo,
+            IAppTime appTime)
         {
             _progressRepo = progressRepo;
             _busRepo = busRepo;
             _busAssignmentRepo = busAssignmentRepo;
             _busScheduleRepo = busScheduleRepo;
             _routeStationRepo = routeStationRepo;
+            _appTime = appTime;
         }
 
         public async Task<BusTripProgressEventDto> MarkArrivedAsync(BusTripProgressArriveDto dto)
         {
-            var arrivedAt = dto.ArrivedAt ?? DateTime.UtcNow;
-            var schedule = await ValidateScheduleAsync(dto.BusId, dto.BusScheduleId, arrivedAt.Date);
+            var arrivedAtUtc = dto.ArrivedAt.HasValue
+                ? _appTime.NormalizeToUtc(dto.ArrivedAt.Value)
+                : _appTime.UtcNow;
+            var rideCalendarDate = _appTime.GetCalendarDateForUtc(arrivedAtUtc);
+            var schedule = await ValidateScheduleAsync(dto.BusId, dto.BusScheduleId, rideCalendarDate);
             var routeStations = await GetRouteStationsAsync(schedule.RouteId);
             var targetStation = routeStations
                 .FirstOrDefault(x => x.StationId == dto.StationId)
                 ?? throw new Exception("Trạm không thuộc tuyến của lịch chạy này");
 
-            var progressList = await GetTripProgressListAsync(schedule.Id, arrivedAt.Date);
+            var progressList = await GetTripProgressListAsync(schedule.Id, rideCalendarDate);
             var latestProgress = progressList.LastOrDefault();
             var expectedStation = ResolveExpectedStation(routeStations, latestProgress);
 
@@ -51,9 +57,9 @@ namespace BE_API.Service
                 BusScheduleId = schedule.Id,
                 RouteId = schedule.RouteId,
                 StationId = targetStation.StationId,
-                RideDate = arrivedAt.Date,
+                RideDate = rideCalendarDate,
                 OrderIndex = targetStation.OrderIndex,
-                ArrivedAt = arrivedAt
+                ArrivedAt = arrivedAtUtc
             };
 
             await _progressRepo.AddAsync(progress);
@@ -108,8 +114,8 @@ namespace BE_API.Service
             TimeSpan? atTime,
             string emptyMessage)
         {
-            var selectedDate = (rideDate ?? DateTime.UtcNow).Date;
-            var selectedTime = atTime ?? DateTime.UtcNow.TimeOfDay;
+            var selectedDate = _appTime.GetRideCalendarDate(rideDate);
+            var selectedTime = atTime ?? _appTime.GetTimeOfDay();
             var dayOfWeek = ScheduleDayOfWeek.FromDate(selectedDate);
 
             var schedules = await _busScheduleRepo.Get()
@@ -200,7 +206,7 @@ namespace BE_API.Service
 
         public async Task<BusTripProgressCurrentDto> GetCurrentAsync(long busId, long busScheduleId, DateTime? rideDate)
         {
-            var selectedDate = (rideDate ?? DateTime.UtcNow).Date;
+            var selectedDate = _appTime.GetRideCalendarDate(rideDate);
             var schedule = await ValidateScheduleAsync(busId, busScheduleId, selectedDate);
             var routeStations = await GetRouteStationsAsync(schedule.RouteId);
             var progressList = await GetTripProgressListAsync(schedule.Id, selectedDate);

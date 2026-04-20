@@ -1,3 +1,4 @@
+using BE_API.Common;
 using BE_API.Dto.Bus;
 using BE_API.Dto.BusAssignment;
 using BE_API.Dto.Common;
@@ -15,15 +16,18 @@ namespace BE_API.Service
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
         private readonly IRepository<Bus> _busRepo;
         private readonly IRepository<User> _userRepo;
+        private readonly IAppTime _appTime;
 
         public BusAssignmentService(
             IRepository<BusAssignment> busAssignmentRepo,
             IRepository<Bus> busRepo,
-            IRepository<User> userRepo)
+            IRepository<User> userRepo,
+            IAppTime appTime)
         {
             _busAssignmentRepo = busAssignmentRepo;
             _busRepo = busRepo;
             _userRepo = userRepo;
+            _appTime = appTime;
         }
 
         public async Task<PagedResult<BusAssignmentDto>> SearchAsync(
@@ -208,7 +212,7 @@ namespace BE_API.Service
 
             if (string.Equals(roleName, "driver", StringComparison.OrdinalIgnoreCase) &&
                 user.DriverLicenseExpiryDate.HasValue &&
-                user.DriverLicenseExpiryDate.Value.Date <= DateTime.UtcNow.Date)
+                user.DriverLicenseExpiryDate.Value.Date <= _appTime.TodayDate)
             {
                 throw new Exception("Driver đã hết hạn bằng lái");
             }

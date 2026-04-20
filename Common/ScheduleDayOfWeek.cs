@@ -7,5 +7,10 @@ namespace BE_API.Common
         {
             return ((int)date.DayOfWeek + 6) % 7;
         }
+
+        public static int FromDateOnly(DateOnly date)
+        {
+            return FromDate(date.ToDateTime(TimeOnly.MinValue));
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace BE_API.Service
         private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
+        private readonly IAppTime _appTime;
 
         public AttendanceService(
             IRepository<Attendance> attendanceRepo,
@@ -32,7 +33,8 @@ namespace BE_API.Service
             IRepository<BusSchedule> busScheduleRepo,
             IRepository<Order> orderRepo,
             IRepository<Notification> notificationRepo,
-            IFirebaseNotificationService firebaseNotificationService)
+            IFirebaseNotificationService firebaseNotificationService,
+            IAppTime appTime)
         {
             _attendanceRepo = attendanceRepo;
             _studentRepo = studentRepo;
@@ -44,6 +46,7 @@ namespace BE_API.Service
             _orderRepo = orderRepo;
             _notificationRepo = notificationRepo;
             _firebaseNotificationService = firebaseNotificationService;
+            _appTime = appTime;
         }
 
         public async Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, long? campusId, long? busId, long? studentId, long? guardianId, string? status, int page, int pageSize)
@@ -298,8 +301,8 @@ namespace BE_API.Service
             if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
                 throw new Exception("Bus khong o trang thai hoat dong");
 
-            var attendanceDate = (dto.Date ?? DateTime.Now).Date;
-            var checkTime = dto.Time ?? DateTime.Now.TimeOfDay;
+            var attendanceDate = _appTime.GetRideCalendarDate(dto.Date);
+            var checkTime = dto.Time ?? _appTime.GetTimeOfDay();
 
             var assignmentQuery = _assignmentRepo.Get()
                 .Include(x => x.Route)

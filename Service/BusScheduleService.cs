@@ -13,17 +13,20 @@ namespace BE_API.Service
         private readonly IRepository<Bus> _busRepo;
         private readonly IRepository<BusRoute> _busRouteRepo;
         private readonly IRepository<Campus> _campusRepo;
+        private readonly IAppTime _appTime;
 
         public BusScheduleService(
             IRepository<BusSchedule> busScheduleRepo,
             IRepository<Bus> busRepo,
             IRepository<BusRoute> busRouteRepo,
-            IRepository<Campus> campusRepo)
+            IRepository<Campus> campusRepo,
+            IAppTime appTime)
         {
             _busScheduleRepo = busScheduleRepo;
             _busRepo = busRepo;
             _busRouteRepo = busRouteRepo;
             _campusRepo = campusRepo;
+            _appTime = appTime;
         }
 
         public async Task<BusScheduleDto> CreateBusScheduleAsync(BusScheduleCreateDto dto)
@@ -370,7 +373,7 @@ namespace BE_API.Service
         {
             var normalizedStartDate = startDate.Date;
             var normalizedEndDate = endDate?.Date;
-            var today = DateTime.UtcNow.Date;
+            var today = _appTime.TodayDate;
 
             if (requireFutureStartDate && normalizedStartDate <= today)
                 throw new Exception("StartDate phải lớn hơn ngày hiện tại");

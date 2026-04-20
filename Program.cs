@@ -1,5 +1,7 @@
+using BE_API.Common;
 using BE_API.Configuration;
 using BE_API.Database;
+using BE_API.Service;
 using BE_API.Extensions;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
@@ -43,6 +45,8 @@ builder.Services.Configure<FirebaseSettings>(builder.Configuration.GetSection("F
 builder.Services.Configure<FaceAISettings>(builder.Configuration.GetSection("FaceAI"));
 builder.Services.Configure<CompreFaceSettings>(builder.Configuration.GetSection("CompreFace"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
+builder.Services.Configure<AppTimeSettings>(builder.Configuration.GetSection(AppTimeSettings.SectionName));
+builder.Services.AddSingleton<IAppTime, AppTimeService>();
 builder.Services.AddScoped<PayOSClient>(serviceProvider =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<PayOsSettings>>().Value;
