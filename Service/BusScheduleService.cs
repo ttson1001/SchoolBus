@@ -361,7 +361,7 @@ namespace BE_API.Service
                 throw new Exception("Bus đã có lịch bị trùng khung giờ");
         }
 
-        private static (DateTime startDate, DateTime? endDate, TimeSpan startTime, TimeSpan endTime, int dayOfWeek, string shiftType)
+        private (DateTime startDate, DateTime? endDate, TimeSpan startTime, TimeSpan endTime, int dayOfWeek, string shiftType)
             NormalizeSchedule(
                 DateTime startDate,
                 DateTime? endDate,

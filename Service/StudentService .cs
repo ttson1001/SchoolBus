@@ -491,7 +491,7 @@ namespace BE_API.Service
             return email.Trim().ToLower();
         }
 
-        private static DateTime ParseImportDateOfBirth(string value, int rowIndex)
+        private DateTime ParseImportDateOfBirth(string value, int rowIndex)
         {
             if (!DateTime.TryParse(value, out var parsedDate))
                 throw new Exception($"Dòng {rowIndex}: dateOfBirth '{value}' không hợp lệ.");
