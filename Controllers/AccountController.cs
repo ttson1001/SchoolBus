@@ -75,6 +75,28 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpPost("[action]")]
+        [SwaggerOperation(Summary = "Gửi thông báo theo device token", Description = "Truyền deviceToken, title và body để gửi push notification qua Firebase.")]
+        public async Task<IActionResult> SendNotification([FromBody] SendNotificationByDeviceTokenDto request)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var result = await _accountService.SendNotificationByDeviceTokenAsync(request);
+                response.Data = new { sent = result.Sent, detail = result.Detail };
+                response.Message = result.Sent
+                    ? "Gửi thông báo thành công."
+                    : result.Detail;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         private long GetCurrentUserId()
         {
             var userIdValue = User.FindFirstValue("UserId");

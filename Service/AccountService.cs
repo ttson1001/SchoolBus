@@ -19,17 +19,20 @@ namespace BE_API.Service
         private readonly IRepository<Role> _roleRepo;
         private readonly IJwtService _jwtService;
         private readonly EmailSettings _emailSettings;
+        private readonly IFirebaseNotificationService _firebaseNotificationService;
 
         public AccountService(
             IJwtService jwtService,
             IRepository<User> userRepo,
             IRepository<Role> roleRepo,
-            IOptions<EmailSettings> emailOptions)
+            IOptions<EmailSettings> emailOptions,
+            IFirebaseNotificationService firebaseNotificationService)
         {
             _roleRepo = roleRepo;
             _userRepo = userRepo;
             _jwtService = jwtService;
             _emailSettings = emailOptions.Value;
+            _firebaseNotificationService = firebaseNotificationService;
         }
 
         private string GenerateOtp()
@@ -111,6 +114,27 @@ namespace BE_API.Service
             await smtpClient.AuthenticateAsync(_emailSettings.Username, _emailSettings.Password);
             await smtpClient.SendAsync(message);
             await smtpClient.DisconnectAsync(true);
+        }
+
+        public async Task<(bool Sent, string Detail)> SendNotificationByDeviceTokenAsync(SendNotificationByDeviceTokenDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.DeviceToken))
+                throw new Exception("Device token không được để trống");
+
+            if (string.IsNullOrWhiteSpace(request.Title))
+                throw new Exception("Tiêu đề thông báo không được để trống");
+
+            if (string.IsNullOrWhiteSpace(request.Body))
+                throw new Exception("Nội dung thông báo không được để trống");
+
+            return await _firebaseNotificationService.SendDiagnosticAsync(
+                request.DeviceToken.Trim(),
+                request.Title.Trim(),
+                request.Body.Trim(),
+                new Dictionary<string, string>
+                {
+                    ["type"] = "MANUAL_NOTIFICATION"
+                });
         }
 
         private void ValidateEmailSettings()

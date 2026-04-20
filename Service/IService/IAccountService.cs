@@ -8,5 +8,6 @@ namespace BE_API.Service.IService
         Task<LoginReponseDto> LoginAsync(LoginDto dto);
         Task<AccountDto> GetMeAsync(long userId);
         Task SendEmailAsync(SendEmailRequest request);
+        Task<(bool Sent, string Detail)> SendNotificationByDeviceTokenAsync(SendNotificationByDeviceTokenDto request);
     }
 }
