@@ -1,4 +1,4 @@
-using BE_API.Common;
+﻿using BE_API.Common;
 using BE_API.Dto.Common;
 using BE_API.Dto.Student;
 using BE_API.Dto.User;
@@ -535,6 +535,9 @@ namespace BE_API.Service
             if (normalizedFullName.Length > 100)
                 throw new Exception("FullName không được vượt quá 100 ký tự");
 
+            if (normalizedFullName.Any(char.IsDigit))
+                throw new Exception("Tên học sinh không được chứa số");
+
             return normalizedFullName;
         }
 
@@ -668,3 +671,4 @@ namespace BE_API.Service
         }
     }
 }
+
