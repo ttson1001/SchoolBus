@@ -177,6 +177,8 @@ namespace BE_API.Service
                         {
                             StationId = routeStation.StationId,
                             StationName = routeStation.Station.Name,
+                            Latitude = routeStation.Station.Latitude,
+                            Longitude = routeStation.Station.Longitude,
                             OrderIndex = routeStation.OrderIndex,
                             IsVisited = progress != null,
                             ArrivedAt = progress?.ArrivedAt
@@ -225,6 +227,8 @@ namespace BE_API.Service
                 RouteId = schedule.RouteId,
                 RouteName = schedule.Route.Name,
                 RideDate = selectedDate,
+                StartTime = schedule.StartTime,
+                EndTime = schedule.EndTime,
                 TripStatus = tripStatus,
                 CurrentStationId = latestProgress?.StationId,
                 CurrentStationName = latestProgress?.Station.Name,
@@ -241,6 +245,8 @@ namespace BE_API.Service
                         {
                             StationId = routeStation.StationId,
                             StationName = routeStation.Station.Name,
+                            Latitude = routeStation.Station.Latitude,
+                            Longitude = routeStation.Station.Longitude,
                             OrderIndex = routeStation.OrderIndex,
                             IsVisited = progress != null,
                             ArrivedAt = progress?.ArrivedAt

@@ -4,6 +4,8 @@ namespace BE_API.Dto.BusTripProgress
     {
         public long StationId { get; set; }
         public string StationName { get; set; } = null!;
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
         public int OrderIndex { get; set; }
         public bool IsVisited { get; set; }
         public DateTime? ArrivedAt { get; set; }
