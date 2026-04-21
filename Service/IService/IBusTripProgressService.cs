@@ -8,5 +8,6 @@ namespace BE_API.Service.IService
         Task<BusTripProgressCurrentDto> GetCurrentAsync(long busId, long busScheduleId, DateTime? rideDate);
         Task<List<BusTripProgressDriverScheduleDto>> GetDriverSchedulesAsync(long driverId, DateTime? rideDate, TimeSpan? atTime);
         Task<List<BusTripProgressDriverScheduleDto>> GetTeacherSchedulesAsync(long teacherId, DateTime? rideDate, TimeSpan? atTime);
+        Task<List<BusTripProgressHistoryDto>> GetHistoryAsync(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate);
     }
 }

@@ -60,9 +60,12 @@ namespace BE_API.Service
             if (string.IsNullOrWhiteSpace(dto.Name))
                 throw new Exception("Tên bus station không được để trống");
 
+            var normalizedStationName = dto.Name.Trim();
+            await EnsureStationNameNotDuplicatedAsync(normalizedStationName);
+
             var station = new BusStation
             {
-                Name = dto.Name.Trim(),
+                Name = normalizedStationName,
                 Address = NormalizeOptional(dto.Address),
                 Description = NormalizeOptional(dto.Description),
                 Latitude = dto.Latitude,
@@ -81,7 +84,11 @@ namespace BE_API.Service
                 ?? throw new Exception("Bus station không tồn tại");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
-                station.Name = dto.Name.Trim();
+            {
+                var normalizedStationName = dto.Name.Trim();
+                await EnsureStationNameNotDuplicatedAsync(normalizedStationName, id);
+                station.Name = normalizedStationName;
+            }
 
             if (dto.Address != null)
                 station.Address = NormalizeOptional(dto.Address);
@@ -131,6 +138,19 @@ namespace BE_API.Service
         private static string? NormalizeOptional(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private async Task EnsureStationNameNotDuplicatedAsync(string stationName, long? excludedStationId = null)
+        {
+            var normalizedStationName = stationName.Trim().ToLower();
+
+            var duplicated = await _stationRepo.Get()
+                .AnyAsync(x =>
+                    (!excludedStationId.HasValue || x.Id != excludedStationId.Value) &&
+                    x.Name.ToLower() == normalizedStationName);
+
+            if (duplicated)
+                throw new Exception("Tên điểm đón đã tồn tại");
         }
     }
 }

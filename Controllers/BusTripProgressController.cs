@@ -53,6 +53,15 @@ namespace BE_API.Controllers
                 "Lấy trạng thái chuyến xe thành công");
         }
 
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lấy lịch sử chuyến đi thực tế")]
+        public async Task<IActionResult> History(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate)
+        {
+            return await ExecuteAsync(
+                () => _busTripProgressService.GetHistoryAsync(busId, routeId, campusId, fromDate, toDate),
+                "Lấy lịch sử chuyến đi thành công");
+        }
+
         private static async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> action, string successMessage)
         {
             var response = new ResponseDto();

@@ -28,13 +28,13 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Tìm kiếm user")]
-        public async Task<IActionResult> Search(string? keyword, string? role, string? status, int page = 1, int pageSize = 10)
+        public async Task<IActionResult> Search(string? keyword, string? role, string? status, bool? isAssignedToBus, int page = 1, int pageSize = 10)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _userService.SearchUserAsync(keyword, role, status, page, pageSize);
+                var data = await _userService.SearchUserAsync(keyword, role, status, isAssignedToBus, page, pageSize);
                 response.Data = data;
                 response.Message = USER_LIST_SUCCESS;
                 return Ok(response);

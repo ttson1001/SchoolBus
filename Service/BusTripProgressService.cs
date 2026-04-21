@@ -14,6 +14,8 @@ namespace BE_API.Service
         private readonly IRepository<BusAssignment> _busAssignmentRepo;
         private readonly IRepository<BusSchedule> _busScheduleRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
+        private readonly IRepository<StudentBusAssignment> _studentBusAssignmentRepo;
+        private readonly IRepository<Attendance> _attendanceRepo;
         private readonly IAppTime _appTime;
 
         public BusTripProgressService(
@@ -22,6 +24,8 @@ namespace BE_API.Service
             IRepository<BusAssignment> busAssignmentRepo,
             IRepository<BusSchedule> busScheduleRepo,
             IRepository<BusRouteStation> routeStationRepo,
+            IRepository<StudentBusAssignment> studentBusAssignmentRepo,
+            IRepository<Attendance> attendanceRepo,
             IAppTime appTime)
         {
             _progressRepo = progressRepo;
@@ -29,6 +33,8 @@ namespace BE_API.Service
             _busAssignmentRepo = busAssignmentRepo;
             _busScheduleRepo = busScheduleRepo;
             _routeStationRepo = routeStationRepo;
+            _studentBusAssignmentRepo = studentBusAssignmentRepo;
+            _attendanceRepo = attendanceRepo;
             _appTime = appTime;
         }
 
@@ -256,6 +262,195 @@ namespace BE_API.Service
             };
         }
 
+        public async Task<List<BusTripProgressHistoryDto>> GetHistoryAsync(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate)
+        {
+            if (busId.HasValue && busId.Value <= 0)
+                throw new Exception("BusId phải lớn hơn 0");
+
+            if (routeId.HasValue && routeId.Value <= 0)
+                throw new Exception("RouteId phải lớn hơn 0");
+
+            if (campusId.HasValue && campusId.Value <= 0)
+                throw new Exception("CampusId phải lớn hơn 0");
+
+            var today = _appTime.TodayDate;
+            var to = _appTime.GetRideCalendarDate(toDate);
+            if (to > today)
+                to = today;
+
+            var from = fromDate.HasValue
+                ? _appTime.GetRideCalendarDate(fromDate)
+                : to.AddDays(-7);
+
+            if (from > to)
+                throw new Exception("Từ ngày phải nhỏ hơn hoặc bằng đến ngày");
+
+            var schedules = await _busScheduleRepo.Get()
+                .Include(x => x.Bus)
+                .Include(x => x.Route)
+                .ThenInclude(x => x.Campus)
+                .Where(x =>
+                    x.StartDate.Date <= to &&
+                    (!x.EndDate.HasValue || x.EndDate.Value.Date >= from))
+                .Where(x => !busId.HasValue || x.BusId == busId.Value)
+                .Where(x => !routeId.HasValue || x.RouteId == routeId.Value)
+                .Where(x => !campusId.HasValue || x.Route.CampusId == campusId.Value)
+                .OrderByDescending(x => x.StartDate)
+                .ThenByDescending(x => x.StartTime)
+                .ToListAsync();
+
+            if (!schedules.Any())
+                return new List<BusTripProgressHistoryDto>();
+
+            var scheduleIds = schedules.Select(x => x.Id).ToList();
+            var busIds = schedules.Select(x => x.BusId).Distinct().ToList();
+            var routeIds = schedules.Select(x => x.RouteId).Distinct().ToList();
+
+            var assignments = await _busAssignmentRepo.Get()
+                .Include(x => x.Driver)
+                .Include(x => x.Teacher)
+                .Where(x => busIds.Contains(x.BusId))
+                .ToListAsync();
+
+            var routeStationCounts = await _routeStationRepo.Get()
+                .Where(x => routeIds.Contains(x.RouteId))
+                .GroupBy(x => x.RouteId)
+                .Select(x => new { RouteId = x.Key, Count = x.Count() })
+                .ToDictionaryAsync(x => x.RouteId, x => x.Count);
+
+            var progressList = await GetProgressQueryable()
+                .Where(x =>
+                    scheduleIds.Contains(x.BusScheduleId) &&
+                    x.RideDate.Date >= from &&
+                    x.RideDate.Date <= to)
+                .OrderBy(x => x.RideDate)
+                .ThenBy(x => x.OrderIndex)
+                .ThenBy(x => x.ArrivedAt)
+                .ToListAsync();
+
+            var studentAssignments = await _studentBusAssignmentRepo.Get()
+                .Include(x => x.Student)
+                .Include(x => x.PickupStation)
+                .Include(x => x.DropOffStation)
+                .Where(x =>
+                    routeIds.Contains(x.RouteId) &&
+                    (!x.RideDate.HasValue || (x.RideDate.Value.Date >= from && x.RideDate.Value.Date <= to)))
+                .ToListAsync();
+
+            var attendances = await _attendanceRepo.Get()
+                .Include(x => x.Student)
+                .Include(x => x.CheckInStation)
+                .Include(x => x.CheckOutStation)
+                .Where(x =>
+                    busIds.Contains(x.BusId) &&
+                    x.Date.Date >= from &&
+                    x.Date.Date <= to)
+                .ToListAsync();
+
+            var results = new List<BusTripProgressHistoryDto>();
+
+            foreach (var schedule in schedules)
+            {
+                var assignment = assignments.FirstOrDefault(x => x.BusId == schedule.BusId);
+                var totalStationCount = routeStationCounts.TryGetValue(schedule.RouteId, out var stationCount)
+                    ? stationCount
+                    : 0;
+
+                foreach (var rideDateValue in EnumerateRideDates(schedule, from, to))
+                {
+                    var rideDateOnly = rideDateValue.Date;
+
+                    var tripProgress = progressList
+                        .Where(x => x.BusScheduleId == schedule.Id && x.RideDate.Date == rideDateOnly)
+                        .ToList();
+
+                    var tripAttendances = attendances
+                        .Where(x => x.BusId == schedule.BusId && x.Date.Date == rideDateOnly)
+                        .Where(x => AttendanceMatchesSchedule(x, schedule))
+                        .ToList();
+
+                    var plannedStudentCount = studentAssignments
+                        .Count(x =>
+                            x.RouteId == schedule.RouteId &&
+                            (!x.RideDate.HasValue || x.RideDate.Value.Date == rideDateOnly));
+
+                    var assignedStudents = studentAssignments
+                        .Where(x =>
+                            x.RouteId == schedule.RouteId &&
+                            (!x.RideDate.HasValue || x.RideDate.Value.Date == rideDateOnly))
+                        .GroupBy(x => x.StudentId)
+                        .Select(x => x.OrderByDescending(y => y.RideDate.HasValue).First())
+                        .ToList();
+
+                    var actualStudentCount = tripAttendances
+                        .Select(x => x.StudentId)
+                        .Distinct()
+                        .Count();
+
+                    var students = assignedStudents
+                        .Select(x =>
+                        {
+                            return new BusTripProgressHistoryStudentDto
+                            {
+                                StudentId = x.StudentId,
+                                StudentCode = x.Student.StudentCode,
+                                StudentName = x.Student.FullName,
+                                PickupStationId = x.PickupStationId,
+                                PickupStationName = x.PickupStation?.Name,
+                                DropOffStationId = x.DropOffStationId,
+                                DropOffStationName = x.DropOffStation?.Name,
+                                AssignmentType = x.RideDate.HasValue ? "ONE_TIME" : "RECURRING"
+                            };
+                        })
+                        .OrderBy(x => x.StudentCode)
+                        .ThenBy(x => x.StudentName)
+                        .ToList();
+
+                    var actualTimeline = ResolveActualTimeline(rideDateOnly, schedule, tripProgress, tripAttendances);
+                    var visitedStationCount = tripProgress
+                        .Select(x => x.OrderIndex)
+                        .Distinct()
+                        .Count();
+                    var isCompleted = totalStationCount > 0 && visitedStationCount >= totalStationCount;
+
+                    results.Add(new BusTripProgressHistoryDto
+                    {
+                        BusScheduleId = schedule.Id,
+                        BusId = schedule.BusId,
+                        BusLabel = !string.IsNullOrWhiteSpace(schedule.Bus.BusNumber)
+                            ? schedule.Bus.BusNumber
+                            : schedule.Bus.LicensePlate,
+                        RouteId = schedule.RouteId,
+                        RouteName = schedule.Route.Name,
+                        CampusId = schedule.Route.CampusId,
+                        CampusName = schedule.Route.Campus.Name,
+                        RideDate = rideDateOnly,
+                        StartTime = schedule.StartTime,
+                        EndTime = schedule.EndTime,
+                        ShiftType = schedule.ShiftType,
+                        DriverId = assignment?.DriverId,
+                        DriverName = assignment?.Driver?.FullName,
+                        TeacherId = assignment?.TeacherId,
+                        TeacherName = assignment?.Teacher?.FullName,
+                        PlannedStudentCount = plannedStudentCount,
+                        ActualStudentCount = actualStudentCount,
+                        VisitedStationCount = visitedStationCount,
+                        TotalStationCount = totalStationCount,
+                        ActualStartAt = actualTimeline.ActualStartAt,
+                        ActualEndAt = actualTimeline.ActualEndAt,
+                        IsCompleted = isCompleted,
+                        TripStatus = ResolveHistoryTripStatus(isCompleted, visitedStationCount, actualStudentCount),
+                        Students = students
+                    });
+                }
+            }
+
+            return results
+                .OrderByDescending(x => x.RideDate)
+                .ThenByDescending(x => x.StartTime)
+                .ToList();
+        }
+
         private IQueryable<BusTripProgress> GetProgressQueryable()
         {
             return _progressRepo.Get()
@@ -368,6 +563,85 @@ namespace BE_API.Service
                 return "COMPLETED";
 
             return "AT_STATION";
+        }
+
+        private IEnumerable<DateTime> EnumerateRideDates(BusSchedule schedule, DateTime from, DateTime to)
+        {
+            var effectiveStart = schedule.StartDate.Date > from ? schedule.StartDate.Date : from;
+            var scheduleEndDate = schedule.EndDate?.Date ?? to;
+            var effectiveEnd = scheduleEndDate < to ? scheduleEndDate : to;
+
+            for (var date = effectiveStart.Date; date <= effectiveEnd.Date; date = date.AddDays(1))
+            {
+                if (ScheduleDayOfWeek.FromDate(date) == schedule.DayOfWeek)
+                    yield return date;
+            }
+        }
+
+        private static bool AttendanceMatchesSchedule(Attendance attendance, BusSchedule schedule)
+        {
+            return schedule.ShiftType switch
+            {
+                "PICKUP" => attendance.CheckInTime.HasValue && attendance.CheckInTime.Value >= schedule.StartTime && attendance.CheckInTime.Value <= schedule.EndTime,
+                "DROPOFF" => attendance.CheckOutTime.HasValue && attendance.CheckOutTime.Value >= schedule.StartTime && attendance.CheckOutTime.Value <= schedule.EndTime,
+                "ROUNDTRIP" =>
+                    (attendance.CheckInTime.HasValue && attendance.CheckInTime.Value >= schedule.StartTime && attendance.CheckInTime.Value <= schedule.EndTime) ||
+                    (attendance.CheckOutTime.HasValue && attendance.CheckOutTime.Value >= schedule.StartTime && attendance.CheckOutTime.Value <= schedule.EndTime),
+                _ => false
+            };
+        }
+
+        private static (DateTime? ActualStartAt, DateTime? ActualEndAt) ResolveActualTimeline(
+            DateTime rideDate,
+            BusSchedule schedule,
+            List<BusTripProgress> tripProgress,
+            List<Attendance> tripAttendances)
+        {
+            if (tripProgress.Any())
+                return (tripProgress.Min(x => x.ArrivedAt), tripProgress.Max(x => x.ArrivedAt));
+
+            var actualTimes = tripAttendances
+                .SelectMany(x => ResolveAttendanceTimes(rideDate, schedule, x))
+                .OrderBy(x => x)
+                .ToList();
+
+            if (!actualTimes.Any())
+                return (null, null);
+
+            return (actualTimes.First(), actualTimes.Last());
+        }
+
+        private static IEnumerable<DateTime> ResolveAttendanceTimes(DateTime rideDate, BusSchedule schedule, Attendance attendance)
+        {
+            if ((schedule.ShiftType == "PICKUP" || schedule.ShiftType == "ROUNDTRIP") &&
+                attendance.CheckInTime.HasValue &&
+                attendance.CheckInTime.Value >= schedule.StartTime &&
+                attendance.CheckInTime.Value <= schedule.EndTime)
+            {
+                yield return rideDate.Date.Add(attendance.CheckInTime.Value);
+            }
+
+            if ((schedule.ShiftType == "DROPOFF" || schedule.ShiftType == "ROUNDTRIP") &&
+                attendance.CheckOutTime.HasValue &&
+                attendance.CheckOutTime.Value >= schedule.StartTime &&
+                attendance.CheckOutTime.Value <= schedule.EndTime)
+            {
+                yield return rideDate.Date.Add(attendance.CheckOutTime.Value);
+            }
+        }
+
+        private static string ResolveHistoryTripStatus(bool isCompleted, int visitedStationCount, int actualStudentCount)
+        {
+            if (isCompleted)
+                return "COMPLETED";
+
+            if (visitedStationCount > 0)
+                return "IN_PROGRESS";
+
+            if (actualStudentCount > 0)
+                return "HAS_ATTENDANCE";
+
+            return "NO_DATA";
         }
 
         private static BusTripProgressEventDto MapEvent(BusTripProgress progress)

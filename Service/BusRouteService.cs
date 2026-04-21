@@ -55,13 +55,16 @@ namespace BE_API.Service
             if (!dto.StationIds.Any())
                 throw new Exception("Tuyến xe phải có ít nhất một trạm");
 
+            var normalizedRouteName = dto.Name.Trim();
+            await EnsureRouteNameNotDuplicatedAsync(normalizedRouteName);
+
             var campus = await ValidateCampusAsync(dto.CampusId);
             var stationIds = ValidateStationIds(dto.StationIds);
             var stations = await ValidateStationsAsync(stationIds);
 
             var route = new BusRoute
             {
-                Name = dto.Name.Trim(),
+                Name = normalizedRouteName,
                 CampusId = campus.Id,
                 IsEnabled = true
             };
@@ -100,7 +103,11 @@ namespace BE_API.Service
                 ?? throw new Exception("Bus route không tồn tại");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
-                route.Name = dto.Name.Trim();
+            {
+                var normalizedRouteName = dto.Name.Trim();
+                await EnsureRouteNameNotDuplicatedAsync(normalizedRouteName, id);
+                route.Name = normalizedRouteName;
+            }
 
             if (dto.CampusId.HasValue)
             {
@@ -266,6 +273,19 @@ namespace BE_API.Service
                 throw new Exception($"Bus station '{disabledStation.Name}' đang không hoạt động");
 
             return stations;
+        }
+
+        private async Task EnsureRouteNameNotDuplicatedAsync(string routeName, long? excludedRouteId = null)
+        {
+            var normalizedRouteName = routeName.Trim().ToLower();
+
+            var duplicated = await _routeRepo.Get()
+                .AnyAsync(x =>
+                    (!excludedRouteId.HasValue || x.Id != excludedRouteId.Value) &&
+                    x.Name.ToLower() == normalizedRouteName);
+
+            if (duplicated)
+                throw new Exception("Tên tuyến đã tồn tại");
         }
 
         private static BusRouteDto MapToDto(BusRoute route)

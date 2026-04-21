@@ -5,7 +5,7 @@ namespace BE_API.Service.IService
 {
     public interface IUserService
     {
-        Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, int page, int pageSize);
+        Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, bool? isAssignedToBus, int page, int pageSize);
         Task<UserDto> GetUserByIdAsync(long id);
         Task<UserImportResultDto> ImportAsync(UserImportRequestDto dto, CancellationToken cancellationToken = default);
         Task<UserDto> CreateUserAsync(UserCreateDto dto, CancellationToken cancellationToken = default);

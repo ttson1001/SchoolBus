@@ -15,18 +15,23 @@ namespace BE_API.Service
     {
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Role> _roleRepo;
+        private readonly IRepository<BusAssignment> _busAssignmentRepo;
         private readonly IAppTime _appTime;
 
-        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo, IAppTime appTime)
+        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo, IRepository<BusAssignment> busAssignmentRepo, IAppTime appTime)
         {
             _userRepo = userRepo;
             _roleRepo = roleRepo;
+            _busAssignmentRepo = busAssignmentRepo;
             _appTime = appTime;
         }
 
-        public async Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, int page, int pageSize)
+        public async Task<PagedResult<UserDto>> SearchUserAsync(string? keyword, string? role, string? status, bool? isAssignedToBus, int page, int pageSize)
         {
-            var query = _userRepo.Get();
+            IQueryable<User> query = _userRepo.Get().Include(x => x.Role);
+
+            var assignmentQuery = _busAssignmentRepo.Get()
+                .Include(x => x.Bus);
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -54,12 +59,27 @@ namespace BE_API.Service
                 query = query.Where(x => x.Status == accountStatus);
             }
 
+            if (isAssignedToBus.HasValue)
+            {
+                query = query.Where(x =>
+                    x.Role.Name.ToLower() == "driver"
+                        ? assignmentQuery.Any(a => a.DriverId == x.Id) == isAssignedToBus.Value
+                        : x.Role.Name.ToLower() == "teacher"
+                            ? assignmentQuery.Any(a => a.TeacherId == x.Id) == isAssignedToBus.Value
+                            : !isAssignedToBus.Value);
+            }
+
             var totalItems = await query.CountAsync();
 
-            var users = await query.Include(x => x.Role)
+            var users = await query
                 .OrderByDescending(x => x.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .ToListAsync();
+
+            var userIds = users.Select(x => x.Id).ToList();
+            var relatedAssignments = await assignmentQuery
+                .Where(x => userIds.Contains(x.DriverId) || userIds.Contains(x.TeacherId))
                 .ToListAsync();
 
             return new PagedResult<UserDto>
