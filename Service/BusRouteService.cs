@@ -1,3 +1,4 @@
+using BE_API.Dto.Bus;
 using BE_API.Dto.BusRoute;
 using BE_API.Dto.Common;
 using BE_API.Entites;
@@ -183,6 +184,8 @@ namespace BE_API.Service
         {
             return _routeRepo.Get()
                 .Include(x => x.Campus)
+                .Include(x => x.Schedules)
+                .ThenInclude(x => x.Bus)
                 .Include(x => x.Stations.OrderBy(s => s.OrderIndex))
                 .ThenInclude(x => x.Station);
         }
@@ -205,7 +208,10 @@ namespace BE_API.Service
             if (isEnabled.HasValue)
                 query = query.Where(x => x.IsEnabled == isEnabled.Value);
 
-            return query.Include(x => x.Campus);
+            return query
+                .Include(x => x.Campus)
+                .Include(x => x.Schedules)
+                .ThenInclude(x => x.Bus);
         }
 
         private static async Task<PagedResult<BusRouteDto>> BuildPagedResultAsync(IQueryable<BusRoute> query, int page, int pageSize)
@@ -213,6 +219,8 @@ namespace BE_API.Service
             var totalItems = await query.CountAsync();
 
             var routes = await query
+                .Include(x => x.Schedules)
+                .ThenInclude(x => x.Bus)
                 .Include(x => x.Stations)
                 .ThenInclude(x => x.Station)
                 .OrderByDescending(x => x.Id)
@@ -297,6 +305,23 @@ namespace BE_API.Service
                 IsEnabled = route.IsEnabled,
                 CampusId = route.CampusId,
                 CampusName = route.Campus.Name,
+                Buses = route.Schedules
+                    .Where(x => x.Bus != null)
+                    .GroupBy(x => x.BusId)
+                    .Select(x => x.First().Bus)
+                    .Select(x => new BusDto
+                    {
+                        Id = x.Id,
+                        LicensePlate = x.LicensePlate,
+                        Capacity = x.Capacity,
+                        Status = x.Status,
+                        BusNumber = x.BusNumber,
+                        ImageUrl = x.ImageUrl,
+                        Color = x.Color,
+                        BusType = x.BusType
+                    })
+                    .OrderBy(x => x.BusNumber ?? x.LicensePlate)
+                    .ToList(),
                 Stations = route.Stations
                     .OrderBy(x => x.OrderIndex)
                     .Select(x => new BusRouteStationDto
