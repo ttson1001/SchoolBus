@@ -165,6 +165,7 @@ namespace BE_API.Service
                         Email = email,
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                         FullName = GetOptionalValue(data, "fullname"),
+                        AvatarUrl = null,
                         Phone = phone,
                         RoleId = currentRole.Id,
                         Status = ParseStatus(GetOptionalValue(data, "status"), row),
@@ -199,6 +200,7 @@ namespace BE_API.Service
                 dto.Email,
                 dto.Password,
                 dto.FullName,
+                dto.AvatarUrl,
                 dto.Phone,
                 null,
                 null,
@@ -238,6 +240,9 @@ namespace BE_API.Service
 
             if (dto.FullName != null)
                 user.FullName = NormalizeOptional(dto.FullName);
+
+            if (dto.AvatarUrl != null)
+                user.AvatarUrl = NormalizeAvatarUrl(dto.AvatarUrl);
 
             if (dto.Phone != null)
             {
@@ -355,6 +360,7 @@ namespace BE_API.Service
                 Id = createdUser.user.Id,
                 Email = createdUser.user.Email,
                 FullName = createdUser.user.FullName,
+                AvatarUrl = createdUser.user.AvatarUrl,
                 Phone = createdUser.user.Phone,
                 DeviceToken = createdUser.user.DeviceToken,
                 RoleName = createdUser.role.Name,
@@ -369,6 +375,7 @@ namespace BE_API.Service
                 dto.Email,
                 dto.Password,
                 dto.FullName,
+                dto.AvatarUrl,
                 dto.Phone,
                 dto.DriverLicenseNumber,
                 dto.DriverLicenseClass,
@@ -381,6 +388,7 @@ namespace BE_API.Service
                 Id = createdUser.user.Id,
                 Email = createdUser.user.Email,
                 FullName = createdUser.user.FullName,
+                AvatarUrl = createdUser.user.AvatarUrl,
                 Phone = createdUser.user.Phone,
                 DeviceToken = createdUser.user.DeviceToken,
                 DriverLicenseNumber = createdUser.user.DriverLicenseNumber,
@@ -396,6 +404,7 @@ namespace BE_API.Service
             string email,
             string password,
             string? fullName,
+            string? avatarUrl,
             string? phone,
             string? driverLicenseNumber,
             string? driverLicenseClass,
@@ -456,6 +465,7 @@ namespace BE_API.Service
                 Email = normalizedEmail,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password.Trim()),
                 FullName = NormalizeOptional(fullName),
+                AvatarUrl = NormalizeAvatarUrl(avatarUrl),
                 Phone = normalizedPhone,
                 DriverLicenseNumber = normalizedDriverLicenseNumber,
                 DriverLicenseClass = normalizedDriverLicenseClass,
@@ -478,6 +488,7 @@ namespace BE_API.Service
                 Id = user.Id,
                 Email = user.Email,
                 FullName = user.FullName,
+                AvatarUrl = user.AvatarUrl,
                 Phone = user.Phone,
                 DeviceToken = user.DeviceToken,
                 DriverLicenseNumber = user.DriverLicenseNumber,
@@ -596,6 +607,19 @@ namespace BE_API.Service
                 throw new Exception("So bang lai khong hop le.");
 
             return normalizedDriverLicenseNumber;
+        }
+
+        private static string? NormalizeAvatarUrl(string? avatarUrl)
+        {
+            if (string.IsNullOrWhiteSpace(avatarUrl))
+                return null;
+
+            var normalizedAvatarUrl = avatarUrl.Trim();
+
+            if (normalizedAvatarUrl.Length > 1000)
+                throw new Exception("AvatarUrl khong hop le.");
+
+            return normalizedAvatarUrl;
         }
 
         private static string? NormalizeOptional(string? value)

@@ -45,6 +45,10 @@ namespace BE_API.Database
                 .Property(x => x.DeviceToken)
                 .HasMaxLength(1024);
 
+            modelBuilder.Entity<User>()
+                .Property(x => x.AvatarUrl)
+                .HasMaxLength(1000);
+
             modelBuilder.Entity<SystemSetting>()
                 .Property(x => x.Key)
                 .HasMaxLength(200);

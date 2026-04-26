@@ -5,6 +5,7 @@ namespace BE_API.Dto.User
         public long Id { get; set; }
         public string Email { get; set; } = null!;
         public string? FullName { get; set; }
+        public string? AvatarUrl { get; set; }
         public string? Phone { get; set; }
         public string? DeviceToken { get; set; }
         public string RoleName { get; set; } = null!;

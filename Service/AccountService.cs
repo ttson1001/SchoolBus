@@ -164,7 +164,7 @@ namespace BE_API.Service
                 FullName = user.FullName ?? string.Empty,
                 Phone = user.Phone,
                 DeviceToken = user.DeviceToken,
-                Avatar = null,
+                Avatar = user.AvatarUrl,
                 RoleName = user.Role?.Name ?? string.Empty,
                 Status = user.Status.ToString(),
                 CreatedAt = user.CreatedAt
