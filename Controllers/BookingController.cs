@@ -19,6 +19,7 @@ namespace BE_API.Controllers
         private const string BOOKING_AUTO_ASSIGN_SUCCESS = "Chia hoc sinh vao xe thanh cong";
         private const string BOOKING_AUTO_ASSIGN_BY_DATE_SUCCESS = "Chia hoc sinh vao xe theo ngay thanh cong";
         private const string BUS_RUN_LIST_SUCCESS = "Lay danh sach lich chay thuc te thanh cong";
+        private const string GUARDIAN_TODAY_BUS_RUN_LIST_SUCCESS = "Lay danh sach con di xe trong ngay thanh cong";
         private const string BUS_RUN_ASSIGN_STAFF_SUCCESS = "Gan tai xe va giao vien cho chuyen xe thanh cong";
         private const string BOOKING_WEEKLY_SLOTS_SUCCESS = "Lay khung gio booking theo tuan thanh cong";
 
@@ -87,6 +88,25 @@ namespace BE_API.Controllers
                 var data = await _bookingService.GetBusRunsAsync(serviceDate, routeId, busId, driverId, teacherId);
                 response.Data = data;
                 response.Message = BUS_RUN_LIST_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]/{guardianId}")]
+        public async Task<IActionResult> GetTodayBusRunsByGuardian(long guardianId, DateTime? serviceDate)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _bookingService.GetTodayBusRunsByGuardianAsync(guardianId, serviceDate);
+                response.Data = data;
+                response.Message = GUARDIAN_TODAY_BUS_RUN_LIST_SUCCESS;
                 return Ok(response);
             }
             catch (Exception ex)

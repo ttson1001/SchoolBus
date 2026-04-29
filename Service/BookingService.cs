@@ -190,6 +190,118 @@ namespace BE_API.Service
                 .ToList();
         }
 
+        public async Task<List<GuardianTodayBusRunDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate)
+        {
+            await ValidateGuardianAsync(guardianId);
+
+            var selectedDate = serviceDate?.Date ?? _appTime.TodayDate;
+
+            var assignments = await _busRunStudentRepo.Get()
+                .Include(x => x.Student)
+                .Include(x => x.Booking)
+                .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Route)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Bus)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Driver)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Teacher)
+                .Where(x =>
+                    x.Student.GuardianId == guardianId &&
+                    x.Booking.ServiceDate.Date == selectedDate)
+                .OrderBy(x => x.Booking.StartTime)
+                .ThenBy(x => x.BusRun.RunOrder)
+                .ThenBy(x => x.Student.StudentCode)
+                .ToListAsync();
+
+            if (!assignments.Any())
+                return new List<GuardianTodayBusRunDto>();
+
+            var studentIds = assignments
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToList();
+
+            var attendanceRows = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == selectedDate)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
+            return assignments
+                .GroupBy(x => x.BookingId)
+                .Select(group =>
+                {
+                    var assignment = group
+                        .OrderBy(x => x.Id)
+                        .First();
+
+                    var assignedRun = assignment.BusRun;
+
+                    var hasCheckedInOnThisBus = attendanceRows.Any(a =>
+                        a.StudentId == assignment.StudentId &&
+                        a.BusId == assignedRun.BusId &&
+                        a.CheckInTime.HasValue);
+
+                    var isCurrentlyOnThisBus = attendanceRows.Any(a =>
+                        a.StudentId == assignment.StudentId &&
+                        a.BusId == assignedRun.BusId &&
+                        a.CheckInTime.HasValue &&
+                        !a.CheckOutTime.HasValue);
+
+                    var activeOnOtherBus = attendanceRows.FirstOrDefault(a =>
+                        a.StudentId == assignment.StudentId &&
+                        a.BusId != assignedRun.BusId &&
+                        a.CheckInTime.HasValue &&
+                        !a.CheckOutTime.HasValue);
+
+                    return new GuardianTodayBusRunDto
+                    {
+                        BookingId = assignment.BookingId,
+                        StudentId = assignment.StudentId,
+                        StudentCode = assignment.Student.StudentCode,
+                        StudentName = assignment.Student.FullName,
+                        StudentAvatarUrl = assignment.Student.AvatarUrl,
+                        RouteId = assignedRun.RouteId,
+                        RouteName = assignedRun.Route.Name,
+                        ServiceDate = assignedRun.ServiceDate,
+                        StartTime = assignedRun.StartTime,
+                        BusRunId = assignedRun.Id,
+                        BusId = assignedRun.BusId,
+                        BusLabel = !string.IsNullOrWhiteSpace(assignedRun.Bus.BusNumber)
+                            ? assignedRun.Bus.BusNumber
+                            : assignedRun.Bus.LicensePlate,
+                        DriverId = assignedRun.DriverId,
+                        DriverName = assignedRun.Driver?.FullName ?? assignedRun.Driver?.Email,
+                        TeacherId = assignedRun.TeacherId,
+                        TeacherName = assignedRun.Teacher?.FullName ?? assignedRun.Teacher?.Email,
+                        RunOrder = assignedRun.RunOrder,
+                        RunStatus = assignedRun.Status,
+                        StationId = assignment.Booking.StationId,
+                        StationName = assignment.Booking.Station?.Name ?? string.Empty,
+                        PickupAddress = assignment.Booking.PickupAddress,
+                        HasCheckedInOnThisBus = hasCheckedInOnThisBus,
+                        IsCurrentlyOnThisBus = isCurrentlyOnThisBus,
+                        CurrentBusId = activeOnOtherBus?.BusId,
+                        CurrentBusLabel = activeOnOtherBus?.Bus != null
+                            ? (!string.IsNullOrWhiteSpace(activeOnOtherBus.Bus.BusNumber)
+                                ? activeOnOtherBus.Bus.BusNumber
+                                : activeOnOtherBus.Bus.LicensePlate)
+                            : null,
+                        IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                    };
+                })
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.RunOrder)
+                .ThenBy(x => x.StudentCode)
+                .ThenBy(x => x.StudentName)
+                .ToList();
+        }
+
         public async Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto)
         {
             if (!dto.DriverId.HasValue && !dto.TeacherId.HasValue)
@@ -1311,6 +1423,23 @@ namespace BE_API.Service
             }
 
             return user;
+        }
+
+        private async Task ValidateGuardianAsync(long guardianId)
+        {
+            if (guardianId <= 0)
+                throw new Exception("GuardianId phai lon hon 0");
+
+            var guardian = await _userRepo.Get()
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Id == guardianId)
+                ?? throw new Exception("Guardian khong ton tai");
+
+            if (!string.Equals(guardian.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("User duoc chon khong phai guardian");
+
+            if (guardian.Status != AccountStatus.ACTIVE)
+                throw new Exception("Guardian dang khong hoat dong");
         }
 
         private async Task EnsureBusRunStaffAvailabilityAsync(BusRun busRun, long? driverId, long? teacherId)
