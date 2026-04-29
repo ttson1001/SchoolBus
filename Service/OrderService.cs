@@ -794,7 +794,15 @@ namespace BE_API.Service
             if (string.IsNullOrWhiteSpace(selectedRouteIds))
                 return new List<long>();
 
-            return selectedRouteIds
+            var normalizedValue = selectedRouteIds
+                .Trim()
+                .TrimStart('[')
+                .TrimEnd(']');
+
+            if (string.IsNullOrWhiteSpace(normalizedValue))
+                return new List<long>();
+
+            return normalizedValue
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(x => long.TryParse(x, out var routeId) ? routeId : 0)
                 .Where(x => x > 0)
