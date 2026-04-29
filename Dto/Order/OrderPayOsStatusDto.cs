@@ -7,6 +7,8 @@ namespace BE_API.Dto.Order
         public long StudentId { get; set; }
         public long PackageId { get; set; }
         public string PackageName { get; set; } = null!;
+        public List<long> SelectedRouteIds { get; set; } = new();
+        public int PackageRouteLimit { get; set; }
         public long OrderCode { get; set; }
         public decimal Amount { get; set; }
         public string OrderStatus { get; set; } = null!;

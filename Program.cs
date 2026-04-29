@@ -46,6 +46,8 @@ builder.Services.Configure<FaceAISettings>(builder.Configuration.GetSection("Fac
 builder.Services.Configure<CompreFaceSettings>(builder.Configuration.GetSection("CompreFace"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
 builder.Services.Configure<AppTimeSettings>(builder.Configuration.GetSection(AppTimeSettings.SectionName));
+builder.Services.Configure<SeedAdminSettings>(builder.Configuration.GetSection(SeedAdminSettings.SectionName));
+builder.Services.Configure<BookingSlotSettings>(builder.Configuration.GetSection(BookingSlotSettings.SectionName));
 builder.Services.AddSingleton<IAppTime, AppTimeService>();
 builder.Services.AddScoped<PayOSClient>(serviceProvider =>
 {
@@ -122,6 +124,7 @@ var app = builder.Build();
 app.UseCors("AllowAllOrigin");
 
 EnsureMigrate(app);
+await app.EnsureSystemSeedDataAsync();
 EnsureFirebaseInitialized(app);
 
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())

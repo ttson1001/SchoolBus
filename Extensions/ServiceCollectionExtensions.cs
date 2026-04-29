@@ -16,22 +16,18 @@ namespace BE_API.Extensions
             services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
 
             services.AddScoped<IAttendanceService, AttendanceService>();
-            services.AddScoped<IBusAssignmentService, BusAssignmentService>();
-            services.AddScoped<IBusDamageReportService, BusDamageReportService>();
+            services.AddScoped<IBookingService, BookingService>();
             services.AddScoped<IBusRouteService, BusRouteService>();
-            services.AddScoped<IBusScheduleService, BusScheduleService>();
             services.AddScoped<IBusService, BusService>();
             services.AddScoped<IBusStationService, BusStationService>();
             services.AddScoped<IBusTrackingService, BusTrackingService>();
             services.AddScoped<IBusTripProgressService, BusTripProgressService>();
             services.AddScoped<ICampusService, CampusService>();
             services.AddScoped<IFaceAIService, FaceAIService>();
-            services.AddScoped<IFaceRecognitionService, FaceRecognitionService>();
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IStudentService, StudentService>();
-            services.AddScoped<IStudentBusAssignmentService, StudentBusAssignmentService>();
             services.AddScoped<ISystemSettingService, SystemSettingService>();
             services.AddScoped<ITransactionLogService, TransactionLogService>();
             services.AddScoped<IUserService, UserService>();

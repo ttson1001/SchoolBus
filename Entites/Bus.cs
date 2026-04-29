@@ -10,8 +10,5 @@ namespace BE_API.Entites
         public string? ImageUrl { get; set; }
         public string? Color { get; set; }
         public string? BusType { get; set; }
-
-        public ICollection<BusDamageReport> DamageReports { get; set; } = new List<BusDamageReport>();
-        public ICollection<BusSchedule> Schedules { get; set; } = new List<BusSchedule>();
     }
 }

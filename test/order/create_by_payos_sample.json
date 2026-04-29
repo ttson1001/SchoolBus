@@ -1,7 +1,0 @@
-{
-  "guardianId": 5,
-  "studentId": 2,
-  "packageId": 1,
-  "returnUrl": "https://your-frontend.com/order/payos-return",
-  "cancelUrl": "https://your-frontend.com/order/payos-cancel"
-}

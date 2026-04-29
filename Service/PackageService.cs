@@ -32,7 +32,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package không tồn tại");
+                ?? throw new Exception("Package khong ton tai");
 
             return MapToDto(package);
         }
@@ -40,19 +40,23 @@ namespace BE_API.Service
         public async Task CreatePackageAsync(PackageCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new Exception("Tên package không được để trống");
+                throw new Exception("Ten package khong duoc de trong");
 
             if (string.IsNullOrWhiteSpace(dto.Status))
-                throw new Exception("Status không được để trống");
+                throw new Exception("Status khong duoc de trong");
 
             if (dto.DurationDays <= 0)
-                throw new Exception("DurationDays phải lớn hơn 0");
+                throw new Exception("DurationDays phai lon hon 0");
+
+            if (dto.RouteLimit <= 0)
+                throw new Exception("RouteLimit phai lon hon 0");
 
             var package = new Package
             {
                 Name = dto.Name.Trim(),
                 Price = dto.Price,
                 DurationDays = dto.DurationDays,
+                RouteLimit = dto.RouteLimit,
                 Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 Status = dto.Status.Trim(),
                 Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim(),
@@ -68,7 +72,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package không tồn tại");
+                ?? throw new Exception("Package khong ton tai");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
                 package.Name = dto.Name.Trim();
@@ -79,9 +83,17 @@ namespace BE_API.Service
             if (dto.DurationDays.HasValue)
             {
                 if (dto.DurationDays.Value <= 0)
-                    throw new Exception("DurationDays phải lớn hơn 0");
+                    throw new Exception("DurationDays phai lon hon 0");
 
                 package.DurationDays = dto.DurationDays.Value;
+            }
+
+            if (dto.RouteLimit.HasValue)
+            {
+                if (dto.RouteLimit.Value <= 0)
+                    throw new Exception("RouteLimit phai lon hon 0");
+
+                package.RouteLimit = dto.RouteLimit.Value;
             }
 
             if (dto.Description != null)
@@ -106,7 +118,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package không tồn tại");
+                ?? throw new Exception("Package khong ton tai");
 
             _packageRepo.Delete(package);
             await _packageRepo.SaveChangesAsync();
@@ -118,7 +130,7 @@ namespace BE_API.Service
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
-                keyword = keyword.ToLower();
+                keyword = keyword.Trim().ToLower();
                 query = query.Where(x =>
                     x.Name.ToLower().Contains(keyword) ||
                     (x.Description != null && x.Description.ToLower().Contains(keyword)) ||
@@ -128,7 +140,7 @@ namespace BE_API.Service
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                status = status.Trim().ToUpper();
+                status = status.Trim().ToUpperInvariant();
                 query = query.Where(x => x.Status.ToUpper() == status);
             }
 
@@ -162,6 +174,7 @@ namespace BE_API.Service
                 Name = package.Name,
                 Price = package.Price,
                 DurationDays = package.DurationDays,
+                RouteLimit = package.RouteLimit,
                 Description = package.Description,
                 Status = package.Status,
                 CreatedAt = package.CreatedAt,

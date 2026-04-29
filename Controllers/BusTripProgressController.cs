@@ -45,11 +45,11 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        [SwaggerOperation(Summary = "Lấy trạng thái hiện tại của chuyến xe theo lịch chạy")]
-        public async Task<IActionResult> Current(long busId, long busScheduleId, DateTime? rideDate)
+        [SwaggerOperation(Summary = "Lấy trạng thái hiện tại của chuyến xe theo bus run")]
+        public async Task<IActionResult> Current(long busId, long busRunId, DateTime? rideDate)
         {
             return await ExecuteAsync(
-                () => _busTripProgressService.GetCurrentAsync(busId, busScheduleId, rideDate),
+                () => _busTripProgressService.GetCurrentAsync(busId, busRunId, rideDate),
                 "Lấy trạng thái chuyến xe thành công");
         }
 

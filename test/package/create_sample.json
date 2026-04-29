@@ -1,9 +1,0 @@
-{
-  "name": "Goi Tieu Chuan 30 Ngay",
-  "price": 350000,
-  "durationDays": 30,
-  "description": "Goi dua don hoc sinh trong 30 ngay",
-  "status": "ACTIVE",
-  "type": "MONTHLY",
-  "imageUrl": "https://example.com/package-standard.png"
-}

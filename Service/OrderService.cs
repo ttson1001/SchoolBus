@@ -23,6 +23,7 @@ namespace BE_API.Service
         private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Student> _studentRepo;
+        private readonly IRepository<BusRoute> _busRouteRepo;
         private readonly IRepository<Package> _packageRepo;
         private readonly IRepository<Wallet> _walletRepo;
         private readonly IRepository<Payment> _paymentRepo;
@@ -34,6 +35,7 @@ namespace BE_API.Service
             IRepository<Order> orderRepo,
             IRepository<User> userRepo,
             IRepository<Student> studentRepo,
+            IRepository<BusRoute> busRouteRepo,
             IRepository<Package> packageRepo,
             IRepository<Wallet> walletRepo,
             IRepository<Payment> paymentRepo,
@@ -44,6 +46,7 @@ namespace BE_API.Service
             _orderRepo = orderRepo;
             _userRepo = userRepo;
             _studentRepo = studentRepo;
+            _busRouteRepo = busRouteRepo;
             _packageRepo = packageRepo;
             _walletRepo = walletRepo;
             _paymentRepo = paymentRepo;
@@ -57,6 +60,7 @@ namespace BE_API.Service
             var guardian = await ValidateGuardianAsync(dto.GuardianId);
             var student = await ValidateStudentAsync(dto.StudentId, dto.GuardianId);
             var package = await ValidatePackageAsync(dto.PackageId);
+            var selectedRouteIds = await ValidateSelectedRoutesAsync(dto.RouteIds, student.CampusId, package.RouteLimit);
 
             await ExpireOrdersAsync(dto.StudentId);
             await EnsureStudentHasNoActiveOrderAsync(dto.StudentId);
@@ -81,6 +85,8 @@ namespace BE_API.Service
             {
                 GuardianId = guardian.Id,
                 StudentId = student.Id,
+                BusRouteId = selectedRouteIds.Count == 1 ? selectedRouteIds[0] : null,
+                SelectedRouteIds = JoinSelectedRouteIds(selectedRouteIds),
                 PackageId = package.Id,
                 Status = OrderStatus.PAID,
                 StartDate = now,
@@ -132,6 +138,7 @@ namespace BE_API.Service
             var guardian = await ValidateGuardianAsync(dto.GuardianId);
             var student = await ValidateStudentAsync(dto.StudentId, dto.GuardianId);
             var package = await ValidatePackageAsync(dto.PackageId);
+            var selectedRouteIds = await ValidateSelectedRoutesAsync(dto.RouteIds, student.CampusId, package.RouteLimit);
             EnsurePayOsAmountSupported(package.Price);
 
             await ExpireOrdersAsync(dto.StudentId);
@@ -158,6 +165,8 @@ namespace BE_API.Service
             {
                 GuardianId = guardian.Id,
                 StudentId = student.Id,
+                BusRouteId = selectedRouteIds.Count == 1 ? selectedRouteIds[0] : null,
+                SelectedRouteIds = JoinSelectedRouteIds(selectedRouteIds),
                 PackageId = package.Id,
                 Status = OrderStatus.PENDING,
                 CreatedAt = createdAt
@@ -189,6 +198,8 @@ namespace BE_API.Service
                 StudentId = student.Id,
                 PackageId = package.Id,
                 PackageName = package.Name,
+                SelectedRouteIds = selectedRouteIds,
+                PackageRouteLimit = package.RouteLimit,
                 OrderCode = orderCode,
                 Amount = package.Price,
                 Description = description,
@@ -603,7 +614,39 @@ namespace BE_API.Service
             if (package.Price <= 0)
                 throw new Exception("Package phai co gia lon hon 0");
 
+            if (package.RouteLimit <= 0)
+                throw new Exception("Package phai co RouteLimit lon hon 0");
+
             return package;
+        }
+
+        private async Task<List<long>> ValidateSelectedRoutesAsync(List<long>? routeIds, long campusId, int routeLimit)
+        {
+            if (routeIds == null || !routeIds.Any())
+                throw new Exception("Phai chon tuyen cho goi");
+
+            var normalizedRouteIds = routeIds
+                .Where(x => x > 0)
+                .Distinct()
+                .ToList();
+
+            if (normalizedRouteIds.Count != routeLimit)
+                throw new Exception($"Goi nay yeu cau chon dung {routeLimit} tuyen");
+
+            var routes = await _busRouteRepo.Get()
+                .Where(x => normalizedRouteIds.Contains(x.Id))
+                .ToListAsync();
+
+            if (routes.Count != normalizedRouteIds.Count)
+                throw new Exception("Co tuyen khong ton tai");
+
+            if (routes.Any(x => !x.IsEnabled))
+                throw new Exception("Co tuyen dang khong hoat dong");
+
+            if (routes.Any(x => x.CampusId != campusId))
+                throw new Exception("Tat ca tuyen phai thuoc cung campus cua hoc sinh");
+
+            return normalizedRouteIds;
         }
 
         private static void EnsurePayOsAmountSupported(decimal amount)
@@ -741,6 +784,24 @@ namespace BE_API.Service
             return DateTime.UtcNow;
         }
 
+        private static string JoinSelectedRouteIds(IEnumerable<long> routeIds)
+        {
+            return string.Join(",", routeIds);
+        }
+
+        private static List<long> ParseSelectedRouteIds(string? selectedRouteIds)
+        {
+            if (string.IsNullOrWhiteSpace(selectedRouteIds))
+                return new List<long>();
+
+            return selectedRouteIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(x => long.TryParse(x, out var routeId) ? routeId : 0)
+                .Where(x => x > 0)
+                .Distinct()
+                .ToList();
+        }
+
         private static OrderDto MapToDto(Order order)
         {
             return new OrderDto
@@ -752,10 +813,12 @@ namespace BE_API.Service
                 StudentName = order.Student.FullName,
                 BusRouteId = order.BusRouteId,
                 BusRouteName = order.BusRoute?.Name,
+                SelectedRouteIds = ParseSelectedRouteIds(order.SelectedRouteIds),
                 PackageId = order.PackageId,
                 PackageName = order.Package.Name,
                 PackagePrice = order.Package.Price,
                 DurationDays = order.Package.DurationDays,
+                PackageRouteLimit = order.Package.RouteLimit,
                 Status = order.Status.ToString(),
                 StartDate = order.StartDate,
                 EndDate = order.EndDate,
@@ -774,6 +837,8 @@ namespace BE_API.Service
                 StudentId = order.StudentId,
                 PackageId = order.PackageId,
                 PackageName = order.Package.Name,
+                SelectedRouteIds = ParseSelectedRouteIds(order.SelectedRouteIds),
+                PackageRouteLimit = order.Package.RouteLimit,
                 OrderCode = long.TryParse(transactionLog.Code, out var orderCode) ? orderCode : 0,
                 Amount = transactionLog.Amount,
                 OrderStatus = order.Status.ToString(),

@@ -10,19 +10,16 @@ namespace BE_API.Service
     public class BusService : IBusService
     {
         private readonly IRepository<Bus> _busRepo;
-        private readonly IRepository<BusAssignment> _busAssignmentRepo;
-        private readonly IRepository<BusSchedule> _busScheduleRepo;
+        private readonly IRepository<BusRun> _busRunRepo;
         private readonly IRepository<Campus> _campusRepo;
 
         public BusService(
             IRepository<Bus> busRepo,
-            IRepository<BusAssignment> busAssignmentRepo,
-            IRepository<BusSchedule> busScheduleRepo,
+            IRepository<BusRun> busRunRepo,
             IRepository<Campus> campusRepo)
         {
             _busRepo = busRepo;
-            _busAssignmentRepo = busAssignmentRepo;
-            _busScheduleRepo = busScheduleRepo;
+            _busRunRepo = busRunRepo;
             _campusRepo = campusRepo;
         }
 
@@ -67,7 +64,7 @@ namespace BE_API.Service
         {
             await ValidateCampusAsync(campusId);
 
-            var buses = await _busScheduleRepo.Get()
+            var buses = await _busRunRepo.Get()
                 .Include(x => x.Bus)
                 .Include(x => x.Route)
                 .Where(x => x.Route.CampusId == campusId)
@@ -125,6 +122,12 @@ namespace BE_API.Service
             var bus = await _busRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Bus không tồn tại");
+
+            var hasBusRun = await _busRunRepo.Get()
+                .AnyAsync(x => x.BusId == id);
+
+            if (hasBusRun)
+                throw new Exception("Khong the xoa bus da duoc su dung trong lich chay thuc te");
 
             _busRepo.Delete(bus);
             await _busRepo.SaveChangesAsync();

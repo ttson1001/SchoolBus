@@ -15,14 +15,14 @@ namespace BE_API.Service
     {
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Role> _roleRepo;
-        private readonly IRepository<BusAssignment> _busAssignmentRepo;
+        private readonly IRepository<BusRun> _busRunRepo;
         private readonly IAppTime _appTime;
 
-        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo, IRepository<BusAssignment> busAssignmentRepo, IAppTime appTime)
+        public UserService(IRepository<User> userRepo, IRepository<Role> roleRepo, IRepository<BusRun> busRunRepo, IAppTime appTime)
         {
             _userRepo = userRepo;
             _roleRepo = roleRepo;
-            _busAssignmentRepo = busAssignmentRepo;
+            _busRunRepo = busRunRepo;
             _appTime = appTime;
         }
 
@@ -30,8 +30,7 @@ namespace BE_API.Service
         {
             IQueryable<User> query = _userRepo.Get().Include(x => x.Role);
 
-            var assignmentQuery = _busAssignmentRepo.Get()
-                .Include(x => x.Bus);
+            var assignmentQuery = _busRunRepo.Get();
 
             if (!string.IsNullOrWhiteSpace(keyword))
             {
@@ -78,10 +77,6 @@ namespace BE_API.Service
                 .ToListAsync();
 
             var userIds = users.Select(x => x.Id).ToList();
-            var relatedAssignments = await assignmentQuery
-                .Where(x => userIds.Contains(x.DriverId) || userIds.Contains(x.TeacherId))
-                .ToListAsync();
-
             return new PagedResult<UserDto>
             {
                 Items = users.Select(x => MapToUserDto(x, x.Role.Name)).ToList(),
@@ -348,6 +343,7 @@ namespace BE_API.Service
                 dto.Email,
                 dto.Password,
                 dto.FullName,
+                dto.AvatarUrl,
                 dto.Phone,
                 null,
                 null,

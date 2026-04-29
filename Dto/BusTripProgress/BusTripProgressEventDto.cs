@@ -4,7 +4,7 @@ namespace BE_API.Dto.BusTripProgress
     {
         public long Id { get; set; }
         public long BusId { get; set; }
-        public long BusScheduleId { get; set; }
+        public long BusRunId { get; set; }
         public long RouteId { get; set; }
         public string RouteName { get; set; } = null!;
         public long StationId { get; set; }

@@ -1,6 +1,0 @@
-{
-  "userId": 5,
-  "amount": 50000,
-  "returnUrl": "https://your-frontend.com/wallet/payos-return",
-  "cancelUrl": "https://your-frontend.com/wallet/payos-cancel"
-}

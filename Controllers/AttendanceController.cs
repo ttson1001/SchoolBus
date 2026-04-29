@@ -12,11 +12,13 @@ namespace BE_API.Controllers
     {
         private readonly IAttendanceService _attendanceService;
 
-        private const string ATTENDANCE_LIST_SUCCESS = "Lấy danh sách attendance thành công";
-        private const string ATTENDANCE_GET_SUCCESS = "Lấy attendance thành công";
-        private const string ATTENDANCE_CHECKIN_SUCCESS = "Check in thủ công thành công";
-        private const string ATTENDANCE_CHECKOUT_SUCCESS = "Check out thủ công thành công";
-        private const string ATTENDANCE_DELETE_SUCCESS = "Xóa attendance thành công";
+        private const string ATTENDANCE_LIST_SUCCESS = "Lay danh sach attendance thanh cong";
+        private const string ATTENDANCE_GET_SUCCESS = "Lay attendance thanh cong";
+        private const string ATTENDANCE_ON_BUS_SUCCESS = "Lay danh sach hoc sinh dang tren xe thanh cong";
+        private const string ATTENDANCE_BUS_STATUS_SUCCESS = "Lay danh sach hoc sinh tren xe va chua tren xe thanh cong";
+        private const string ATTENDANCE_CHECKIN_SUCCESS = "Check in thu cong thanh cong";
+        private const string ATTENDANCE_CHECKOUT_SUCCESS = "Check out thu cong thanh cong";
+        private const string ATTENDANCE_DELETE_SUCCESS = "Xoa attendance thanh cong";
 
         public AttendanceController(IAttendanceService attendanceService)
         {
@@ -24,7 +26,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        [SwaggerOperation(Summary = "Tìm kiếm attendance")]
+        [SwaggerOperation(Summary = "Tim kiem attendance")]
         public async Task<IActionResult> Search(
             string? keyword,
             DateTime? date,
@@ -53,7 +55,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{id}")]
-        [SwaggerOperation(Summary = "Lấy attendance theo id")]
+        [SwaggerOperation(Summary = "Lay attendance theo id")]
         public async Task<IActionResult> Get(long id)
         {
             var response = new ResponseDto();
@@ -73,7 +75,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]/{studentId}")]
-        [SwaggerOperation(Summary = "Lấy lịch sử attendance theo student")]
+        [SwaggerOperation(Summary = "Lay lich su attendance theo student")]
         public async Task<IActionResult> GetByStudent(long studentId, DateTime? fromDate, DateTime? toDate)
         {
             var response = new ResponseDto();
@@ -92,8 +94,48 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lay danh sach hoc sinh dang tren xe")]
+        public async Task<IActionResult> GetStudentsOnBus(long busId, DateTime? date)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _attendanceService.GetStudentsOnBusAsync(busId, date);
+                response.Data = data;
+                response.Message = ATTENDANCE_ON_BUS_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
+        [HttpGet("[action]")]
+        [SwaggerOperation(Summary = "Lay danh sach hoc sinh da len xe va chua len xe")]
+        public async Task<IActionResult> GetBusStudentStatuses(long busId, DateTime? date)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _attendanceService.GetBusStudentStatusesAsync(busId, date);
+                response.Data = data;
+                response.Message = ATTENDANCE_BUS_STATUS_SUCCESS;
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Check in thủ công")]
+        [SwaggerOperation(Summary = "Check in thu cong")]
         public async Task<IActionResult> ManualCheckIn([FromBody] AttendanceManualDto dto)
         {
             var response = new ResponseDto();
@@ -113,7 +155,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPost("[action]")]
-        [SwaggerOperation(Summary = "Check out thủ công")]
+        [SwaggerOperation(Summary = "Check out thu cong")]
         public async Task<IActionResult> ManualCheckOut([FromBody] AttendanceManualDto dto)
         {
             var response = new ResponseDto();
@@ -133,7 +175,7 @@ namespace BE_API.Controllers
         }
 
         [HttpDelete("[action]/{id}")]
-        [SwaggerOperation(Summary = "Xóa attendance")]
+        [SwaggerOperation(Summary = "Xoa attendance")]
         public async Task<IActionResult> Delete(long id)
         {
             var response = new ResponseDto();

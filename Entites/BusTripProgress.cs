@@ -7,8 +7,8 @@ namespace BE_API.Entites
         public long BusId { get; set; }
         public Bus Bus { get; set; } = null!;
 
-        public long BusScheduleId { get; set; }
-        public BusSchedule BusSchedule { get; set; } = null!;
+        public long BusRunId { get; set; }
+        public BusRun BusRun { get; set; } = null!;
 
         public long RouteId { get; set; }
         public BusRoute Route { get; set; } = null!;

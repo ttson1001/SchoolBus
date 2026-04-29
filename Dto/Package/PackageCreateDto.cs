@@ -5,6 +5,7 @@ namespace BE_API.Dto.Package
         public string Name { get; set; } = null!;
         public decimal Price { get; set; }
         public int DurationDays { get; set; }
+        public int RouteLimit { get; set; }
         public string? Description { get; set; }
         public string Status { get; set; } = null!;
         public string? Type { get; set; }

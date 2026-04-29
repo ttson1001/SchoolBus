@@ -14,10 +14,9 @@ namespace BE_API.Service
         private readonly IRepository<Attendance> _attendanceRepo;
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<Bus> _busRepo;
-        private readonly IRepository<StudentBusAssignment> _assignmentRepo;
+        private readonly IRepository<BusRun> _busRunRepo;
+        private readonly IRepository<BusRunStudent> _busRunStudentRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
-        private readonly IRepository<BusAssignment> _busAssignmentRepo;
-        private readonly IRepository<BusSchedule> _busScheduleRepo;
         private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
@@ -27,10 +26,9 @@ namespace BE_API.Service
             IRepository<Attendance> attendanceRepo,
             IRepository<Student> studentRepo,
             IRepository<Bus> busRepo,
-            IRepository<StudentBusAssignment> assignmentRepo,
+            IRepository<BusRun> busRunRepo,
+            IRepository<BusRunStudent> busRunStudentRepo,
             IRepository<BusRouteStation> routeStationRepo,
-            IRepository<BusAssignment> busAssignmentRepo,
-            IRepository<BusSchedule> busScheduleRepo,
             IRepository<Order> orderRepo,
             IRepository<Notification> notificationRepo,
             IFirebaseNotificationService firebaseNotificationService,
@@ -39,10 +37,9 @@ namespace BE_API.Service
             _attendanceRepo = attendanceRepo;
             _studentRepo = studentRepo;
             _busRepo = busRepo;
-            _assignmentRepo = assignmentRepo;
+            _busRunRepo = busRunRepo;
+            _busRunStudentRepo = busRunStudentRepo;
             _routeStationRepo = routeStationRepo;
-            _busAssignmentRepo = busAssignmentRepo;
-            _busScheduleRepo = busScheduleRepo;
             _orderRepo = orderRepo;
             _notificationRepo = notificationRepo;
             _firebaseNotificationService = firebaseNotificationService;
@@ -146,10 +143,110 @@ namespace BE_API.Service
             return MapToDto(attendance);
         }
 
+        public async Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date)
+        {
+            if (busId <= 0)
+                throw new Exception("BusId phai lon hon 0");
+
+            var selectedDate = _appTime.GetRideCalendarDate(date);
+            var bus = await _busRepo.Get()
+                .FirstOrDefaultAsync(x => x.Id == busId)
+                ?? throw new Exception("Bus khong ton tai");
+
+            var attendances = await GetAttendanceQueryable()
+                .Where(x =>
+                    x.BusId == busId &&
+                    x.Date.Date == selectedDate.Date &&
+                    x.Status == AttendanceStatus.CHECKED_IN &&
+                    x.CheckInTime.HasValue &&
+                    !x.CheckOutTime.HasValue)
+                .OrderBy(x => x.CheckInTime)
+                .ThenBy(x => x.Student.StudentCode)
+                .ThenBy(x => x.Student.FullName)
+                .ToListAsync();
+
+            return attendances.Select(MapToOnBusDto).ToList();
+        }
+
+        public async Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date)
+        {
+            if (busId <= 0)
+                throw new Exception("BusId phai lon hon 0");
+
+            var selectedDate = _appTime.GetRideCalendarDate(date);
+            var busRuns = await _busRunRepo.Get()
+                .Where(x => x.BusId == busId && x.ServiceDate.Date == selectedDate.Date)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            if (!busRuns.Any())
+                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
+
+            var runStudents = await _busRunStudentRepo.Get()
+                .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
+                .Include(x => x.Booking)
+                .ThenInclude(x => x.Station)
+                .Where(x => busRuns.Contains(x.BusRunId))
+                .ToListAsync();
+
+            var attendances = await GetAttendanceQueryable()
+                .Where(x => x.BusId == busId && x.Date.Date == selectedDate.Date)
+                .ToListAsync();
+
+            return runStudents
+                .GroupBy(x => x.StudentId)
+                .Select(group =>
+                {
+                    var runStudent = group
+                        .OrderBy(x => x.Booking.StartTime)
+                        .ThenBy(x => x.BookingId)
+                        .First();
+
+                    var attendance = attendances
+                        .Where(x => x.StudentId == runStudent.StudentId)
+                        .OrderByDescending(x => x.CheckInTime ?? TimeSpan.MinValue)
+                        .ThenByDescending(x => x.Id)
+                        .FirstOrDefault();
+
+                    var isOnBus = attendance != null &&
+                                  attendance.Status == AttendanceStatus.CHECKED_IN &&
+                                  attendance.CheckInTime.HasValue &&
+                                  !attendance.CheckOutTime.HasValue;
+
+                    return new AttendanceBusStudentStatusDto
+                    {
+                        StudentId = runStudent.StudentId,
+                        StudentCode = runStudent.Student.StudentCode,
+                        StudentName = runStudent.Student.FullName,
+                        StudentAvatarUrl = runStudent.Student.AvatarUrl,
+                        GuardianId = runStudent.Student.GuardianId,
+                        GuardianName = runStudent.Student.Guardian?.FullName ?? string.Empty,
+                        GuardianPhone = runStudent.Student.Guardian?.Phone,
+                        BookingId = runStudent.BookingId,
+                        StationId = runStudent.Booking.StationId,
+                        StationName = runStudent.Booking.Station.Name,
+                        AttendanceId = attendance?.Id,
+                        CheckInTime = attendance?.CheckInTime,
+                        CheckOutTime = attendance?.CheckOutTime,
+                        IsOnBus = isOnBus
+                    };
+                })
+                .OrderByDescending(x => x.IsOnBus)
+                .ThenBy(x => x.StationId)
+                .ThenBy(x => x.StudentCode)
+                .ThenBy(x => x.StudentName)
+                .ToList();
+        }
+
         public async Task<AttendanceDto> ManualCheckInAsync(AttendanceManualDto dto)
         {
             var validation = await ValidateManualAttendanceAsync(dto);
             var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
+            note = AppendOperationalNote(note, validation.OperationalNote);
+
+            if (validation.ShouldAttachStudentToActualBusRun)
+                await AttachStudentToActualBusRunAsync(validation);
 
             var attendance = await GetAttendanceQueryable()
                 .Where(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate)
@@ -166,7 +263,7 @@ namespace BE_API.Service
                 BusId = validation.Bus.Id,
                 Date = validation.AttendanceDate,
                 Method = AttendanceMethod.MANUAL,
-                Status = AttendanceStatus.PRESENT,
+                Status = AttendanceStatus.CHECKED_IN,
                 CheckInTime = validation.CheckTime,
                 CheckInStationId = validation.Station.Id,
                 CheckInImageUrl = NormalizeImageUrl(dto.ImageUrl),
@@ -198,6 +295,7 @@ namespace BE_API.Service
         {
             var validation = await ValidateManualAttendanceAsync(dto);
             var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
+            note = AppendOperationalNote(note, validation.OperationalNote);
 
             var attendance = await GetAttendanceQueryable()
                 .Where(x =>
@@ -221,7 +319,7 @@ namespace BE_API.Service
             attendance.CheckOutStationId = validation.Station.Id;
             attendance.CheckOutImageUrl = NormalizeImageUrl(dto.ImageUrl);
             attendance.Method = AttendanceMethod.MANUAL;
-            attendance.Status = AttendanceStatus.PRESENT;
+            attendance.Status = AttendanceStatus.CHECKED_OUT;
             attendance.Note = note;
 
             _attendanceRepo.Update(attendance);
@@ -304,22 +402,37 @@ namespace BE_API.Service
             var attendanceDate = _appTime.GetRideCalendarDate(dto.Date);
             var checkTime = dto.Time ?? _appTime.GetTimeOfDay();
 
-            var assignmentQuery = _assignmentRepo.Get()
-                .Include(x => x.Route)
-                .Include(x => x.PickupStation)
-                .Include(x => x.DropOffStation)
-                .Where(x => x.StudentId == dto.StudentId);
+            var actualBusRun = await ResolveAttendanceRunAsync(dto.BusId, attendanceDate, checkTime);
+            var candidateRunStudents = await _busRunStudentRepo.Get()
+                .Include(x => x.Booking)
+                .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Bus)
+                .Where(x =>
+                    x.StudentId == dto.StudentId &&
+                    x.Booking.RouteId == actualBusRun.RouteId &&
+                    x.Booking.ServiceDate.Date == attendanceDate.Date)
+                .OrderByDescending(x => x.Booking.StartTime)
+                .ToListAsync();
 
-            var assignment = await assignmentQuery
-                .FirstOrDefaultAsync(x => x.RideDate.HasValue && x.RideDate.Value.Date == attendanceDate);
+            var runStudent = candidateRunStudents
+                .FirstOrDefault(x => IsEligibleAttendanceTransferWindow(x.Booking.StartTime, actualBusRun.StartTime));
 
-            assignment ??= await assignmentQuery
-                .FirstOrDefaultAsync(x => !x.RideDate.HasValue);
+            if (runStudent == null)
+                throw new Exception("Hoc sinh khong nam trong danh sach booking cua tuyen nay o khung gio da chon");
 
-            var routeResolution = await ResolveAttendanceRouteAsync(dto.BusId, attendanceDate);
+            var shouldAttachStudentToActualBusRun = runStudent.BusRunId != actualBusRun.Id;
+            if (shouldAttachStudentToActualBusRun)
+            {
+                var currentStudentCount = await _busRunStudentRepo.Get()
+                    .CountAsync(x => x.BusRunId == actualBusRun.Id);
+
+                if (currentStudentCount >= actualBusRun.UsableCapacity)
+                    throw new Exception("Xe nay da het cho, khong the diem danh them hoc sinh");
+            }
 
             var routeStation = await _routeStationRepo.Get()
-                .Where(x => x.RouteId == routeResolution.RouteId && x.StationId == dto.StationId)
+                .Where(x => x.RouteId == actualBusRun.RouteId && x.StationId == dto.StationId)
                 .Include(x => x.Station)
                 .FirstOrDefaultAsync()
                 ?? throw new Exception("Bus station khong thuoc route cua bus trong ngay da chon");
@@ -331,31 +444,73 @@ namespace BE_API.Service
             {
                 Student = student,
                 Bus = bus,
-                RouteName = routeResolution.RouteName,
-                ExpectedDropOffStationId = assignment?.DropOffStationId,
-                ExpectedDropOffStationName = assignment?.DropOffStation?.Name,
+                RouteName = actualBusRun.Route.Name,
+                ExpectedDropOffStationId = runStudent.Booking.StationId,
+                ExpectedDropOffStationName = runStudent.Booking.Station?.Name,
                 Station = routeStation.Station,
                 AttendanceDate = attendanceDate,
-                CheckTime = checkTime
+                CheckTime = checkTime,
+                ActualBusRunId = actualBusRun.Id,
+                SourceBusRunStudent = runStudent,
+                ShouldAttachStudentToActualBusRun = shouldAttachStudentToActualBusRun,
+                OperationalNote = BuildOperationalAttendanceNote(actualBusRun, runStudent)
             };
         }
 
-        private async Task<(long RouteId, string RouteName)> ResolveAttendanceRouteAsync(long busId, DateTime attendanceDate)
+        private async Task<BusRun> ResolveAttendanceRunAsync(long busId, DateTime attendanceDate, TimeSpan checkTime)
         {
-            var dayOfWeek = ScheduleDayOfWeek.FromDate(attendanceDate);
-            var busSchedule = await _busScheduleRepo.Get()
+            var runs = await _busRunRepo.Get()
                 .Include(x => x.Route)
-                .FirstOrDefaultAsync(x =>
+                .Where(x =>
                     x.BusId == busId &&
-                    x.IsActive &&
-                    x.StartDate.Date <= attendanceDate.Date &&
-                    (!x.EndDate.HasValue || x.EndDate.Value.Date >= attendanceDate.Date) &&
-                    x.DayOfWeek == dayOfWeek);
+                    x.ServiceDate.Date == attendanceDate.Date)
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.RunOrder)
+                .ToListAsync();
 
-            if (busSchedule != null)
-                return (busSchedule.RouteId, busSchedule.Route.Name);
+            if (!runs.Any())
+                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
 
-            throw new Exception("Bus nay chua duoc gan route hoac chua co lich chay trong ngay da chon");
+            for (var i = 0; i < runs.Count; i++)
+            {
+                var currentRun = runs[i];
+                var nextStartTime = i < runs.Count - 1 ? runs[i + 1].StartTime : (TimeSpan?)null;
+
+                if (IsTimeWithinBusRun(checkTime, currentRun.StartTime, nextStartTime))
+                    return currentRun;
+            }
+
+            return runs.LastOrDefault(x => x.StartTime <= checkTime) ?? runs.First();
+        }
+
+        private async Task AttachStudentToActualBusRunAsync(ManualAttendanceValidationResult validation)
+        {
+            var sourceBusRunStudent = validation.SourceBusRunStudent
+                ?? throw new Exception("Khong tim thay booking goc cua hoc sinh de gan vao xe thuc te");
+
+            var alreadyAttached = await _busRunStudentRepo.Get()
+                .AnyAsync(x => x.BusRunId == validation.ActualBusRunId && x.StudentId == validation.Student.Id);
+
+            if (!alreadyAttached)
+            {
+                await _busRunStudentRepo.AddAsync(new BusRunStudent
+                {
+                    BusRunId = validation.ActualBusRunId,
+                    BookingId = sourceBusRunStudent.BookingId,
+                    StudentId = validation.Student.Id
+                });
+                await _busRunStudentRepo.SaveChangesAsync();
+            }
+
+            var actualBusRun = await _busRunRepo.Get()
+                .FirstOrDefaultAsync(x => x.Id == validation.ActualBusRunId)
+                ?? throw new Exception("Bus run thuc te khong ton tai");
+
+            actualBusRun.AssignedStudentCount = await _busRunStudentRepo.Get()
+                .CountAsync(x => x.BusRunId == actualBusRun.Id);
+
+            _busRunRepo.Update(actualBusRun);
+            await _busRunRepo.SaveChangesAsync();
         }
 
         private async Task CreateGuardianNotificationAsync(
@@ -457,9 +612,49 @@ namespace BE_API.Service
             return "Học sinh chưa có gói nhưng vẫn được đi lần này";
         }
 
+        private static string AppendOperationalNote(string baseNote, string? operationalNote)
+        {
+            if (string.IsNullOrWhiteSpace(operationalNote))
+                return baseNote;
+
+            return $"{baseNote}. {operationalNote}";
+        }
+
+        private static string? BuildOperationalAttendanceNote(BusRun actualBusRun, BusRunStudent runStudent)
+        {
+            if (runStudent.BusRunId == actualBusRun.Id)
+                return null;
+
+            var assignedBusLicensePlate = runStudent.BusRun?.Bus?.LicensePlate;
+            var actualRunType = string.Equals(actualBusRun.Status, "BACKUP", StringComparison.OrdinalIgnoreCase)
+                ? "xe backup"
+                : actualBusRun.StartTime > runStudent.Booking.StartTime
+                    ? "xe gio sau"
+                    : "xe khac cung khung gio";
+
+            if (string.IsNullOrWhiteSpace(assignedBusLicensePlate))
+                return $"Hoc sinh di tre va duoc diem danh tren {actualRunType}";
+
+            return $"Hoc sinh di tre va duoc diem danh tren {actualRunType}, khac voi xe duoc chia ban dau ({assignedBusLicensePlate})";
+        }
+
         private static string? NormalizeImageUrl(string? imageUrl)
         {
             return string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim();
+        }
+
+        private static bool IsTimeWithinBusRun(TimeSpan candidateTime, TimeSpan startTime, TimeSpan? nextStartTime)
+        {
+            return candidateTime >= startTime &&
+                   (!nextStartTime.HasValue || candidateTime < nextStartTime.Value);
+        }
+
+        private static bool IsEligibleAttendanceTransferWindow(TimeSpan bookingStartTime, TimeSpan actualBusRunStartTime)
+        {
+            if (actualBusRunStartTime < bookingStartTime)
+                return false;
+
+            return actualBusRunStartTime - bookingStartTime <= TimeSpan.FromMinutes(15);
         }
 
         private static AttendanceDto MapToDto(Attendance attendance)
@@ -488,6 +683,29 @@ namespace BE_API.Service
             };
         }
 
+        private static AttendanceOnBusStudentDto MapToOnBusDto(Attendance attendance)
+        {
+            return new AttendanceOnBusStudentDto
+            {
+                AttendanceId = attendance.Id,
+                StudentId = attendance.StudentId,
+                StudentCode = attendance.Student.StudentCode,
+                StudentName = attendance.Student.FullName,
+                GuardianId = attendance.Student.GuardianId,
+                GuardianName = attendance.Student.Guardian?.FullName ?? string.Empty,
+                BusId = attendance.BusId,
+                BusLicensePlate = attendance.Bus.LicensePlate,
+                Date = attendance.Date,
+                CheckInTime = attendance.CheckInTime ?? TimeSpan.Zero,
+                CheckInStationId = attendance.CheckInStationId,
+                CheckInStationName = attendance.CheckInStation?.Name,
+                CheckInImageUrl = attendance.CheckInImageUrl,
+                Note = attendance.Note,
+                Method = attendance.Method.ToString(),
+                Status = attendance.Status.ToString()
+            };
+        }
+
         private class ManualAttendanceValidationResult
         {
             public Student Student { get; set; } = null!;
@@ -498,6 +716,10 @@ namespace BE_API.Service
             public BusStation Station { get; set; } = null!;
             public DateTime AttendanceDate { get; set; }
             public TimeSpan CheckTime { get; set; }
+            public long ActualBusRunId { get; set; }
+            public BusRunStudent? SourceBusRunStudent { get; set; }
+            public bool ShouldAttachStudentToActualBusRun { get; set; }
+            public string? OperationalNote { get; set; }
         }
     }
 }

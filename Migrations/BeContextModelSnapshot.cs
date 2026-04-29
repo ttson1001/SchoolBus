@@ -80,6 +80,58 @@ namespace BE_API.Migrations
                     b.ToTable("Attendances");
                 });
 
+            modelBuilder.Entity("BE_API.Entites.Booking", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("RouteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("ServiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<long>("StationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long>("StudentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RouteId");
+
+                    b.HasIndex("StationId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Bookings");
+                });
+
             modelBuilder.Entity("BE_API.Entites.Bus", b =>
                 {
                     b.Property<long>("Id")
@@ -114,74 +166,6 @@ namespace BE_API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Buses");
-                });
-
-            modelBuilder.Entity("BE_API.Entites.BusAssignment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("BusId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("DriverId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("TeacherId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BusId");
-
-                    b.HasIndex("DriverId");
-
-                    b.HasIndex("TeacherId");
-
-                    b.ToTable("BusAssignments");
-                });
-
-            modelBuilder.Entity("BE_API.Entites.BusDamageReport", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("BusId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("ReportedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long?>("ReportedByUserId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BusId");
-
-                    b.HasIndex("ReportedByUserId");
-
-                    b.ToTable("BusDamageReports");
                 });
 
             modelBuilder.Entity("BE_API.Entites.BusRoute", b =>
@@ -235,7 +219,7 @@ namespace BE_API.Migrations
                     b.ToTable("BusRouteStations");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.BusSchedule", b =>
+            modelBuilder.Entity("BE_API.Entites.BusRun", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -243,41 +227,85 @@ namespace BE_API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<int>("AssignedStudentCount")
+                        .HasColumnType("int");
+
                     b.Property<long>("BusId")
                         .HasColumnType("bigint");
 
-                    b.Property<int>("DayOfWeek")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("EndDate")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("time");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                    b.Property<long?>("DriverId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("RouteId")
                         .HasColumnType("bigint");
 
-                    b.Property<string>("ShiftType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("RunOrder")
+                        .HasColumnType("int");
 
-                    b.Property<DateTime>("StartDate")
+                    b.Property<int>("SeatCapacity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ServiceDate")
                         .HasColumnType("datetime2");
 
                     b.Property<TimeSpan>("StartTime")
                         .HasColumnType("time");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long?>("TeacherId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UsableCapacity")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BusId");
 
-                    b.HasIndex("RouteId");
+                    b.HasIndex("DriverId");
 
-                    b.ToTable("BusSchedules");
+                    b.HasIndex("TeacherId");
+
+                    b.HasIndex("RouteId", "ServiceDate", "StartTime", "RunOrder")
+                        .IsUnique();
+
+                    b.ToTable("BusRuns");
+                });
+
+            modelBuilder.Entity("BE_API.Entites.BusRunStudent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BookingId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BusRunId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StudentId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique();
+
+                    b.HasIndex("BusRunId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("BusRunStudents");
                 });
 
             modelBuilder.Entity("BE_API.Entites.BusStation", b =>
@@ -356,7 +384,7 @@ namespace BE_API.Migrations
                     b.Property<long>("BusId")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("BusScheduleId")
+                    b.Property<long>("BusRunId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("OrderIndex")
@@ -379,7 +407,7 @@ namespace BE_API.Migrations
 
                     b.HasIndex("StationId");
 
-                    b.HasIndex("BusScheduleId", "RideDate", "OrderIndex")
+                    b.HasIndex("BusRunId", "RideDate", "OrderIndex")
                         .IsUnique();
 
                     b.ToTable("BusTripProgresses");
@@ -508,6 +536,10 @@ namespace BE_API.Migrations
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("SelectedRouteIds")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -557,6 +589,9 @@ namespace BE_API.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("RouteLimit")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -663,46 +698,6 @@ namespace BE_API.Migrations
                     b.ToTable("Students");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.StudentBusAssignment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("DropOffStationId")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long?>("PickupStationId")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("RideDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<long>("RouteId")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("StudentId")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DropOffStationId");
-
-                    b.HasIndex("PickupStationId");
-
-                    b.HasIndex("RouteId");
-
-                    b.HasIndex("StudentId");
-
-                    b.ToTable("StudentBusAssignments");
-                });
-
             modelBuilder.Entity("BE_API.Entites.SystemSetting", b =>
                 {
                     b.Property<long>("Id")
@@ -793,6 +788,10 @@ namespace BE_API.Migrations
                         .HasColumnType("bigint");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -893,49 +892,31 @@ namespace BE_API.Migrations
                     b.Navigation("Student");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.BusAssignment", b =>
+            modelBuilder.Entity("BE_API.Entites.Booking", b =>
                 {
-                    b.HasOne("BE_API.Entites.Bus", "Bus")
+                    b.HasOne("BE_API.Entites.BusRoute", "Route")
                         .WithMany()
-                        .HasForeignKey("BusId")
+                        .HasForeignKey("RouteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("BE_API.Entites.User", "Driver")
+                    b.HasOne("BE_API.Entites.BusStation", "Station")
                         .WithMany()
-                        .HasForeignKey("DriverId")
+                        .HasForeignKey("StationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("BE_API.Entites.User", "Teacher")
+                    b.HasOne("BE_API.Entites.Student", "Student")
                         .WithMany()
-                        .HasForeignKey("TeacherId")
+                        .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Bus");
+                    b.Navigation("Route");
 
-                    b.Navigation("Driver");
+                    b.Navigation("Station");
 
-                    b.Navigation("Teacher");
-                });
-
-            modelBuilder.Entity("BE_API.Entites.BusDamageReport", b =>
-                {
-                    b.HasOne("BE_API.Entites.Bus", "Bus")
-                        .WithMany("DamageReports")
-                        .HasForeignKey("BusId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("BE_API.Entites.User", "ReportedByUser")
-                        .WithMany()
-                        .HasForeignKey("ReportedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Bus");
-
-                    b.Navigation("ReportedByUser");
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("BE_API.Entites.BusRoute", b =>
@@ -968,23 +949,64 @@ namespace BE_API.Migrations
                     b.Navigation("Station");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.BusSchedule", b =>
+            modelBuilder.Entity("BE_API.Entites.BusRun", b =>
                 {
                     b.HasOne("BE_API.Entites.Bus", "Bus")
-                        .WithMany("Schedules")
+                        .WithMany()
                         .HasForeignKey("BusId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BE_API.Entites.User", "Driver")
+                        .WithMany()
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BE_API.Entites.BusRoute", "Route")
-                        .WithMany("Schedules")
+                        .WithMany()
                         .HasForeignKey("RouteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BE_API.Entites.User", "Teacher")
+                        .WithMany()
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Bus");
 
+                    b.Navigation("Driver");
+
                     b.Navigation("Route");
+
+                    b.Navigation("Teacher");
+                });
+
+            modelBuilder.Entity("BE_API.Entites.BusRunStudent", b =>
+                {
+                    b.HasOne("BE_API.Entites.Booking", "Booking")
+                        .WithMany()
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BE_API.Entites.BusRun", "BusRun")
+                        .WithMany("Students")
+                        .HasForeignKey("BusRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BE_API.Entites.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Booking");
+
+                    b.Navigation("BusRun");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("BE_API.Entites.BusTracking", b =>
@@ -1006,9 +1028,9 @@ namespace BE_API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("BE_API.Entites.BusSchedule", "BusSchedule")
+                    b.HasOne("BE_API.Entites.BusRun", "BusRun")
                         .WithMany()
-                        .HasForeignKey("BusScheduleId")
+                        .HasForeignKey("BusRunId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1026,7 +1048,7 @@ namespace BE_API.Migrations
 
                     b.Navigation("Bus");
 
-                    b.Navigation("BusSchedule");
+                    b.Navigation("BusRun");
 
                     b.Navigation("Route");
 
@@ -1118,39 +1140,6 @@ namespace BE_API.Migrations
                     b.Navigation("Guardian");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.StudentBusAssignment", b =>
-                {
-                    b.HasOne("BE_API.Entites.BusStation", "DropOffStation")
-                        .WithMany()
-                        .HasForeignKey("DropOffStationId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("BE_API.Entites.BusStation", "PickupStation")
-                        .WithMany()
-                        .HasForeignKey("PickupStationId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("BE_API.Entites.BusRoute", "Route")
-                        .WithMany()
-                        .HasForeignKey("RouteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BE_API.Entites.Student", "Student")
-                        .WithMany()
-                        .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("DropOffStation");
-
-                    b.Navigation("PickupStation");
-
-                    b.Navigation("Route");
-
-                    b.Navigation("Student");
-                });
-
             modelBuilder.Entity("BE_API.Entites.TransactionLog", b =>
                 {
                     b.HasOne("BE_API.Entites.Order", "Order")
@@ -1183,18 +1172,14 @@ namespace BE_API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("BE_API.Entites.Bus", b =>
-                {
-                    b.Navigation("DamageReports");
-
-                    b.Navigation("Schedules");
-                });
-
             modelBuilder.Entity("BE_API.Entites.BusRoute", b =>
                 {
-                    b.Navigation("Schedules");
-
                     b.Navigation("Stations");
+                });
+
+            modelBuilder.Entity("BE_API.Entites.BusRun", b =>
+                {
+                    b.Navigation("Students");
                 });
 
             modelBuilder.Entity("BE_API.Entites.Campus", b =>

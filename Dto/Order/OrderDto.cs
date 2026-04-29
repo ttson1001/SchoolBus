@@ -9,10 +9,12 @@ namespace BE_API.Dto.Order
         public string StudentName { get; set; } = null!;
         public long? BusRouteId { get; set; }
         public string? BusRouteName { get; set; }
+        public List<long> SelectedRouteIds { get; set; } = new();
         public long PackageId { get; set; }
         public string PackageName { get; set; } = null!;
         public decimal PackagePrice { get; set; }
         public int DurationDays { get; set; }
+        public int PackageRouteLimit { get; set; }
         public string Status { get; set; } = null!;
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }

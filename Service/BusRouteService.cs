@@ -14,17 +14,20 @@ namespace BE_API.Service
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<Campus> _campusRepo;
         private readonly IRepository<BusStation> _stationRepo;
+        private readonly IRepository<BusRun> _busRunRepo;
 
         public BusRouteService(
             IRepository<BusRoute> routeRepo,
             IRepository<BusRouteStation> routeStationRepo,
             IRepository<Campus> campusRepo,
-            IRepository<BusStation> stationRepo)
+            IRepository<BusStation> stationRepo,
+            IRepository<BusRun> busRunRepo)
         {
             _routeRepo = routeRepo;
             _routeStationRepo = routeStationRepo;
             _campusRepo = campusRepo;
             _stationRepo = stationRepo;
+            _busRunRepo = busRunRepo;
         }
 
         public async Task<PagedResult<BusRouteDto>> SearchBusRouteAsync(string? keyword, long? campusId, int page, int pageSize)
@@ -45,7 +48,8 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Bus route không tồn tại");
 
-            return MapToDto(route);
+            var buses = await GetBusesByRouteIdAsync(route.Id);
+            return MapToDto(route, buses);
         }
 
         public async Task<BusRouteDto> CreateBusRouteAsync(BusRouteCreateDto dto)
@@ -94,7 +98,7 @@ namespace BE_API.Service
                 })
                 .ToList();
 
-            return MapToDto(route);
+            return MapToDto(route, new List<Bus>());
         }
 
         public async Task<BusRouteDto> UpdateBusRouteAsync(long id, BusRouteUpdateDto dto)
@@ -160,7 +164,8 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Bus route không tồn tại");
 
-            return MapToDto(updatedRoute);
+            var buses = await GetBusesByRouteIdAsync(updatedRoute.Id);
+            return MapToDto(updatedRoute, buses);
         }
 
         public async Task DeleteBusRouteAsync(long id)
@@ -184,8 +189,6 @@ namespace BE_API.Service
         {
             return _routeRepo.Get()
                 .Include(x => x.Campus)
-                .Include(x => x.Schedules)
-                .ThenInclude(x => x.Bus)
                 .Include(x => x.Stations.OrderBy(s => s.OrderIndex))
                 .ThenInclude(x => x.Station);
         }
@@ -209,18 +212,14 @@ namespace BE_API.Service
                 query = query.Where(x => x.IsEnabled == isEnabled.Value);
 
             return query
-                .Include(x => x.Campus)
-                .Include(x => x.Schedules)
-                .ThenInclude(x => x.Bus);
+                .Include(x => x.Campus);
         }
 
-        private static async Task<PagedResult<BusRouteDto>> BuildPagedResultAsync(IQueryable<BusRoute> query, int page, int pageSize)
+        private async Task<PagedResult<BusRouteDto>> BuildPagedResultAsync(IQueryable<BusRoute> query, int page, int pageSize)
         {
             var totalItems = await query.CountAsync();
 
             var routes = await query
-                .Include(x => x.Schedules)
-                .ThenInclude(x => x.Bus)
                 .Include(x => x.Stations)
                 .ThenInclude(x => x.Station)
                 .OrderByDescending(x => x.Id)
@@ -228,9 +227,25 @@ namespace BE_API.Service
                 .Take(pageSize)
                 .ToListAsync();
 
+            var routeIds = routes.Select(x => x.Id).ToList();
+            var busesByRoute = await _busRunRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x => routeIds.Contains(x.RouteId))
+                .GroupBy(x => x.RouteId)
+                .ToDictionaryAsync(
+                    x => x.Key,
+                    x => x.Select(y => y.Bus)
+                        .Where(y => y != null)
+                        .GroupBy(y => y.Id)
+                        .Select(y => y.First())
+                        .OrderBy(y => y.BusNumber ?? y.LicensePlate)
+                        .ToList());
+
             return new PagedResult<BusRouteDto>
             {
-                Items = routes.Select(MapToDto).ToList(),
+                Items = routes.Select(x => MapToDto(
+                    x,
+                    busesByRoute.TryGetValue(x.Id, out var buses) ? buses : new List<Bus>())).ToList(),
                 TotalItems = totalItems,
                 Page = page,
                 PageSize = pageSize
@@ -296,7 +311,20 @@ namespace BE_API.Service
                 throw new Exception("Tên tuyến đã tồn tại");
         }
 
-        private static BusRouteDto MapToDto(BusRoute route)
+        private async Task<List<Bus>> GetBusesByRouteIdAsync(long routeId)
+        {
+            return await _busRunRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x => x.RouteId == routeId)
+                .Select(x => x.Bus)
+                .Where(x => x != null)
+                .GroupBy(x => x.Id)
+                .Select(x => x.First())
+                .OrderBy(x => x.BusNumber ?? x.LicensePlate)
+                .ToListAsync();
+        }
+
+        private static BusRouteDto MapToDto(BusRoute route, List<Bus> buses)
         {
             return new BusRouteDto
             {
@@ -305,10 +333,7 @@ namespace BE_API.Service
                 IsEnabled = route.IsEnabled,
                 CampusId = route.CampusId,
                 CampusName = route.Campus.Name,
-                Buses = route.Schedules
-                    .Where(x => x.Bus != null)
-                    .GroupBy(x => x.BusId)
-                    .Select(x => x.First().Bus)
+                Buses = buses
                     .Select(x => new BusDto
                     {
                         Id = x.Id,

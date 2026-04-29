@@ -8,6 +8,7 @@ namespace BE_API.Entites
         public int DurationDays { get; set; }
         public string? Description { get; set; }
         public string Status { get; set; } = null!;
+        public int RouteLimit { get; set; } = 1;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string? Type { get; set; }
         public string? ImageUrl { get; set; }

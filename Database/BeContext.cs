@@ -11,16 +11,15 @@ namespace BE_API.Database
         public DbSet<Role> Roles => Set<Role>();
 
         public DbSet<Student> Students => Set<Student>();
-        public DbSet<StudentBusAssignment> StudentBusAssignments => Set<StudentBusAssignment>();
+        public DbSet<Booking> Bookings => Set<Booking>();
 
         public DbSet<Bus> Buses => Set<Bus>();
-        public DbSet<BusDamageReport> BusDamageReports => Set<BusDamageReport>();
         public DbSet<BusStation> BusStations => Set<BusStation>();
         public DbSet<BusRoute> BusRoutes => Set<BusRoute>();
         public DbSet<BusRouteStation> BusRouteStations => Set<BusRouteStation>();
-        public DbSet<BusAssignment> BusAssignments => Set<BusAssignment>();
-        public DbSet<BusSchedule> BusSchedules => Set<BusSchedule>();
         public DbSet<BusTripProgress> BusTripProgresses => Set<BusTripProgress>();
+        public DbSet<BusRun> BusRuns => Set<BusRun>();
+        public DbSet<BusRunStudent> BusRunStudents => Set<BusRunStudent>();
 
         public DbSet<Attendance> Attendances => Set<Attendance>();
         public DbSet<FaceRecognitionLog> FaceRecognitionLogs => Set<FaceRecognitionLog>();
@@ -69,9 +68,17 @@ namespace BE_API.Database
                 .Property(x => x.AvatarUrl)
                 .HasMaxLength(1000);
 
-            modelBuilder.Entity<StudentBusAssignment>()
+            modelBuilder.Entity<Booking>()
+                .Property(x => x.Status)
+                .HasMaxLength(50);
+
+            modelBuilder.Entity<Booking>()
                 .Property(x => x.Note)
                 .HasMaxLength(500);
+
+            modelBuilder.Entity<BusRun>()
+                .Property(x => x.Status)
+                .HasMaxLength(50);
 
             modelBuilder.Entity<Attendance>()
                 .Property(x => x.Note)
@@ -93,6 +100,10 @@ namespace BE_API.Database
                 .Property(x => x.Price)
                 .HasPrecision(18, 2);
 
+            modelBuilder.Entity<Order>()
+                .Property(x => x.SelectedRouteIds)
+                .HasMaxLength(500);
+
             modelBuilder.Entity<Payment>()
                 .Property(x => x.Amount)
                 .HasPrecision(18, 2);
@@ -113,48 +124,6 @@ namespace BE_API.Database
                 .Property(x => x.Balance)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<BusAssignment>()
-                .HasOne(x => x.Bus)
-                .WithMany()
-                .HasForeignKey(x => x.BusId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusAssignment>()
-                .HasOne(x => x.Driver)
-                .WithMany()
-                .HasForeignKey(x => x.DriverId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusAssignment>()
-                .HasOne(x => x.Teacher)
-                .WithMany()
-                .HasForeignKey(x => x.TeacherId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusDamageReport>()
-                .HasOne(x => x.Bus)
-                .WithMany(x => x.DamageReports)
-                .HasForeignKey(x => x.BusId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusDamageReport>()
-                .HasOne(x => x.ReportedByUser)
-                .WithMany()
-                .HasForeignKey(x => x.ReportedByUserId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusSchedule>()
-                .HasOne(x => x.Bus)
-                .WithMany(x => x.Schedules)
-                .HasForeignKey(x => x.BusId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<BusSchedule>()
-                .HasOne(x => x.Route)
-                .WithMany(x => x.Schedules)
-                .HasForeignKey(x => x.RouteId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             modelBuilder.Entity<BusTripProgress>()
                 .HasOne(x => x.Bus)
                 .WithMany()
@@ -162,9 +131,9 @@ namespace BE_API.Database
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<BusTripProgress>()
-                .HasOne(x => x.BusSchedule)
+                .HasOne(x => x.BusRun)
                 .WithMany()
-                .HasForeignKey(x => x.BusScheduleId)
+                .HasForeignKey(x => x.BusRunId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<BusTripProgress>()
@@ -180,7 +149,57 @@ namespace BE_API.Database
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<BusTripProgress>()
-                .HasIndex(x => new { x.BusScheduleId, x.RideDate, x.OrderIndex })
+                .HasIndex(x => new { x.BusRunId, x.RideDate, x.OrderIndex })
+                .IsUnique();
+
+            modelBuilder.Entity<BusRun>()
+                .HasOne(x => x.Route)
+                .WithMany()
+                .HasForeignKey(x => x.RouteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRun>()
+                .HasOne(x => x.Bus)
+                .WithMany()
+                .HasForeignKey(x => x.BusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRun>()
+                .HasOne(x => x.Driver)
+                .WithMany()
+                .HasForeignKey(x => x.DriverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRun>()
+                .HasOne(x => x.Teacher)
+                .WithMany()
+                .HasForeignKey(x => x.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRun>()
+                .HasIndex(x => new { x.RouteId, x.ServiceDate, x.StartTime, x.RunOrder })
+                .IsUnique();
+
+            modelBuilder.Entity<BusRunStudent>()
+                .HasOne(x => x.BusRun)
+                .WithMany(x => x.Students)
+                .HasForeignKey(x => x.BusRunId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BusRunStudent>()
+                .HasOne(x => x.Booking)
+                .WithMany()
+                .HasForeignKey(x => x.BookingId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRunStudent>()
+                .HasOne(x => x.Student)
+                .WithMany()
+                .HasForeignKey(x => x.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BusRunStudent>()
+                .HasIndex(x => x.BookingId)
                 .IsUnique();
 
             modelBuilder.Entity<Order>()
@@ -195,16 +214,22 @@ namespace BE_API.Database
                 .HasForeignKey(x => x.PackageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<StudentBusAssignment>()
-                .HasOne(x => x.PickupStation)
+            modelBuilder.Entity<Booking>()
+                .HasOne(x => x.Student)
                 .WithMany()
-                .HasForeignKey(x => x.PickupStationId)
+                .HasForeignKey(x => x.StudentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<StudentBusAssignment>()
-                .HasOne(x => x.DropOffStation)
+            modelBuilder.Entity<Booking>()
+                .HasOne(x => x.Route)
                 .WithMany()
-                .HasForeignKey(x => x.DropOffStationId)
+                .HasForeignKey(x => x.RouteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Booking>()
+                .HasOne(x => x.Station)
+                .WithMany()
+                .HasForeignKey(x => x.StationId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Attendance>()

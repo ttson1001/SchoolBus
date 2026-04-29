@@ -1,0 +1,32 @@
+using BE_API.Dto.Booking;
+using BE_API.Dto.Common;
+
+namespace BE_API.Service.IService
+{
+    public interface IBookingService
+    {
+        Task<PagedResult<BookingDto>> SearchAsync(
+            long? studentId,
+            long? routeId,
+            DateTime? serviceDate,
+            string? status,
+            int page,
+            int pageSize);
+        Task<BookingDto> GetByIdAsync(long id);
+        Task<BookingDto> CreateAsync(BookingCreateDto dto);
+        Task<BookingDto> UpdateAsync(long id, BookingUpdateDto dto);
+        Task<List<BusRunDto>> GetBusRunsAsync(
+            DateTime serviceDate,
+            long? routeId,
+            long? busId,
+            long? driverId,
+            long? teacherId);
+        Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto);
+        Task<List<BusRunDto>> AutoAssignBusRunsAsync(AutoAssignBookingRequestDto dto);
+        Task<List<BusRunDto>> AutoAssignBusRunsByDateAsync(DateTime serviceDate);
+        Task DeleteAsync(long id);
+
+        /// <summary>Hôm nay → hôm nay + 7 ngày (8 ngày), slot theo BookingSlots trong appsettings.</summary>
+        Task<BookingWeeklySlotsDto> GetWeeklyBookingSlotsAsync();
+    }
+}
