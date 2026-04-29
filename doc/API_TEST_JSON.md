@@ -129,7 +129,20 @@ Gia tri `status` hop le: `PENDING`, `CONFIRMED`, `CANCELLED`.
     "busId": 1,
     "driverId": 10,
     "teacherId": 20
-  }
+  },
+  "responseStudentFields": [
+    "bookingId",
+    "studentId",
+    "studentCode",
+    "studentName",
+    "stationId",
+    "stationName",
+    "pickupAddress",
+    "hasCheckedInOnThisBus",
+    "currentBusId",
+    "currentBusLabel",
+    "isOnDifferentBusThanAssigned"
+  ]
 }
 ```
 
@@ -373,7 +386,21 @@ Gia tri `status` hop le: `ACTIVE`, `DEACTIVE`, `MAINTENANCE`.
     "driverId": 10,
     "rideDate": "2026-04-29",
     "atTime": "07:00:00"
-  }
+  },
+  "responseStudentFields": [
+    "studentId",
+    "studentCode",
+    "studentName",
+    "stationId",
+    "stationName",
+    "pickupAddress",
+    "pickupLatitude",
+    "pickupLongitude",
+    "hasCheckedInOnThisBus",
+    "currentBusId",
+    "currentBusLabel",
+    "isOnDifferentBusThanAssigned"
+  ]
 }
 ```
 
@@ -384,7 +411,21 @@ Gia tri `status` hop le: `ACTIVE`, `DEACTIVE`, `MAINTENANCE`.
     "teacherId": 20,
     "rideDate": "2026-04-29",
     "atTime": "07:00:00"
-  }
+  },
+  "responseStudentFields": [
+    "studentId",
+    "studentCode",
+    "studentName",
+    "stationId",
+    "stationName",
+    "pickupAddress",
+    "pickupLatitude",
+    "pickupLongitude",
+    "hasCheckedInOnThisBus",
+    "currentBusId",
+    "currentBusLabel",
+    "isOnDifferentBusThanAssigned"
+  ]
 }
 ```
 
@@ -408,7 +449,20 @@ Gia tri `status` hop le: `ACTIVE`, `DEACTIVE`, `MAINTENANCE`.
     "campusId": 1,
     "fromDate": "2026-04-01",
     "toDate": "2026-04-30"
-  }
+  },
+  "responseStudentFields": [
+    "studentId",
+    "studentCode",
+    "studentName",
+    "stationId",
+    "stationName",
+    "pickupAddress",
+    "assignmentType",
+    "hasCheckedInOnThisBus",
+    "currentBusId",
+    "currentBusLabel",
+    "isOnDifferentBusThanAssigned"
+  ]
 }
 ```
 
