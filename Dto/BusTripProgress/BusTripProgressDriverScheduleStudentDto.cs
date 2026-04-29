@@ -11,6 +11,7 @@ namespace BE_API.Dto.BusTripProgress
         public double? PickupLatitude { get; set; }
         public double? PickupLongitude { get; set; }
         public bool HasCheckedInOnThisBus { get; set; }
+        public bool IsCurrentlyOnThisBus { get; set; }
         public long? CurrentBusId { get; set; }
         public string? CurrentBusLabel { get; set; }
         public bool IsOnDifferentBusThanAssigned { get; set; }

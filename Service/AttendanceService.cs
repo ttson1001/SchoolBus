@@ -245,9 +245,6 @@ namespace BE_API.Service
             var note = await BuildAttendanceNoteAsync(validation.Student.Id, validation.AttendanceDate);
             note = AppendOperationalNote(note, validation.OperationalNote);
 
-            if (validation.ShouldAttachStudentToActualBusRun)
-                await AttachStudentToActualBusRunAsync(validation);
-
             var attendance = await GetAttendanceQueryable()
                 .Where(x => x.StudentId == dto.StudentId && x.Date.Date == validation.AttendanceDate)
                 .OrderByDescending(x => x.CheckInTime ?? TimeSpan.MinValue)
@@ -421,8 +418,8 @@ namespace BE_API.Service
             if (runStudent == null)
                 throw new Exception("Hoc sinh khong nam trong danh sach booking cua tuyen nay o khung gio da chon");
 
-            var shouldAttachStudentToActualBusRun = runStudent.BusRunId != actualBusRun.Id;
-            if (shouldAttachStudentToActualBusRun)
+            var isCheckingInOnDifferentBus = runStudent.BusRunId != actualBusRun.Id;
+            if (isCheckingInOnDifferentBus)
             {
                 var currentStudentCount = await _busRunStudentRepo.Get()
                     .CountAsync(x => x.BusRunId == actualBusRun.Id);
@@ -452,7 +449,6 @@ namespace BE_API.Service
                 CheckTime = checkTime,
                 ActualBusRunId = actualBusRun.Id,
                 SourceBusRunStudent = runStudent,
-                ShouldAttachStudentToActualBusRun = shouldAttachStudentToActualBusRun,
                 OperationalNote = BuildOperationalAttendanceNote(actualBusRun, runStudent)
             };
         }
@@ -481,36 +477,6 @@ namespace BE_API.Service
             }
 
             return runs.LastOrDefault(x => x.StartTime <= checkTime) ?? runs.First();
-        }
-
-        private async Task AttachStudentToActualBusRunAsync(ManualAttendanceValidationResult validation)
-        {
-            var sourceBusRunStudent = validation.SourceBusRunStudent
-                ?? throw new Exception("Khong tim thay booking goc cua hoc sinh de gan vao xe thuc te");
-
-            var alreadyAttached = await _busRunStudentRepo.Get()
-                .AnyAsync(x => x.BusRunId == validation.ActualBusRunId && x.StudentId == validation.Student.Id);
-
-            if (!alreadyAttached)
-            {
-                await _busRunStudentRepo.AddAsync(new BusRunStudent
-                {
-                    BusRunId = validation.ActualBusRunId,
-                    BookingId = sourceBusRunStudent.BookingId,
-                    StudentId = validation.Student.Id
-                });
-                await _busRunStudentRepo.SaveChangesAsync();
-            }
-
-            var actualBusRun = await _busRunRepo.Get()
-                .FirstOrDefaultAsync(x => x.Id == validation.ActualBusRunId)
-                ?? throw new Exception("Bus run thuc te khong ton tai");
-
-            actualBusRun.AssignedStudentCount = await _busRunStudentRepo.Get()
-                .CountAsync(x => x.BusRunId == actualBusRun.Id);
-
-            _busRunRepo.Update(actualBusRun);
-            await _busRunRepo.SaveChangesAsync();
         }
 
         private async Task CreateGuardianNotificationAsync(
@@ -718,7 +684,6 @@ namespace BE_API.Service
             public TimeSpan CheckTime { get; set; }
             public long ActualBusRunId { get; set; }
             public BusRunStudent? SourceBusRunStudent { get; set; }
-            public bool ShouldAttachStudentToActualBusRun { get; set; }
             public string? OperationalNote { get; set; }
         }
     }

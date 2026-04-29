@@ -868,7 +868,6 @@ Các tab có thể **song song hóa** (Promise.all) sau khi có `Student/Get`.
 ## 7. Tài liệu liên quan
 
 - [`API_TEST_JSON.md`](./API_TEST_JSON.md) — body/query mẫu đầy đủ.
-- [`FLOW_02_GUARDIAN_APP_E2E.md`](./FLOW_02_GUARDIAN_APP_E2E.md) — luồng app phụ huynh (ví, PayOS, học sinh, booking, điểm danh).
 - [`API_TEST_ADMIN_FLOW.md`](./API_TEST_ADMIN_FLOW.md) — nếu có, bổ sung scenario admin khác.
 
 ---

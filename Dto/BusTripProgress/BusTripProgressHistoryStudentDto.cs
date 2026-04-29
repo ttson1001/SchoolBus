@@ -10,6 +10,7 @@ namespace BE_API.Dto.BusTripProgress
         public string? PickupAddress { get; set; }
         public string AssignmentType { get; set; } = null!;
         public bool HasCheckedInOnThisBus { get; set; }
+        public bool IsCurrentlyOnThisBus { get; set; }
         public long? CurrentBusId { get; set; }
         public string? CurrentBusLabel { get; set; }
         public bool IsOnDifferentBusThanAssigned { get; set; }

@@ -1160,6 +1160,12 @@ namespace BE_API.Service
                             a.BusId == run.BusId &&
                             a.CheckInTime.HasValue);
 
+                        var currentlyOnThisBus = attendanceRows.Any(a =>
+                            a.StudentId == x.StudentId &&
+                            a.BusId == run.BusId &&
+                            a.CheckInTime.HasValue &&
+                            !a.CheckOutTime.HasValue);
+
                         var activeOnOtherBus = attendanceRows.FirstOrDefault(a =>
                             a.StudentId == x.StudentId &&
                             a.BusId != run.BusId &&
@@ -1182,6 +1188,7 @@ namespace BE_API.Service
                             StationName = x.Booking.Station.Name,
                             PickupAddress = x.Booking.PickupAddress,
                             HasCheckedInOnThisBus = checkInOnThisBus,
+                            IsCurrentlyOnThisBus = currentlyOnThisBus,
                             CurrentBusId = activeOnOtherBus?.BusId,
                             CurrentBusLabel = currentBusLabel,
                             IsOnDifferentBusThanAssigned = activeOnOtherBus != null

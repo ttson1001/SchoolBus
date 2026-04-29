@@ -288,6 +288,12 @@ namespace BE_API.Service
                                 a.BusId == run.BusId &&
                                 a.CheckInTime.HasValue);
 
+                            var currentlyOnThisBus = tripAttendances.Any(a =>
+                                a.StudentId == x.StudentId &&
+                                a.BusId == run.BusId &&
+                                a.CheckInTime.HasValue &&
+                                !a.CheckOutTime.HasValue);
+
                             var activeOnOtherBus = attendances
                                 .Where(a => a.StudentId == x.StudentId && a.Date.Date == rideDateOnly)
                                 .OrderByDescending(a => a.Id)
@@ -310,6 +316,7 @@ namespace BE_API.Service
                                 PickupAddress = x.Booking.PickupAddress,
                                 AssignmentType = "BOOKING",
                                 HasCheckedInOnThisBus = checkedInOnThisBus,
+                                IsCurrentlyOnThisBus = currentlyOnThisBus,
                                 CurrentBusId = activeOnOtherBus?.BusId,
                                 CurrentBusLabel = currentBusLabel,
                                 IsOnDifferentBusThanAssigned = activeOnOtherBus != null
@@ -432,6 +439,12 @@ namespace BE_API.Service
                                 att.BusId == x.BusId &&
                                 att.CheckInTime.HasValue);
 
+                            var currentlyOnThisBus = attendances.Any(att =>
+                                att.StudentId == a.StudentId &&
+                                att.BusId == x.BusId &&
+                                att.CheckInTime.HasValue &&
+                                !att.CheckOutTime.HasValue);
+
                             var activeOnOtherBus = attendances.FirstOrDefault(att =>
                                 att.StudentId == a.StudentId &&
                                 att.BusId != x.BusId &&
@@ -449,6 +462,7 @@ namespace BE_API.Service
                                 PickupLatitude = a.Booking.Latitude,
                                 PickupLongitude = a.Booking.Longitude,
                                 HasCheckedInOnThisBus = checkedInOnThisBus,
+                                IsCurrentlyOnThisBus = currentlyOnThisBus,
                                 CurrentBusId = activeOnOtherBus?.BusId,
                                 CurrentBusLabel = activeOnOtherBus?.Bus != null
                                     ? ResolveBusLabel(activeOnOtherBus.Bus)
