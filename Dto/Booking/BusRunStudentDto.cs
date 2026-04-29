@@ -8,5 +8,10 @@ namespace BE_API.Dto.Booking
         public string StudentName { get; set; } = null!;
         public long StationId { get; set; }
         public string StationName { get; set; } = null!;
+        public string? PickupAddress { get; set; }
+        public bool HasCheckedInOnThisBus { get; set; }
+        public long? CurrentBusId { get; set; }
+        public string? CurrentBusLabel { get; set; }
+        public bool IsOnDifferentBusThanAssigned { get; set; }
     }
 }

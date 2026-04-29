@@ -7,6 +7,7 @@ namespace BE_API.Dto.Booking
         public DateTime ServiceDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public long? StationId { get; set; }
+        public string? PickupAddress { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public string? Note { get; set; }

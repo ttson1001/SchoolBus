@@ -218,6 +218,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             var attendances = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
                 .Include(x => x.Student)
                 .Where(x => busIds.Contains(x.BusId) && x.Date.Date >= from && x.Date.Date <= to)
                 .ToListAsync();
@@ -280,14 +281,39 @@ namespace BE_API.Service
                     IsCompleted = isCompleted,
                     TripStatus = ResolveHistoryTripStatus(isCompleted, visitedStationCount, actualStudentCount),
                     Students = assignedStudents
-                        .Select(x => new BusTripProgressHistoryStudentDto
+                        .Select(x =>
                         {
-                            StudentId = x.StudentId,
-                            StudentCode = x.Student.StudentCode,
-                            StudentName = x.Student.FullName,
-                            StationId = x.Booking.StationId,
-                            StationName = x.Booking.Station?.Name,
-                            AssignmentType = "BOOKING"
+                            var checkedInOnThisBus = tripAttendances.Any(a =>
+                                a.StudentId == x.StudentId &&
+                                a.BusId == run.BusId &&
+                                a.CheckInTime.HasValue);
+
+                            var activeOnOtherBus = attendances
+                                .Where(a => a.StudentId == x.StudentId && a.Date.Date == rideDateOnly)
+                                .OrderByDescending(a => a.Id)
+                                .FirstOrDefault(a =>
+                                    a.BusId != run.BusId &&
+                                    a.CheckInTime.HasValue &&
+                                    !a.CheckOutTime.HasValue);
+
+                            var currentBusLabel = activeOnOtherBus?.Bus != null
+                                ? ResolveBusLabel(activeOnOtherBus.Bus)
+                                : null;
+
+                            return new BusTripProgressHistoryStudentDto
+                            {
+                                StudentId = x.StudentId,
+                                StudentCode = x.Student.StudentCode,
+                                StudentName = x.Student.FullName,
+                                StationId = x.Booking.StationId,
+                                StationName = x.Booking.Station?.Name,
+                                PickupAddress = x.Booking.PickupAddress,
+                                AssignmentType = "BOOKING",
+                                HasCheckedInOnThisBus = checkedInOnThisBus,
+                                CurrentBusId = activeOnOtherBus?.BusId,
+                                CurrentBusLabel = currentBusLabel,
+                                IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                            };
                         })
                         .OrderBy(x => x.StudentCode)
                         .ThenBy(x => x.StudentName)
@@ -333,6 +359,19 @@ namespace BE_API.Service
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
                 .Where(x => runIds.Contains(x.BusRunId))
+                .ToListAsync();
+
+            var studentIds = runStudentAssignments
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToList();
+
+            var attendances = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == selectedDate)
+                .OrderByDescending(x => x.Id)
                 .ToListAsync();
 
             var runningRuns = runs
@@ -386,16 +425,36 @@ namespace BE_API.Service
                         .Where(a => a.BusRunId == x.Id)
                         .GroupBy(a => a.StudentId)
                         .Select(g => g.OrderBy(v => v.Id).First())
-                        .Select(a => new BusTripProgressDriverScheduleStudentDto
+                        .Select(a =>
                         {
-                            StudentId = a.StudentId,
-                            StudentCode = a.Student.StudentCode,
-                            StudentName = a.Student.FullName,
-                            StationId = a.Booking.StationId,
-                            StationName = a.Booking.Station?.Name,
-                            // Uu tien toa do diem don tu booking, neu khong co thi fallback toa do tram.
-                            PickupLatitude = a.Booking.Latitude ?? a.Booking.Station?.Latitude,
-                            PickupLongitude = a.Booking.Longitude ?? a.Booking.Station?.Longitude
+                            var checkedInOnThisBus = attendances.Any(att =>
+                                att.StudentId == a.StudentId &&
+                                att.BusId == x.BusId &&
+                                att.CheckInTime.HasValue);
+
+                            var activeOnOtherBus = attendances.FirstOrDefault(att =>
+                                att.StudentId == a.StudentId &&
+                                att.BusId != x.BusId &&
+                                att.CheckInTime.HasValue &&
+                                !att.CheckOutTime.HasValue);
+
+                            return new BusTripProgressDriverScheduleStudentDto
+                            {
+                                StudentId = a.StudentId,
+                                StudentCode = a.Student.StudentCode,
+                                StudentName = a.Student.FullName,
+                                StationId = a.Booking.StationId,
+                                StationName = a.Booking.Station?.Name,
+                                PickupAddress = a.Booking.PickupAddress,
+                                PickupLatitude = a.Booking.Latitude,
+                                PickupLongitude = a.Booking.Longitude,
+                                HasCheckedInOnThisBus = checkedInOnThisBus,
+                                CurrentBusId = activeOnOtherBus?.BusId,
+                                CurrentBusLabel = activeOnOtherBus?.Bus != null
+                                    ? ResolveBusLabel(activeOnOtherBus.Bus)
+                                    : null,
+                                IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                            };
                         })
                         .OrderBy(a =>
                             a.StationId.HasValue && stationOrderMap.TryGetValue(a.StationId.Value, out var orderIndex)

@@ -547,7 +547,12 @@ Dùng khi admin cần biết **ngày đó** chuyến nào có **tài xế / giá
           "studentCode": "ST003",
           "studentName": "Le Van C",
           "stationId": 2,
-          "stationName": "Tram Cong vien"
+          "stationName": "Tram Cong vien",
+          "pickupAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
+          "hasCheckedInOnThisBus": true,
+          "currentBusId": null,
+          "currentBusLabel": null,
+          "isOnDifferentBusThanAssigned": false
         }
       ]
     }
@@ -623,8 +628,13 @@ Dùng khi admin cần biết **ngày đó** chuyến nào có **tài xế / giá
           "studentName": "Le Van C",
           "stationId": 2,
           "stationName": "Tram Cong vien",
-          "pickupLatitude": 10.775,
-          "pickupLongitude": 106.7
+          "pickupAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
+          "pickupLatitude": 10.77678,
+          "pickupLongitude": 106.69015,
+          "hasCheckedInOnThisBus": true,
+          "currentBusId": null,
+          "currentBusLabel": null,
+          "isOnDifferentBusThanAssigned": false
         }
       ],
       "stations": [
@@ -799,7 +809,12 @@ Dùng khi admin cần biết **ngày đó** chuyến nào có **tài xế / giá
           "studentName": "Le Van C",
           "stationId": 2,
           "stationName": "Tram Cong vien",
-          "assignmentType": "BOOKING"
+          "pickupAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
+          "assignmentType": "BOOKING",
+          "hasCheckedInOnThisBus": true,
+          "currentBusId": null,
+          "currentBusLabel": null,
+          "isOnDifferentBusThanAssigned": false
         }
       ]
     }
@@ -807,7 +822,7 @@ Dùng khi admin cần biết **ngày đó** chuyến nào có **tài xế / giá
 }
 ```
 
-*(Trong code hiện tại `assignmentType` thường là `BOOKING`; `tripStatus` lịch sử: `COMPLETED`, `IN_PROGRESS`, `HAS_ATTENDANCE`, `NO_DATA`.)*
+*(Trong code hiện tại `assignmentType` thường là `BOOKING`; `tripStatus` lịch sử: `COMPLETED`, `IN_PROGRESS`, `HAS_ATTENDANCE`, `NO_DATA`. `pickupAddress`/`pickupLatitude`/`pickupLongitude` lấy trực tiếp từ bảng `Booking` — dữ liệu phụ huynh nhập.)*
 
 #### 9.6 Gợi ý màn hình admin
 
@@ -853,6 +868,7 @@ Các tab có thể **song song hóa** (Promise.all) sau khi có `Student/Get`.
 ## 7. Tài liệu liên quan
 
 - [`API_TEST_JSON.md`](./API_TEST_JSON.md) — body/query mẫu đầy đủ.
+- [`FLOW_02_GUARDIAN_APP_E2E.md`](./FLOW_02_GUARDIAN_APP_E2E.md) — luồng app phụ huynh (ví, PayOS, học sinh, booking, điểm danh).
 - [`API_TEST_ADMIN_FLOW.md`](./API_TEST_ADMIN_FLOW.md) — nếu có, bổ sung scenario admin khác.
 
 ---

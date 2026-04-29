@@ -15,6 +15,7 @@ namespace BE_API.Entites
 
         public long StationId { get; set; }
         public BusStation Station { get; set; } = null!;
+        public string? PickupAddress { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
 

@@ -30,6 +30,7 @@ namespace BE_API.Service
         private readonly IRepository<BusRoute> _routeRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<Bus> _busRepo;
+        private readonly IRepository<Attendance> _attendanceRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IAppTime _appTime;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
@@ -44,6 +45,7 @@ namespace BE_API.Service
             IRepository<BusRoute> routeRepo,
             IRepository<BusRouteStation> routeStationRepo,
             IRepository<Bus> busRepo,
+            IRepository<Attendance> attendanceRepo,
             IRepository<Notification> notificationRepo,
             IAppTime appTime,
             IFirebaseNotificationService firebaseNotificationService,
@@ -57,6 +59,7 @@ namespace BE_API.Service
             _routeRepo = routeRepo;
             _routeStationRepo = routeStationRepo;
             _busRepo = busRepo;
+            _attendanceRepo = attendanceRepo;
             _notificationRepo = notificationRepo;
             _appTime = appTime;
             _firebaseNotificationService = firebaseNotificationService;
@@ -161,10 +164,24 @@ namespace BE_API.Service
                 .Where(x => runIds.Contains(x.BusRunId))
                 .ToListAsync();
 
+            var studentIds = runStudents
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToList();
+
+            var attendanceRows = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == normalizedServiceDate)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
             return runs
                 .Select(x => MapRunToDto(
                     x,
-                    runStudents.Where(y => y.BusRunId == x.Id).ToList()))
+                    runStudents.Where(y => y.BusRunId == x.Id).ToList(),
+                    attendanceRows))
                 .ToList();
         }
 
@@ -228,6 +245,7 @@ namespace BE_API.Service
                 ServiceDate = serviceDate,
                 StartTime = dto.StartTime,
                 StationId = station.Id,
+                PickupAddress = NormalizeOptional(dto.PickupAddress),
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
                 Status = "PENDING",
@@ -271,6 +289,9 @@ namespace BE_API.Service
             booking.ServiceDate = serviceDate;
             booking.StartTime = startTime;
             booking.StationId = station.Id;
+            booking.PickupAddress = dto.PickupAddress != null
+                ? NormalizeOptional(dto.PickupAddress)
+                : booking.PickupAddress;
             booking.Latitude = latitude;
             booking.Longitude = longitude;
             booking.Status = status;
@@ -431,10 +452,24 @@ namespace BE_API.Service
                 .Where(x => runIds.Contains(x.BusRunId))
                 .ToListAsync();
 
+            var studentIds = runStudentsResult
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToList();
+
+            var attendanceRows = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == serviceDate.Date)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
             return runs
                 .Select(run => MapRunToDto(
                     run,
-                    runStudentsResult.Where(x => x.BusRunId == run.Id).ToList()))
+                    runStudentsResult.Where(x => x.BusRunId == run.Id).ToList(),
+                    attendanceRows))
                 .ToList();
         }
 
@@ -1092,7 +1127,10 @@ namespace BE_API.Service
             return degrees * Math.PI / 180d;
         }
 
-        private static BusRunDto MapRunToDto(BusRun run, List<BusRunStudent> students)
+        private static BusRunDto MapRunToDto(
+            BusRun run,
+            List<BusRunStudent> students,
+            List<Attendance> attendanceRows)
         {
             return new BusRunDto
             {
@@ -1115,14 +1153,39 @@ namespace BE_API.Service
                 Students = students
                     .OrderBy(x => x.Student.StudentCode)
                     .ThenBy(x => x.Student.FullName)
-                    .Select(x => new BusRunStudentDto
+                    .Select(x =>
                     {
-                        BookingId = x.BookingId,
-                        StudentId = x.StudentId,
-                        StudentCode = x.Student.StudentCode,
-                        StudentName = x.Student.FullName,
-                        StationId = x.Booking.StationId,
-                        StationName = x.Booking.Station.Name
+                        var checkInOnThisBus = attendanceRows.Any(a =>
+                            a.StudentId == x.StudentId &&
+                            a.BusId == run.BusId &&
+                            a.CheckInTime.HasValue);
+
+                        var activeOnOtherBus = attendanceRows.FirstOrDefault(a =>
+                            a.StudentId == x.StudentId &&
+                            a.BusId != run.BusId &&
+                            a.CheckInTime.HasValue &&
+                            !a.CheckOutTime.HasValue);
+
+                        var currentBusLabel = activeOnOtherBus?.Bus != null
+                            ? (!string.IsNullOrWhiteSpace(activeOnOtherBus.Bus.BusNumber)
+                                ? activeOnOtherBus.Bus.BusNumber
+                                : activeOnOtherBus.Bus.LicensePlate)
+                            : null;
+
+                        return new BusRunStudentDto
+                        {
+                            BookingId = x.BookingId,
+                            StudentId = x.StudentId,
+                            StudentCode = x.Student.StudentCode,
+                            StudentName = x.Student.FullName,
+                            StationId = x.Booking.StationId,
+                            StationName = x.Booking.Station.Name,
+                            PickupAddress = x.Booking.PickupAddress,
+                            HasCheckedInOnThisBus = checkInOnThisBus,
+                            CurrentBusId = activeOnOtherBus?.BusId,
+                            CurrentBusLabel = currentBusLabel,
+                            IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                        };
                     })
                     .ToList()
             };
@@ -1144,6 +1207,8 @@ namespace BE_API.Service
                 StartTime = booking.StartTime,
                 StationId = booking.StationId,
                 StationName = booking.Station.Name,
+                StationAddress = booking.Station.Address,
+                PickupAddress = booking.PickupAddress,
                 Latitude = booking.Latitude,
                 Longitude = booking.Longitude,
                 Status = booking.Status,
@@ -1170,8 +1235,16 @@ namespace BE_API.Service
                 .ThenInclude(x => x.Station)
                 .Where(x => x.BusRunId == busRunId)
                 .ToListAsync();
+            var studentIds = students.Select(x => x.StudentId).Distinct().ToList();
+            var attendanceRows = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == busRun.ServiceDate.Date)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
 
-            return MapRunToDto(busRun, students);
+            return MapRunToDto(busRun, students, attendanceRows);
         }
 
         private async Task<User> ValidateUserByRoleAsync(long userId, string roleName)

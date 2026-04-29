@@ -14,6 +14,8 @@ namespace BE_API.Dto.Booking
         public TimeSpan StartTime { get; set; }
         public long StationId { get; set; }
         public string StationName { get; set; } = null!;
+        public string? StationAddress { get; set; }
+        public string? PickupAddress { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public string Status { get; set; } = null!;

@@ -148,6 +148,7 @@ Gia tri `status` hop le: `PENDING`, `CONFIRMED`, `CANCELLED`.
   "serviceDate": "2026-04-29T00:00:00Z",
   "startTime": "07:00:00",
   "stationId": 1,
+  "pickupAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
   "latitude": 10.762622,
   "longitude": 106.660172,
   "note": "Don tai cong truong A"
@@ -162,6 +163,7 @@ Gia tri `status` hop le: `PENDING`, `CONFIRMED`, `CANCELLED`.
   "serviceDate": "2026-04-30T00:00:00Z",
   "startTime": "07:15:00",
   "stationId": 2,
+  "pickupAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
   "latitude": 10.775,
   "longitude": 106.7,
   "status": "CONFIRMED",
@@ -534,6 +536,26 @@ Gia tri `status` hop le: `ACTIVE`, `DEACTIVE`, `MAINTENANCE`.
 ```json
 {
   "similarityThreshold": 0.8
+}
+```
+
+## NotificationController (`/api/Notification`)
+
+**Authorize:** Bearer. Phụ huynh: gọi không cần `userId` (lấy theo token).
+
+### GET `/api/Notification/Search`
+```json
+{
+  "query": {
+    "userId": null,
+    "isRead": false,
+    "type": null,
+    "fromDate": "2026-04-01",
+    "toDate": "2026-04-30",
+    "page": 1,
+    "pageSize": 20
+  },
+  "note": "Admin có thể set userId để xem thông báo user khác; user thường chỉ được userId trùng token hoặc bỏ userId."
 }
 ```
 

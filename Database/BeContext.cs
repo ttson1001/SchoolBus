@@ -76,6 +76,10 @@ namespace BE_API.Database
                 .Property(x => x.Note)
                 .HasMaxLength(500);
 
+            modelBuilder.Entity<Booking>()
+                .Property(x => x.PickupAddress)
+                .HasMaxLength(500);
+
             modelBuilder.Entity<BusRun>()
                 .Property(x => x.Status)
                 .HasMaxLength(50);
