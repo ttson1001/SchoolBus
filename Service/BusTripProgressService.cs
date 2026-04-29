@@ -196,6 +196,7 @@ namespace BE_API.Service
             var runIds = busRuns.Select(x => x.Id).ToList();
             var routeIds = busRuns.Select(x => x.RouteId).Distinct().ToList();
             var busIds = busRuns.Select(x => x.BusId).Distinct().ToList();
+            var startTimes = busRuns.Select(x => x.StartTime).Distinct().ToList();
 
             var routeStationCounts = await _routeStationRepo.Get()
                 .Where(x => routeIds.Contains(x.RouteId))
@@ -214,7 +215,11 @@ namespace BE_API.Service
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
-                .Where(x => runIds.Contains(x.BusRunId))
+                .Where(x =>
+                    x.BusRun.ServiceDate.Date >= from &&
+                    x.BusRun.ServiceDate.Date <= to &&
+                    routeIds.Contains(x.BusRun.RouteId) &&
+                    startTimes.Contains(x.BusRun.StartTime))
                 .ToListAsync();
 
             var attendances = await _attendanceRepo.Get()
@@ -241,11 +246,11 @@ namespace BE_API.Service
                     .Where(x => AttendanceMatchesRun(x, run, sameDayRuns))
                     .ToList();
 
-                var assignedStudents = runStudentAssignments
-                    .Where(x => x.BusRunId == run.Id)
-                    .GroupBy(x => x.StudentId)
-                    .Select(x => x.OrderBy(y => y.Id).First())
-                    .ToList();
+                var displayStudents = BuildDisplayStudentsForRun(
+                    run,
+                    rideDateOnly,
+                    runStudentAssignments,
+                    tripAttendances);
 
                 var totalStationCount = routeStationCounts.TryGetValue(run.RouteId, out var stationCount)
                     ? stationCount
@@ -272,7 +277,11 @@ namespace BE_API.Service
                     DriverName = run.Driver?.FullName ?? run.Driver?.Email,
                     TeacherId = run.TeacherId,
                     TeacherName = run.Teacher?.FullName ?? run.Teacher?.Email,
-                    PlannedStudentCount = assignedStudents.Count,
+                    PlannedStudentCount = runStudentAssignments
+                        .Where(x => x.BusRunId == run.Id)
+                        .Select(x => x.StudentId)
+                        .Distinct()
+                        .Count(),
                     ActualStudentCount = actualStudentCount,
                     VisitedStationCount = visitedStationCount,
                     TotalStationCount = totalStationCount,
@@ -280,27 +289,12 @@ namespace BE_API.Service
                     ActualEndAt = actualTimeline.ActualEndAt,
                     IsCompleted = isCompleted,
                     TripStatus = ResolveHistoryTripStatus(isCompleted, visitedStationCount, actualStudentCount),
-                    Students = assignedStudents
+                    Students = displayStudents
                         .Select(x =>
                         {
-                            var checkedInOnThisBus = tripAttendances.Any(a =>
-                                a.StudentId == x.StudentId &&
-                                a.BusId == run.BusId &&
-                                a.CheckInTime.HasValue);
-
-                            var currentlyOnThisBus = tripAttendances.Any(a =>
-                                a.StudentId == x.StudentId &&
-                                a.BusId == run.BusId &&
-                                a.CheckInTime.HasValue &&
-                                !a.CheckOutTime.HasValue);
-
-                            var activeOnOtherBus = attendances
-                                .Where(a => a.StudentId == x.StudentId && a.Date.Date == rideDateOnly)
-                                .OrderByDescending(a => a.Id)
-                                .FirstOrDefault(a =>
-                                    a.BusId != run.BusId &&
-                                    a.CheckInTime.HasValue &&
-                                    !a.CheckOutTime.HasValue);
+                            var checkedInOnThisBus = HasCheckedInOnThisBus(tripAttendances, run, x.StudentId);
+                            var currentlyOnThisBus = IsCurrentlyOnThisBus(tripAttendances, run, x.StudentId);
+                            var activeOnOtherBus = GetActiveAttendanceOnOtherBus(attendances, rideDateOnly, run, x.StudentId);
 
                             var currentBusLabel = activeOnOtherBus?.Bus != null
                                 ? ResolveBusLabel(activeOnOtherBus.Bus)
@@ -347,6 +341,7 @@ namespace BE_API.Service
             var selectedTime = atTime ?? _appTime.GetTimeOfDay();
             var runIds = runs.Select(x => x.Id).ToList();
             var routeIds = runs.Select(x => x.RouteId).Distinct().ToList();
+            var startTimes = runs.Select(x => x.StartTime).Distinct().ToList();
 
             var routeStations = await _routeStationRepo.Get()
                 .Include(x => x.Station)
@@ -365,7 +360,10 @@ namespace BE_API.Service
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
-                .Where(x => runIds.Contains(x.BusRunId))
+                .Where(x =>
+                    x.BusRun.ServiceDate.Date == selectedDate &&
+                    routeIds.Contains(x.BusRun.RouteId) &&
+                    startTimes.Contains(x.BusRun.StartTime))
                 .ToListAsync();
 
             var studentIds = runStudentAssignments
@@ -428,28 +426,16 @@ namespace BE_API.Service
                     IsUpcoming = selectedTime < x.StartTime,
                     IsCompleted = IsRunCompleted(x, runs, selectedTime),
                     IsRecommended = x.Id == recommendedRunId,
-                    Students = runStudentAssignments
-                        .Where(a => a.BusRunId == x.Id)
-                        .GroupBy(a => a.StudentId)
-                        .Select(g => g.OrderBy(v => v.Id).First())
+                    Students = BuildDisplayStudentsForRun(
+                            x,
+                            selectedDate,
+                            runStudentAssignments,
+                            attendances)
                         .Select(a =>
                         {
-                            var checkedInOnThisBus = attendances.Any(att =>
-                                att.StudentId == a.StudentId &&
-                                att.BusId == x.BusId &&
-                                att.CheckInTime.HasValue);
-
-                            var currentlyOnThisBus = attendances.Any(att =>
-                                att.StudentId == a.StudentId &&
-                                att.BusId == x.BusId &&
-                                att.CheckInTime.HasValue &&
-                                !att.CheckOutTime.HasValue);
-
-                            var activeOnOtherBus = attendances.FirstOrDefault(att =>
-                                att.StudentId == a.StudentId &&
-                                att.BusId != x.BusId &&
-                                att.CheckInTime.HasValue &&
-                                !att.CheckOutTime.HasValue);
+                            var checkedInOnThisBus = HasCheckedInOnThisBus(attendances, x, a.StudentId);
+                            var currentlyOnThisBus = IsCurrentlyOnThisBus(attendances, x, a.StudentId);
+                            var activeOnOtherBus = GetActiveAttendanceOnOtherBus(attendances, selectedDate, x, a.StudentId);
 
                             return new BusTripProgressDriverScheduleStudentDto
                             {
@@ -500,6 +486,81 @@ namespace BE_API.Service
                 .Include(x => x.Station)
                 .Include(x => x.Bus)
                 .Include(x => x.BusRun);
+        }
+
+        private static List<BusRunStudent> BuildDisplayStudentsForRun(
+            BusRun run,
+            DateTime rideDate,
+            List<BusRunStudent> allAssignments,
+            List<Attendance> attendanceRows)
+        {
+            var assignedStudents = allAssignments
+                .Where(x => x.BusRunId == run.Id)
+                .GroupBy(x => x.StudentId)
+                .Select(x => x.OrderBy(y => y.Id).First())
+                .ToList();
+
+            var activeStudentIdsOnThisBus = attendanceRows
+                .Where(a =>
+                    a.Date.Date == rideDate &&
+                    a.BusId == run.BusId &&
+                    a.CheckInTime.HasValue &&
+                    !a.CheckOutTime.HasValue)
+                .Select(a => a.StudentId)
+                .Distinct()
+                .ToList();
+
+            var additionalStudentsOnThisBus = allAssignments
+                .Where(x =>
+                    x.BusRunId != run.Id &&
+                    x.BusRun.RouteId == run.RouteId &&
+                    x.BusRun.ServiceDate.Date == rideDate &&
+                    x.BusRun.StartTime == run.StartTime &&
+                    activeStudentIdsOnThisBus.Contains(x.StudentId))
+                .GroupBy(x => x.StudentId)
+                .Select(x => x.OrderBy(y => y.Id).First())
+                .Where(x => assignedStudents.All(y => y.StudentId != x.StudentId))
+                .ToList();
+
+            return assignedStudents
+                .Concat(additionalStudentsOnThisBus)
+                .OrderBy(x => x.Student.StudentCode)
+                .ThenBy(x => x.Student.FullName)
+                .ToList();
+        }
+
+        private static bool HasCheckedInOnThisBus(List<Attendance> attendanceRows, BusRun run, long studentId)
+        {
+            return attendanceRows.Any(a =>
+                a.StudentId == studentId &&
+                a.BusId == run.BusId &&
+                a.Date.Date == run.ServiceDate.Date &&
+                a.CheckInTime.HasValue);
+        }
+
+        private static bool IsCurrentlyOnThisBus(List<Attendance> attendanceRows, BusRun run, long studentId)
+        {
+            return attendanceRows.Any(a =>
+                a.StudentId == studentId &&
+                a.BusId == run.BusId &&
+                a.Date.Date == run.ServiceDate.Date &&
+                a.CheckInTime.HasValue &&
+                !a.CheckOutTime.HasValue);
+        }
+
+        private static Attendance? GetActiveAttendanceOnOtherBus(
+            List<Attendance> attendanceRows,
+            DateTime rideDate,
+            BusRun run,
+            long studentId)
+        {
+            return attendanceRows
+                .Where(a => a.StudentId == studentId && a.Date.Date == rideDate)
+                .OrderByDescending(a => a.Id)
+                .FirstOrDefault(a =>
+                    a.BusId != run.BusId &&
+                    a.CheckInTime.HasValue &&
+                    !a.CheckOutTime.HasValue);
         }
 
         private async Task<Bus> ValidateBusAsync(long busId)

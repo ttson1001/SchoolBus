@@ -157,11 +157,16 @@ namespace BE_API.Service
                 .ToListAsync();
 
             var runIds = runs.Select(x => x.Id).ToList();
+            var routeIds = runs.Select(x => x.RouteId).Distinct().ToList();
+            var startTimes = runs.Select(x => x.StartTime).Distinct().ToList();
             var runStudents = await _busRunStudentRepo.Get()
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
-                .Where(x => runIds.Contains(x.BusRunId))
+                .Where(x =>
+                    x.BusRun.ServiceDate.Date == normalizedServiceDate &&
+                    routeIds.Contains(x.BusRun.RouteId) &&
+                    startTimes.Contains(x.BusRun.StartTime))
                 .ToListAsync();
 
             var studentIds = runStudents
@@ -180,7 +185,7 @@ namespace BE_API.Service
             return runs
                 .Select(x => MapRunToDto(
                     x,
-                    runStudents.Where(y => y.BusRunId == x.Id).ToList(),
+                    runStudents,
                     attendanceRows))
                 .ToList();
         }
@@ -468,7 +473,7 @@ namespace BE_API.Service
             return runs
                 .Select(run => MapRunToDto(
                     run,
-                    runStudentsResult.Where(x => x.BusRunId == run.Id).ToList(),
+                    runStudentsResult,
                     attendanceRows))
                 .ToList();
         }
@@ -1129,9 +1134,39 @@ namespace BE_API.Service
 
         private static BusRunDto MapRunToDto(
             BusRun run,
-            List<BusRunStudent> students,
+            List<BusRunStudent> allStudents,
             List<Attendance> attendanceRows)
         {
+            var assignedStudents = allStudents
+                .Where(x => x.BusRunId == run.Id)
+                .GroupBy(x => x.StudentId)
+                .Select(x => x.OrderBy(y => y.Id).First())
+                .ToList();
+
+            var attendanceStudentIdsOnThisBus = attendanceRows
+                .Where(a =>
+                    a.BusId == run.BusId &&
+                    a.CheckInTime.HasValue &&
+                    !a.CheckOutTime.HasValue)
+                .Select(a => a.StudentId)
+                .Distinct()
+                .ToList();
+
+            var additionalStudentsOnThisBus = allStudents
+                .Where(x =>
+                    attendanceStudentIdsOnThisBus.Contains(x.StudentId) &&
+                    x.BusRunId != run.Id)
+                .GroupBy(x => x.StudentId)
+                .Select(x => x.OrderBy(y => y.Id).First())
+                .Where(x => assignedStudents.All(y => y.StudentId != x.StudentId))
+                .ToList();
+
+            var displayStudents = assignedStudents
+                .Concat(additionalStudentsOnThisBus)
+                .OrderBy(x => x.Student.StudentCode)
+                .ThenBy(x => x.Student.FullName)
+                .ToList();
+
             return new BusRunDto
             {
                 Id = run.Id,
@@ -1150,9 +1185,7 @@ namespace BE_API.Service
                 AssignedStudentCount = run.AssignedStudentCount,
                 RunOrder = run.RunOrder,
                 Status = run.Status,
-                Students = students
-                    .OrderBy(x => x.Student.StudentCode)
-                    .ThenBy(x => x.Student.FullName)
+                Students = displayStudents
                     .Select(x =>
                     {
                         var checkInOnThisBus = attendanceRows.Any(a =>
@@ -1240,7 +1273,7 @@ namespace BE_API.Service
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
-                .Where(x => x.BusRunId == busRunId)
+                .Where(x => x.BusRun.RouteId == busRun.RouteId && x.BusRun.ServiceDate.Date == busRun.ServiceDate.Date && x.BusRun.StartTime == busRun.StartTime)
                 .ToListAsync();
             var studentIds = students.Select(x => x.StudentId).Distinct().ToList();
             var attendanceRows = await _attendanceRepo.Get()
