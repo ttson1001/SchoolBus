@@ -143,7 +143,7 @@ namespace BE_API.Service
             return MapToDto(attendance);
         }
 
-        public async Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date)
+        public async Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date, long? busRunId = null)
         {
             if (busId <= 0)
                 throw new Exception("BusId phai lon hon 0");
@@ -153,10 +153,18 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == busId)
                 ?? throw new Exception("Bus khong ton tai");
 
+            var busRuns = await ResolveBusRunsAsync(busId, selectedDate, busRunId);
+            var assignedStudentIds = await _busRunStudentRepo.Get()
+                .Where(x => busRuns.Contains(x.BusRunId))
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToListAsync();
+
             var attendances = await GetAttendanceQueryable()
                 .Where(x =>
                     x.BusId == busId &&
                     x.Date.Date == selectedDate.Date &&
+                    assignedStudentIds.Contains(x.StudentId) &&
                     x.Status == AttendanceStatus.CHECKED_IN &&
                     x.CheckInTime.HasValue &&
                     !x.CheckOutTime.HasValue)
@@ -168,19 +176,13 @@ namespace BE_API.Service
             return attendances.Select(MapToOnBusDto).ToList();
         }
 
-        public async Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date)
+        public async Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date, long? busRunId = null)
         {
             if (busId <= 0)
                 throw new Exception("BusId phai lon hon 0");
 
             var selectedDate = _appTime.GetRideCalendarDate(date);
-            var busRuns = await _busRunRepo.Get()
-                .Where(x => x.BusId == busId && x.ServiceDate.Date == selectedDate.Date)
-                .Select(x => x.Id)
-                .ToListAsync();
-
-            if (!busRuns.Any())
-                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
+            var busRuns = await ResolveBusRunsAsync(busId, selectedDate, busRunId);
 
             var runStudents = await _busRunStudentRepo.Get()
                 .Include(x => x.Student)
@@ -237,6 +239,32 @@ namespace BE_API.Service
                 .ThenBy(x => x.StudentCode)
                 .ThenBy(x => x.StudentName)
                 .ToList();
+        }
+
+        private async Task<List<long>> ResolveBusRunsAsync(long busId, DateTime selectedDate, long? busRunId)
+        {
+            if (busRunId.HasValue && busRunId.Value <= 0)
+                throw new Exception("BusRunId phai lon hon 0");
+
+            var query = _busRunRepo.Get()
+                .Where(x => x.BusId == busId && x.ServiceDate.Date == selectedDate.Date);
+
+            if (busRunId.HasValue)
+                query = query.Where(x => x.Id == busRunId.Value);
+
+            var busRuns = await query
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            if (!busRuns.Any())
+            {
+                if (busRunId.HasValue)
+                    throw new Exception("BusRun khong ton tai hoac khong thuoc bus/ngay da chon");
+
+                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
+            }
+
+            return busRuns;
         }
 
         public async Task<AttendanceDto> ManualCheckInAsync(AttendanceManualDto dto)

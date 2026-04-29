@@ -8,8 +8,8 @@ namespace BE_API.Service.IService
         Task<PagedResult<AttendanceDto>> SearchAttendanceAsync(string? keyword, DateTime? date, long? campusId, long? busId, long? studentId, long? guardianId, string? status, int page, int pageSize);
         Task<AttendanceDto> GetAttendanceByIdAsync(long id);
         Task<List<AttendanceDto>> GetAttendanceByStudentIdAsync(long studentId, DateTime? fromDate, DateTime? toDate);
-        Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date);
-        Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date);
+        Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date, long? busRunId = null);
+        Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date, long? busRunId = null);
         Task<AttendanceDto> ManualCheckInAsync(AttendanceManualDto dto);
         Task<AttendanceDto> ManualCheckOutAsync(AttendanceManualDto dto);
         Task DeleteAttendanceAsync(long id);

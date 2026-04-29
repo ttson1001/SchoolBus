@@ -96,13 +96,13 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Lay danh sach hoc sinh dang tren xe")]
-        public async Task<IActionResult> GetStudentsOnBus(long busId, DateTime? date)
+        public async Task<IActionResult> GetStudentsOnBus(long busId, DateTime? date, long? busRunId)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _attendanceService.GetStudentsOnBusAsync(busId, date);
+                var data = await _attendanceService.GetStudentsOnBusAsync(busId, date, busRunId);
                 response.Data = data;
                 response.Message = ATTENDANCE_ON_BUS_SUCCESS;
                 return Ok(response);
@@ -116,13 +116,13 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Lay danh sach hoc sinh da len xe va chua len xe")]
-        public async Task<IActionResult> GetBusStudentStatuses(long busId, DateTime? date)
+        public async Task<IActionResult> GetBusStudentStatuses(long busId, DateTime? date, long? busRunId)
         {
             var response = new ResponseDto();
 
             try
             {
-                var data = await _attendanceService.GetBusStudentStatusesAsync(busId, date);
+                var data = await _attendanceService.GetBusStudentStatusesAsync(busId, date, busRunId);
                 response.Data = data;
                 response.Message = ATTENDANCE_BUS_STATUS_SUCCESS;
                 return Ok(response);
