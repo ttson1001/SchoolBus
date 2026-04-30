@@ -119,6 +119,35 @@ namespace BE_API.Service
             var routeStations = await GetRouteStationsAsync(busRun.RouteId);
             var progressList = await GetTripProgressListAsync(busRun.Id, selectedDate);
             var latestProgress = progressList.LastOrDefault();
+            var runStudentAssignments = await _busRunStudentRepo.Get()
+                .Include(x => x.Student)
+                .Include(x => x.Booking)
+                .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
+                .Where(x =>
+                    x.BusRun.ServiceDate.Date == selectedDate &&
+                    x.BusRun.RouteId == busRun.RouteId &&
+                    x.BusRun.StartTime == busRun.StartTime)
+                .ToListAsync();
+
+            var studentIds = runStudentAssignments
+                .Select(x => x.StudentId)
+                .Distinct()
+                .ToList();
+
+            var attendances = await _attendanceRepo.Get()
+                .Include(x => x.Bus)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == selectedDate)
+                .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
+            var displayStudents = BuildDisplayStudentsForRun(
+                busRun,
+                selectedDate,
+                runStudentAssignments,
+                attendances);
 
             var nextStation = latestProgress == null
                 ? routeStations.FirstOrDefault()
@@ -151,7 +180,39 @@ namespace BE_API.Service
                         Longitude = routeStation.Station.Longitude,
                         OrderIndex = routeStation.OrderIndex,
                         IsVisited = progress != null,
-                        ArrivedAt = progress?.ArrivedAt
+                        ArrivedAt = progress?.ArrivedAt,
+                        Students = displayStudents
+                            .Where(x => x.Booking.StationId == routeStation.StationId)
+                            .Select(x =>
+                            {
+                                var checkedInOnThisBus = HasCheckedInOnThisBus(attendances, busRun, x.StudentId);
+                                var currentlyOnThisBus = IsCurrentlyOnThisBus(attendances, busRun, x.StudentId);
+                                var activeOnOtherBus = GetActiveAttendanceOnOtherBus(attendances, selectedDate, busRun, x.StudentId);
+
+                                return new BusTripProgressStationStudentDto
+                                {
+                                    StudentId = x.StudentId,
+                                    StudentCode = x.Student.StudentCode,
+                                    StudentName = x.Student.FullName,
+                                    StationId = x.Booking.StationId,
+                                    StationName = x.Booking.Station?.Name ?? string.Empty,
+                                    PickupAddress = x.Booking.PickupAddress,
+                                    PickupLatitude = x.Booking.Latitude,
+                                    PickupLongitude = x.Booking.Longitude,
+                                    HasCheckedInOnThisBus = checkedInOnThisBus,
+                                    IsCurrentlyOnThisBus = currentlyOnThisBus,
+                                    CurrentBusId = activeOnOtherBus?.BusId,
+                                    CurrentBusLabel = activeOnOtherBus?.Bus != null
+                                        ? ResolveBusLabel(activeOnOtherBus.Bus)
+                                        : null,
+                                    IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                                };
+                            })
+                            .OrderBy(x => x.PickupLatitude ?? double.MaxValue)
+                            .ThenBy(x => x.PickupLongitude ?? double.MaxValue)
+                            .ThenBy(x => x.StudentCode)
+                            .ThenBy(x => x.StudentName)
+                            .ToList()
                     };
                 }).ToList()
             };

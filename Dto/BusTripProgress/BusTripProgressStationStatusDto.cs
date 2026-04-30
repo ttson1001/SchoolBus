@@ -9,5 +9,6 @@ namespace BE_API.Dto.BusTripProgress
         public int OrderIndex { get; set; }
         public bool IsVisited { get; set; }
         public DateTime? ArrivedAt { get; set; }
+        public List<BusTripProgressStationStudentDto> Students { get; set; } = new();
     }
 }
