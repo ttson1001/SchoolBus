@@ -215,6 +215,7 @@ namespace BE_API.Service
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
                 .Where(x =>
                     x.BusRun.ServiceDate.Date >= from &&
                     x.BusRun.ServiceDate.Date <= to &&
@@ -360,6 +361,7 @@ namespace BE_API.Service
                 .Include(x => x.Student)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
                 .Where(x =>
                     x.BusRun.ServiceDate.Date == selectedDate &&
                     routeIds.Contains(x.BusRun.RouteId) &&
