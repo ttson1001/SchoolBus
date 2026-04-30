@@ -190,14 +190,16 @@ namespace BE_API.Service
                 .ToList();
         }
 
-        public async Task<List<GuardianTodayBusRunDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate)
+        public async Task<List<GuardianBusRunWithTomorrowBookingDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate)
         {
             await ValidateGuardianAsync(guardianId);
 
             var selectedDate = serviceDate?.Date ?? _appTime.TodayDate;
+            var tomorrowDate = selectedDate.AddDays(1);
 
             var assignments = await _busRunStudentRepo.Get()
                 .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
                 .Include(x => x.BusRun)
@@ -217,7 +219,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!assignments.Any())
-                return new List<GuardianTodayBusRunDto>();
+                return new List<GuardianBusRunWithTomorrowBookingDto>();
 
             var studentIds = assignments
                 .Select(x => x.StudentId)
@@ -230,6 +232,19 @@ namespace BE_API.Service
                     studentIds.Contains(x.StudentId) &&
                     x.Date.Date == selectedDate)
                 .OrderByDescending(x => x.Id)
+                .ToListAsync();
+
+            var tomorrowBookings = await _bookingRepo.Get()
+                .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
+                .Include(x => x.Route)
+                .Include(x => x.Station)
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.ServiceDate.Date == tomorrowDate)
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.CreatedAt)
+                .ThenBy(x => x.Id)
                 .ToListAsync();
 
             return assignments
@@ -259,46 +274,76 @@ namespace BE_API.Service
                         a.CheckInTime.HasValue &&
                         !a.CheckOutTime.HasValue);
 
-                    return new GuardianTodayBusRunDto
+                    var tomorrowBooking = tomorrowBookings
+                        .FirstOrDefault(x => x.StudentId == assignment.StudentId);
+
+                    return new GuardianBusRunWithTomorrowBookingDto
                     {
-                        BookingId = assignment.BookingId,
-                        StudentId = assignment.StudentId,
-                        StudentCode = assignment.Student.StudentCode,
-                        StudentName = assignment.Student.FullName,
-                        StudentAvatarUrl = assignment.Student.AvatarUrl,
-                        RouteId = assignedRun.RouteId,
-                        RouteName = assignedRun.Route.Name,
-                        ServiceDate = assignedRun.ServiceDate,
-                        StartTime = assignedRun.StartTime,
-                        BusRunId = assignedRun.Id,
-                        BusId = assignedRun.BusId,
-                        BusLabel = !string.IsNullOrWhiteSpace(assignedRun.Bus.BusNumber)
-                            ? assignedRun.Bus.BusNumber
-                            : assignedRun.Bus.LicensePlate,
-                        DriverId = assignedRun.DriverId,
-                        DriverName = assignedRun.Driver?.FullName ?? assignedRun.Driver?.Email,
-                        TeacherId = assignedRun.TeacherId,
-                        TeacherName = assignedRun.Teacher?.FullName ?? assignedRun.Teacher?.Email,
-                        RunOrder = assignedRun.RunOrder,
-                        RunStatus = assignedRun.Status,
-                        StationId = assignment.Booking.StationId,
-                        StationName = assignment.Booking.Station?.Name ?? string.Empty,
-                        PickupAddress = assignment.Booking.PickupAddress,
-                        HasCheckedInOnThisBus = hasCheckedInOnThisBus,
-                        IsCurrentlyOnThisBus = isCurrentlyOnThisBus,
-                        CurrentBusId = activeOnOtherBus?.BusId,
-                        CurrentBusLabel = activeOnOtherBus?.Bus != null
-                            ? (!string.IsNullOrWhiteSpace(activeOnOtherBus.Bus.BusNumber)
-                                ? activeOnOtherBus.Bus.BusNumber
-                                : activeOnOtherBus.Bus.LicensePlate)
-                            : null,
-                        IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                        TodayBusRun = new GuardianTodayBusRunDto
+                        {
+                            BookingId = assignment.BookingId,
+                            StudentId = assignment.StudentId,
+                            StudentCode = assignment.Student.StudentCode,
+                            StudentName = assignment.Student.FullName,
+                            StudentAvatarUrl = assignment.Student.AvatarUrl,
+                            RouteId = assignedRun.RouteId,
+                            RouteName = assignedRun.Route.Name,
+                            ServiceDate = assignedRun.ServiceDate,
+                            StartTime = assignedRun.StartTime,
+                            BusRunId = assignedRun.Id,
+                            BusId = assignedRun.BusId,
+                            BusLabel = !string.IsNullOrWhiteSpace(assignedRun.Bus.BusNumber)
+                                ? assignedRun.Bus.BusNumber
+                                : assignedRun.Bus.LicensePlate,
+                            DriverId = assignedRun.DriverId,
+                            DriverName = assignedRun.Driver?.FullName ?? assignedRun.Driver?.Email,
+                            TeacherId = assignedRun.TeacherId,
+                            TeacherName = assignedRun.Teacher?.FullName ?? assignedRun.Teacher?.Email,
+                            RunOrder = assignedRun.RunOrder,
+                            RunStatus = assignedRun.Status,
+                            StationId = assignment.Booking.StationId,
+                            StationName = assignment.Booking.Station?.Name ?? string.Empty,
+                            PickupAddress = assignment.Booking.PickupAddress,
+                            HasCheckedInOnThisBus = hasCheckedInOnThisBus,
+                            IsCurrentlyOnThisBus = isCurrentlyOnThisBus,
+                            CurrentBusId = activeOnOtherBus?.BusId,
+                            CurrentBusLabel = activeOnOtherBus?.Bus != null
+                                ? (!string.IsNullOrWhiteSpace(activeOnOtherBus.Bus.BusNumber)
+                                    ? activeOnOtherBus.Bus.BusNumber
+                                    : activeOnOtherBus.Bus.LicensePlate)
+                                : null,
+                            IsOnDifferentBusThanAssigned = activeOnOtherBus != null
+                        },
+                        BookingTomorrow = tomorrowBooking == null
+                            ? null
+                            : new BookingDto
+                            {
+                                Id = tomorrowBooking.Id,
+                                StudentId = tomorrowBooking.StudentId,
+                                StudentCode = tomorrowBooking.Student.StudentCode,
+                                StudentName = tomorrowBooking.Student.FullName,
+                                GuardianId = tomorrowBooking.Student.GuardianId,
+                                GuardianName = tomorrowBooking.Student.Guardian?.FullName ?? string.Empty,
+                                RouteId = tomorrowBooking.RouteId,
+                                RouteName = tomorrowBooking.Route.Name,
+                                ServiceDate = tomorrowBooking.ServiceDate,
+                                StartTime = tomorrowBooking.StartTime,
+                                StationId = tomorrowBooking.StationId,
+                                StationName = tomorrowBooking.Station?.Name ?? string.Empty,
+                                StationAddress = tomorrowBooking.Station?.Address,
+                                PickupAddress = tomorrowBooking.PickupAddress,
+                                Latitude = tomorrowBooking.Latitude,
+                                Longitude = tomorrowBooking.Longitude,
+                                Status = tomorrowBooking.Status,
+                                Note = tomorrowBooking.Note,
+                                CreatedAt = tomorrowBooking.CreatedAt
+                            }
                     };
                 })
-                .OrderBy(x => x.StartTime)
-                .ThenBy(x => x.RunOrder)
-                .ThenBy(x => x.StudentCode)
-                .ThenBy(x => x.StudentName)
+                .OrderBy(x => x.TodayBusRun.StartTime)
+                .ThenBy(x => x.TodayBusRun.RunOrder)
+                .ThenBy(x => x.TodayBusRun.StudentCode)
+                .ThenBy(x => x.TodayBusRun.StudentName)
                 .ToList();
         }
 

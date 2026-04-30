@@ -21,7 +21,7 @@ namespace BE_API.Service.IService
             long? busId,
             long? driverId,
             long? teacherId);
-        Task<List<GuardianTodayBusRunDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate);
+        Task<List<GuardianBusRunWithTomorrowBookingDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate);
         Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsAsync(AutoAssignBookingRequestDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsByDateAsync(DateTime serviceDate);
