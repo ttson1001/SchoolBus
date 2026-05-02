@@ -53,7 +53,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role khong ton tai");
+                ?? throw new Exception("Role không tồn tại");
 
             return new RoleDto
             {
@@ -76,7 +76,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role khong ton tai");
+                ?? throw new Exception("Role không tồn tại");
 
             role.Name = dto.Name;
 
@@ -93,7 +93,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role khong ton tai");
+                ?? throw new Exception("Role không tồn tại");
 
             _roleRepo.Delete(role);
         }

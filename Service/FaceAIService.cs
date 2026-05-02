@@ -46,10 +46,10 @@ namespace BE_API.Service
         public Task<object?> CreateStudentAsync(int studentId, string name)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             if (string.IsNullOrWhiteSpace(name))
-                throw new Exception("Name khAng Aac Aa trang");
+                throw new Exception("Name không được để trống");
 
             var path = $"/student?student_id={studentId}&name={Uri.EscapeDataString(name.Trim())}";
             return SendAsync(HttpMethod.Post, path);
@@ -58,7 +58,7 @@ namespace BE_API.Service
         public async Task<object?> AddStudentFaceAsync(int studentId, IFormFile file)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             var studentName = await GetStudentNameAsync(studentId);
             ValidateImageFile(file);
@@ -78,7 +78,7 @@ namespace BE_API.Service
         public Task<object?> GetStudentImagesAsync(int studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             return SendAsync(HttpMethod.Get, $"/student/{studentId}/images");
         }
@@ -86,7 +86,7 @@ namespace BE_API.Service
         public Task<object?> GetStudentFacesAsync(int studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             return SendAsync(HttpMethod.Get, $"/student/{studentId}/faces");
         }
@@ -94,7 +94,7 @@ namespace BE_API.Service
         public Task<object?> DeleteStudentAsync(int studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             return SendAsync(HttpMethod.Delete, $"/student/{studentId}");
         }
@@ -102,7 +102,7 @@ namespace BE_API.Service
         public Task<object?> DeleteFaceAsync(int faceId)
         {
             if (faceId <= 0)
-                throw new Exception("FaceId phai lan hn 0");
+                throw new Exception("FaceId phải lớn hơn 0");
 
             return SendAsync(HttpMethod.Delete, $"/face/{faceId}");
         }
@@ -110,7 +110,7 @@ namespace BE_API.Service
         public async Task<object?> VerifyStudentAsync(int studentId, IFormFile file)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lan hn 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             var threshold = await ResolveThresholdAsync();
             ValidateImageFile(file);
@@ -157,7 +157,7 @@ namespace BE_API.Service
             var recognition = await RecognizeStudentAsync(dto.File);
 
             if (!recognition.IsMatched || !recognition.StudentId.HasValue)
-                throw new Exception(recognition.Message ?? "KhAng nhan dian Aac hac sinh phA hap");
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
 
             var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkin");
 
@@ -183,7 +183,7 @@ namespace BE_API.Service
             var recognition = await RecognizeStudentAsync(dto.File);
 
             if (!recognition.IsMatched || !recognition.StudentId.HasValue)
-                throw new Exception(recognition.Message ?? "KhAng nhan dian Aac hac sinh phA hap");
+                throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
 
             var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkout");
 
@@ -250,7 +250,7 @@ namespace BE_API.Service
         private HttpClient CreateClient()
         {
             if (string.IsNullOrWhiteSpace(_settings.BaseUrl))
-                throw new Exception("Cha cau hAnh FaceAI:BaseUrl");
+                throw new Exception("Chưa cấu hình FaceAI:BaseUrl");
 
             var client = _httpClientFactory.CreateClient();
             client.BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/'));
@@ -273,10 +273,10 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == studentId);
 
             if (student == null)
-                throw new Exception("KhAng tAm thay hac sinh trong ha thang");
+                throw new Exception("Không tìm thấy học sinh trong hệ thống");
 
             if (string.IsNullOrWhiteSpace(student.FullName))
-                throw new Exception("Hac sinh cha cA tAn Aa Aang ba sang FaceAI");
+                throw new Exception("Học sinh chưa có tên để đồng bộ sang FaceAI");
 
             return student.FullName.Trim();
         }
@@ -304,19 +304,19 @@ namespace BE_API.Service
         private static void ValidateImageFile(IFormFile? file)
         {
             if (file == null || file.Length == 0)
-                throw new Exception("File anh khAng Aac Aa trang");
+                throw new Exception("File ảnh không được để trống");
 
             if (string.IsNullOrWhiteSpace(file.ContentType) ||
                 !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
-                throw new Exception("File tai lAn phai lA anh");
+                throw new Exception("File tải lên phải là ảnh");
             }
         }
 
         private static void ValidateThreshold(decimal threshold)
         {
             if (threshold < 0 || threshold > 1)
-                throw new Exception("Threshold phai trong khoang ta 0 Aan 1");
+                throw new Exception("Threshold phải trong khoảng từ 0 đến 1");
         }
 
         private static void ValidateTopK(int? topK)
@@ -325,7 +325,7 @@ namespace BE_API.Service
                 return;
 
             if (topK.Value < 1 || topK.Value > 20)
-                throw new Exception("TopK phai trong khoang ta 1 Aan 20");
+                throw new Exception("TopK phải trong khoảng từ 1 đến 20");
         }
 
         private static FaceRecognitionResultDto ParseRecognitionResult(JsonNode? jsonNode, decimal threshold)
@@ -337,7 +337,7 @@ namespace BE_API.Service
                     IsMatched = false,
                     ConfidenceScore = 0,
                     SimilarityThreshold = threshold,
-                    Message = "KhAng nhan Aac kat qua nhan dian ta FaceAI"
+                    Message = "Không nhận được kết quả nhận diện từ FaceAI"
                 };
             }
 
@@ -354,15 +354,15 @@ namespace BE_API.Service
                 ConfidenceScore = similarity,
                 SimilarityThreshold = threshold,
                 Message = matched
-                    ? "Nhan dian khuAn mat thAnh cAng"
-                    : $"Aa giang {similarity:0.000} cha Aat ngang {threshold:0.000}"
+                    ? "Nhận diện khuôn mặt thành công"
+                    : $"Độ giống {similarity:0.000} chưa đạt ngưỡng {threshold:0.000}"
             };
         }
 
         private static string ExtractErrorMessage(string responseText)
         {
             if (string.IsNullOrWhiteSpace(responseText))
-                return "FaceAI API tra va lai khAng xAc Aanh";
+                return "FaceAI API trả về lỗi không xác định";
 
             try
             {

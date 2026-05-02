@@ -51,7 +51,7 @@ namespace BE_API.Service
                 .OrderByDescending(x => x.TrackedAt)
                 .ThenByDescending(x => x.Id)
                 .FirstOrDefaultAsync()
-                ?? throw new Exception("Bus cha cA da liau tracking");
+                ?? throw new Exception("Bus chưa có dữ liệu tracking");
 
             return MapToDto(tracking);
         }
@@ -59,14 +59,14 @@ namespace BE_API.Service
         private async Task<Bus> ValidateBusAsync(long busId)
         {
             if (busId <= 0)
-                throw new Exception("BusId phai lan hn 0");
+                throw new Exception("BusId phải lớn hơn 0");
 
             var bus = await _busRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == busId)
-                ?? throw new Exception("Bus khAng tan tai");
+                ?? throw new Exception("Bus không tồn tại");
 
             if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Bus Aang khAng hoat Aang");
+                throw new Exception("Bus đang không hoạt động");
 
             return bus;
         }
@@ -74,16 +74,16 @@ namespace BE_API.Service
         private static void ValidateCoordinates(double latitude, double longitude)
         {
             if (latitude < -90 || latitude > 90)
-                throw new Exception("Latitude khAng hap la");
+                throw new Exception("Latitude không hợp lệ");
 
             if (longitude < -180 || longitude > 180)
-                throw new Exception("Longitude khAng hap la");
+                throw new Exception("Longitude không hợp lệ");
         }
 
         private static void ValidateSpeed(double? speed)
         {
             if (speed.HasValue && speed.Value < 0)
-                throw new Exception("Speed khAng hap la");
+                throw new Exception("Speed không hợp lệ");
         }
 
         private static BusTrackingDto MapToDto(BusTracking tracking)

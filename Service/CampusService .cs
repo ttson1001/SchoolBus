@@ -34,7 +34,7 @@ namespace BE_API.Service
         {
             var campus = await _campusRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Campus khAng tan tai");
+                ?? throw new Exception("Campus không tồn tại");
 
             return MapToDto(campus);
         }
@@ -42,13 +42,13 @@ namespace BE_API.Service
         public async Task CreateCampusAsync(CampusCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Code))
-                throw new Exception("Code khAng Aac Aa trang");
+                throw new Exception("Code không được để trống");
 
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new Exception("TAn campus khAng Aac Aa trang");
+                throw new Exception("Tên campus không được để trống");
 
             if (string.IsNullOrWhiteSpace(dto.Address))
-                throw new Exception("Aaa cha khAng Aac Aa trang");
+                throw new Exception("Địa chỉ không được để trống");
 
             var normalizedCode = dto.Code.Trim();
             var normalizedName = dto.Name.Trim();
@@ -73,7 +73,7 @@ namespace BE_API.Service
         {
             var campus = await _campusRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Campus khAng tan tai");
+                ?? throw new Exception("Campus không tồn tại");
 
             var nextCode = string.IsNullOrWhiteSpace(dto.Code) ? campus.Code : dto.Code.Trim();
             var nextName = string.IsNullOrWhiteSpace(dto.Name) ? campus.Name : dto.Name.Trim();
@@ -108,7 +108,7 @@ namespace BE_API.Service
         {
             var campus = await _campusRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Campus khAng tan tai");
+                ?? throw new Exception("Campus không tồn tại");
 
             _campusRepo.Delete(campus);
             await _campusRepo.SaveChangesAsync();
@@ -148,9 +148,9 @@ namespace BE_API.Service
                 return;
 
             if (string.Equals(duplicatedCampus.Code, code, StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Code campus AA tan tai");
+                throw new Exception("Code campus đã tồn tại");
 
-            throw new Exception("TAn campus AA tan tai");
+            throw new Exception("Tên campus đã tồn tại");
         }
 
         private static async Task<PagedResult<CampusDto>> BuildCampusPagedResultAsync(IQueryable<Campus> query, int page, int pageSize)

@@ -96,7 +96,7 @@ namespace BE_API.Service
             if (userId.Value == currentUserId)
                 return currentUserId;
 
-            throw new Exception("KhAng Aac xem thAng bAo caa user khAc");
+            throw new Exception("Không được xem thông báo của user khác");
         }
     }
 }

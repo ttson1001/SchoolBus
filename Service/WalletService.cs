@@ -68,10 +68,10 @@ namespace BE_API.Service
         public async Task<WalletDto> TopUpAsync(WalletTopUpDto dto)
         {
             if (dto.UserId <= 0)
-                throw new Exception("UserId phai lon hon 0");
+                throw new Exception("UserId phải lớn hơn 0");
 
             if (dto.Amount <= 0)
-                throw new Exception("So tien nap phai lon hon 0");
+                throw new Exception("Số tiền nạp phải lớn hơn 0");
 
             var guardian = await ValidateGuardianAsync(dto.UserId);
             var wallet = await FindOrCreateWalletAsync(guardian.Id);
@@ -85,7 +85,7 @@ namespace BE_API.Service
         public async Task<WalletDto> GetWalletByUserIdAsync(long userId)
         {
             if (userId <= 0)
-                throw new Exception("UserId phai lon hon 0");
+                throw new Exception("UserId phải lớn hơn 0");
 
             var guardian = await ValidateGuardianAsync(userId);
             var wallet = await FindOrCreateWalletAsync(guardian.Id);
@@ -104,12 +104,12 @@ namespace BE_API.Service
             int pageSize)
         {
             if (walletId <= 0)
-                throw new Exception("WalletId phai lon hon 0");
+                throw new Exception("WalletId phải lớn hơn 0");
 
             var wallet = await _walletRepo.Get()
                 .Include(x => x.User)
                 .FirstOrDefaultAsync(x => x.Id == walletId)
-                ?? throw new Exception("Wallet khong ton tai");
+                ?? throw new Exception("Wallet không tồn tại");
 
             var email = wallet.User.Email;
 
@@ -161,13 +161,13 @@ namespace BE_API.Service
         public async Task<WalletPayOsLinkDto> CreatePayOsTopUpLinkAsync(WalletPayOsCreateDto dto)
         {
             if (dto.UserId <= 0)
-                throw new Exception("UserId phai lon hon 0");
+                throw new Exception("UserId phải lớn hơn 0");
 
             if (dto.Amount <= 0)
-                throw new Exception("So tien nap phai lon hon 0");
+                throw new Exception("Số tiền nạp phải lớn hơn 0");
 
             if (decimal.Truncate(dto.Amount) != dto.Amount)
-                throw new Exception("So tien nap qua payOS phai la so nguyen VND");
+                throw new Exception("Số tiền nạp qua payOS phải là số nguyên VND");
 
             var guardian = await ValidateGuardianAsync(dto.UserId);
             var returnUrl = ResolveUrl(dto.ReturnUrl, _payOsSettings.ReturnUrl, "ReturnUrl");
@@ -236,7 +236,7 @@ namespace BE_API.Service
 
             var transactionLog = await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Method == "PAYOS" && x.Code == verifiedData.OrderCode.ToString())
-                ?? throw new Exception("Khong tim thay giao dich nap tien payOS");
+                ?? throw new Exception("Không tìm thấy giao dịch nạp tiền payOS");
 
             var userId = await GetUserIdFromPayOsTransactionAsync(transactionLog);
             var wallet = await FindOrCreateWalletAsync(userId);
@@ -254,7 +254,7 @@ namespace BE_API.Service
             }
 
             if (verifiedData.Amount != decimal.ToInt64(transactionLog.Amount))
-                throw new Exception("So tien thanh toan khong khop voi giao dich nap tien");
+                throw new Exception("Số tiền thanh toán không khớp với giao dịch nạp tiền");
 
             var oldBalance = wallet.Balance;
             wallet.Balance += transactionLog.Amount;
@@ -280,11 +280,11 @@ namespace BE_API.Service
         public async Task<WalletPayOsWebhookResultDto> GetPayOsTopUpStatusAsync(long orderCode)
         {
             if (orderCode <= 0)
-                throw new Exception("OrderCode phai lon hon 0");
+                throw new Exception("OrderCode phải lớn hơn 0");
 
             var transactionLog = await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Method == "PAYOS" && x.Code == orderCode.ToString())
-                ?? throw new Exception("Khong tim thay giao dich nap tien payOS");
+                ?? throw new Exception("Không tìm thấy giao dịch nạp tiền payOS");
 
             var userId = await GetUserIdFromPayOsTransactionAsync(transactionLog);
             var wallet = await FindOrCreateWalletAsync(userId);
@@ -298,13 +298,13 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == userId)
-                ?? throw new Exception("Guardian khong ton tai");
+                ?? throw new Exception("Guardian không tồn tại");
 
             if (!string.Equals(user.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("User duoc chon khong phai guardian");
+                throw new Exception("User được chọn không phải guardian");
 
             if (user.Status != AccountStatus.ACTIVE)
-                throw new Exception("Guardian dang khong hoat dong");
+                throw new Exception("Guardian đang không hoạt động");
 
             return user;
         }
@@ -344,7 +344,7 @@ namespace BE_API.Service
             var url = string.IsNullOrWhiteSpace(inputUrl) ? configuredUrl : inputUrl.Trim();
 
             if (string.IsNullOrWhiteSpace(url))
-                throw new Exception($"{fieldName} cua payOS chua duoc cau hinh");
+                throw new Exception($"{fieldName} của payOS chưa được cấu hình");
 
             return url;
         }
@@ -378,7 +378,7 @@ namespace BE_API.Service
                     return userId;
             }
 
-            throw new Exception("Khong xac dinh duoc guardian cua giao dich payOS");
+            throw new Exception("Không xác định được guardian của giao dịch payOS");
         }
 
         private static DateTime ParseTransactionDateTime(string? transactionDateTime)

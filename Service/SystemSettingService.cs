@@ -23,7 +23,7 @@ namespace BE_API.Service
 
             if (setting == null || !decimal.TryParse(setting.Value, out var threshold))
             {
-                throw new Exception("Chua co SimilarityThreshold trong database");
+                throw new Exception("Chưa có SimilarityThreshold trong database");
             }
 
             return new SimilarityThresholdDto
@@ -47,7 +47,7 @@ namespace BE_API.Service
                 {
                     Key = SimilarityThresholdKey,
                     Value = normalizedThreshold.ToString("0.####"),
-                    Description = "Nguong do giong cho face recognition"
+                    Description = "Ngưỡng độ giống cho face recognition"
                 };
 
                 await _systemSettingRepo.AddAsync(setting);
@@ -55,7 +55,7 @@ namespace BE_API.Service
             else
             {
                 setting.Value = normalizedThreshold.ToString("0.####");
-                setting.Description ??= "Nguong do giong cho face recognition";
+                setting.Description ??= "Ngưỡng độ giống cho face recognition";
                 _systemSettingRepo.Update(setting);
             }
 
@@ -82,7 +82,7 @@ namespace BE_API.Service
         private static void ValidateSimilarityThreshold(decimal similarityThreshold)
         {
             if (similarityThreshold < 0 || similarityThreshold > 1)
-                throw new Exception("SimilarityThreshold phai nam trong khoang tu 0 den 1");
+                throw new Exception("SimilarityThreshold phải nằm trong khoảng từ 0 đến 1");
         }
     }
 }
