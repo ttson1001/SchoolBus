@@ -116,7 +116,7 @@ namespace BE_API.Service
         {
             var booking = await GetQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Booking khong ton tai");
+                ?? throw new Exception("Booking không tồn tại");
 
             return MapToDto(booking);
         }
@@ -362,7 +362,7 @@ namespace BE_API.Service
                 .Include(x => x.Driver)
                 .Include(x => x.Teacher)
                 .FirstOrDefaultAsync(x => x.Id == busRunId)
-                ?? throw new Exception("Bus run khong ton tai");
+                ?? throw new Exception("Bus run không tồn tại");
 
             var driverId = dto.DriverId ?? busRun.DriverId;
             var teacherId = dto.TeacherId ?? busRun.TeacherId;
@@ -377,7 +377,7 @@ namespace BE_API.Service
                 teacher = await ValidateUserByRoleAsync(teacherId.Value, "teacher");
 
             if (driver != null && teacher != null && driver.Id == teacher.Id)
-                throw new Exception("Driver va teacher khong duoc la cung mot nguoi");
+                throw new Exception("Driver và teacher không được là cùng một người");
 
             await EnsureBusRunStaffAvailabilityAsync(busRun, driver?.Id, teacher?.Id);
 
@@ -429,7 +429,7 @@ namespace BE_API.Service
         {
             var booking = await _bookingRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Booking khong ton tai");
+                ?? throw new Exception("Booking không tồn tại");
 
             var studentId = dto.StudentId ?? booking.StudentId;
             var routeId = dto.RouteId ?? booking.RouteId;
@@ -521,7 +521,7 @@ namespace BE_API.Service
             {
                 await CancelSoftSlotBookingsAndNotifyAsync(bookings, route, serviceDate, dto.StartTime);
                 throw new SoftSlotInsufficientStudentsException(
-                    $"Khong du hoc sinh de tao chuyen xe (khung gio mem, can toi thieu {minSoft} hoc sinh). " +
+                    $"Không đủ học sinh để tạo chuyến xe (khung giờ mềm, cần tối thiểu {minSoft} học sinh). " +
                     $"Da huy {bookings.Count} booking va thong bao phu huynh. Ngay {serviceDate:dd/MM/yyyy}, {FormatSlotTime(dto.StartTime)}.");
             }
 
@@ -738,7 +738,7 @@ namespace BE_API.Service
         {
             var booking = await _bookingRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Booking khong ton tai");
+                ?? throw new Exception("Booking không tồn tại");
 
             _bookingRepo.Delete(booking);
             await _bookingRepo.SaveChangesAsync();
@@ -747,7 +747,7 @@ namespace BE_API.Service
         public Task<BookingWeeklySlotsDto> GetWeeklyBookingSlotsAsync()
         {
             if (_bookingSlotSettings.StepMinutes <= 0)
-                throw new Exception("Cau hinh BookingSlots:StepMinutes khong hop le");
+                throw new Exception("Cấu hình BookingSlots:StepMinutes không hợp lệ");
 
             var cfgStart = _bookingSlotSettings.StartHour;
             var cfgEnd = _bookingSlotSettings.EndHour;
@@ -828,7 +828,7 @@ namespace BE_API.Service
                 if (string.IsNullOrWhiteSpace(s))
                     continue;
                 if (!TimeSpan.TryParse(s.Trim(), out var ts))
-                    throw new Exception($"Cau hinh BookingSlots:HardSlotTimes a gia tri khong hop le: '{s}'");
+                    throw new Exception($"Cấu hình BookingSlots:HardSlotTimes có giá trị không hợp lệ: '{s}'");
                 ValidateBookingSlot(ts);
                 if (ts < windowLo || ts > windowHi)
                     continue;
@@ -1007,13 +1007,13 @@ namespace BE_API.Service
             var station = ResolveStation(routeStations, stationId, latitude, longitude, "chon");
 
             if (!station.IsEnabled)
-                throw new Exception($"Bus station '{station.Name}' dang khong hoat dong");
+                throw new Exception($"Bus station '{station.Name}' đang không hoạt động");
 
             // Neu nguoi dung truyen toa do diem don, bat buoc toa do nay khong duoc cach tram da chon qua 4km.
             if (latitude.HasValue && longitude.HasValue)
             {
                 if (!station.Latitude.HasValue || !station.Longitude.HasValue)
-                    throw new Exception($"Bus station '{station.Name}' chua co toa do de tinh khoang cach");
+                    throw new Exception($"Bus station '{station.Name}' chưa có tọa độ để tính khoảng cách");
 
                 var distanceKm = CalculateDistanceKm(
                     latitude.Value,
@@ -1044,7 +1044,7 @@ namespace BE_API.Service
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
             if (duplicated)
-                throw new Exception("Booking da ton tai cho hoc sinh o khung gio nay");
+                throw new Exception("Booking đã tồn tại cho học sinh ở khung giờ này");
         }
 
         private async Task<List<Bus>> GetAvailableBusesAsync(DateTime serviceDate, TimeSpan startTime)
@@ -1160,7 +1160,7 @@ namespace BE_API.Service
                 .ToList();
 
             if (selectedIds.Count < requiredCount)
-                throw new Exception($"Khong du {normalizedRoleName} ranh de tu dong gan cho tat ca bus run. Can {requiredCount}, hien chi con {selectedIds.Count}");
+                throw new Exception($"Không đủ {normalizedRoleName} rảnh để tự động gán cho tất cả bus run. Cần {requiredCount}, hiện chỉ còn {selectedIds.Count}");
 
             return selectedIds;
         }
@@ -1168,7 +1168,7 @@ namespace BE_API.Service
         private List<int> BuildPrimaryBusLoads(int totalStudents)
         {
             if (totalStudents <= 0)
-                throw new Exception("Tong so hoc sinh phai lon hon 0");
+                throw new Exception("Tổng số học sinh phải lớn hơn 0");
 
             // Rule nghiep vu:
             // - So xe chinh duoc tinh tu tong hoc sinh / 20
@@ -1232,7 +1232,7 @@ namespace BE_API.Service
                         .ToList();
 
                     if (!candidateRunIndexes.Any())
-                        throw new Exception("Khong the phan bo hoc sinh vao cac xe da tinh");
+                        throw new Exception("Không thể phân bổ học sinh vào các xe đã tính");
 
                     foreach (var runIndex in candidateRunIndexes)
                     {
@@ -1247,7 +1247,7 @@ namespace BE_API.Service
             }
 
             if (remainingLoads.Any(x => x != 0))
-                throw new Exception("Khong the can bang hoc sinh vao dung so luong moi xe");
+                throw new Exception("Không thể cân bằng học sinh vào đúng số lượng mỗi xe");
 
             return assignments;
         }
@@ -1266,13 +1266,13 @@ namespace BE_API.Service
                     throw new Exception("So hoc sinh tren mot xe vuot qua muc su dung 25 hoc sinh cua xe 25 cho");
 
                 if (buses25.Count == 0)
-                    throw new Exception("Khong du xe 25 cho de chia hoc sinh vao xe chinh");
+                    throw new Exception("Không đủ xe 25 chỗ để chia học sinh vào xe chính");
 
                 selections.Add((buses25.Dequeue(), 25));
             }
 
             if (buses15.Count == 0)
-                throw new Exception("Khong co xe 15 cho de chay backup cho khung gio nay");
+                throw new Exception("Không có xe 15 chỗ để chạy backup cho khung giờ này");
 
             return (selections, buses15.Dequeue());
         }
@@ -1280,7 +1280,7 @@ namespace BE_API.Service
         private static string NormalizeStatus(string? status)
         {
             if (string.IsNullOrWhiteSpace(status))
-                throw new Exception("Status khong duoc de trong");
+                throw new Exception("Status không được để trống");
 
             var normalizedStatus = status.Trim().ToUpperInvariant();
             if (!AllowedStatuses.Contains(normalizedStatus))
@@ -1324,7 +1324,7 @@ namespace BE_API.Service
                     .Where(x => x.StationId == stationId.Value)
                     .Select(x => x.Station)
                     .FirstOrDefault()
-                    ?? throw new Exception($"Diem {stationType} khong thuoc route da chon");
+                    ?? throw new Exception($"Điểm {stationType} không thuộc route đã chọn");
             }
 
             if (!latitude.HasValue || !longitude.HasValue)
@@ -1345,7 +1345,7 @@ namespace BE_API.Service
                 .FirstOrDefault();
 
             return nearestStation?.Station
-                ?? throw new Exception($"Khong tim thay tram co toa do de xac dinh diem {stationType} gan nhat");
+                ?? throw new Exception($"Không tìm thấy trạm có tọa độ để xác định điểm {stationType} gần nhất");
         }
 
         private static double CalculateDistanceKm(double lat1, double lng1, double lat2, double lng2)
@@ -1501,7 +1501,7 @@ namespace BE_API.Service
                 .Include(x => x.Teacher)
                 .ThenInclude(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == busRunId)
-                ?? throw new Exception("Bus run khong ton tai");
+                ?? throw new Exception("Bus run không tồn tại");
 
             var students = await _busRunStudentRepo.Get()
                 .Include(x => x.Student)
@@ -1524,18 +1524,18 @@ namespace BE_API.Service
         private async Task<User> ValidateUserByRoleAsync(long userId, string roleName)
         {
             if (userId <= 0)
-                throw new Exception($"{Capitalize(roleName)}Id phai lon hon 0");
+                throw new Exception($"{Capitalize(roleName)}Id phải lớn hơn 0");
 
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == userId)
-                ?? throw new Exception($"{Capitalize(roleName)} khong ton tai");
+                ?? throw new Exception($"{Capitalize(roleName)} không tồn tại");
 
             if (!string.Equals(user.Role.Name, roleName, StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"User duoc chon khong phai {roleName}");
+                throw new Exception($"User được chọn không phải {roleName}");
 
             if (user.Status != AccountStatus.ACTIVE)
-                throw new Exception($"{Capitalize(roleName)} dang khong hoat dong");
+                throw new Exception($"{Capitalize(roleName)} đang không hoạt động");
 
             if (string.Equals(roleName, "driver", StringComparison.OrdinalIgnoreCase) &&
                 user.DriverLicenseExpiryDate.HasValue &&
@@ -1550,18 +1550,18 @@ namespace BE_API.Service
         private async Task ValidateGuardianAsync(long guardianId)
         {
             if (guardianId <= 0)
-                throw new Exception("GuardianId phai lon hon 0");
+                throw new Exception("GuardianId phải lớn hơn 0");
 
             var guardian = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == guardianId)
-                ?? throw new Exception("Guardian khong ton tai");
+                ?? throw new Exception("Guardian không tồn tại");
 
             if (!string.Equals(guardian.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("User duoc chon khong phai guardian");
+                throw new Exception("User được chọn không phải guardian");
 
             if (guardian.Status != AccountStatus.ACTIVE)
-                throw new Exception("Guardian dang khong hoat dong");
+                throw new Exception("Guardian đang không hoạt động");
         }
 
         private async Task EnsureBusRunStaffAvailabilityAsync(BusRun busRun, long? driverId, long? teacherId)
@@ -1576,7 +1576,7 @@ namespace BE_API.Service
                         x.DriverId == driverId.Value);
 
                 if (sameDriver)
-                    throw new Exception("Driver da duoc gan cho chuyen khac cung khung gio");
+                    throw new Exception("Driver đã được gán cho chuyến khác cùng khung giờ");
             }
 
             if (teacherId.HasValue)
@@ -1589,7 +1589,7 @@ namespace BE_API.Service
                         x.TeacherId == teacherId.Value);
 
                 if (sameTeacher)
-                    throw new Exception("Teacher da duoc gan cho chuyen khac cung khung gio");
+                    throw new Exception("Teacher đã được gán cho chuyến khác cùng khung giờ");
             }
         }
 

@@ -71,7 +71,7 @@ namespace BE_API.Service
             if (!string.IsNullOrWhiteSpace(status))
             {
                 if (!Enum.TryParse<AttendanceStatus>(status, true, out var attendanceStatus))
-                    throw new Exception($"Status '{status}' khong hop le.");
+                    throw new Exception($"Status '{status}' không hợp lệ.");
 
                 query = query.Where(x => x.Status == attendanceStatus);
             }
@@ -109,7 +109,7 @@ namespace BE_API.Service
         {
             var student = await _studentRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == studentId)
-                ?? throw new Exception("Student khong ton tai");
+                ?? throw new Exception("Student không tồn tại");
 
             var query = GetAttendanceQueryable()
                 .Where(x => x.StudentId == student.Id);
@@ -138,7 +138,7 @@ namespace BE_API.Service
         {
             var attendance = await GetAttendanceQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Attendance khong ton tai");
+                ?? throw new Exception("Attendance không tồn tại");
 
             return MapToDto(attendance);
         }
@@ -146,12 +146,12 @@ namespace BE_API.Service
         public async Task<List<AttendanceOnBusStudentDto>> GetStudentsOnBusAsync(long busId, DateTime? date, long? busRunId = null)
         {
             if (busId <= 0)
-                throw new Exception("BusId phai lon hon 0");
+                throw new Exception("BusId phải lớn hơn 0");
 
             var selectedDate = _appTime.GetRideCalendarDate(date);
             var bus = await _busRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == busId)
-                ?? throw new Exception("Bus khong ton tai");
+                ?? throw new Exception("Bus không tồn tại");
 
             var busRuns = await ResolveBusRunsAsync(busId, selectedDate, busRunId);
             var assignedStudentIds = await _busRunStudentRepo.Get()
@@ -179,7 +179,7 @@ namespace BE_API.Service
         public async Task<List<AttendanceBusStudentStatusDto>> GetBusStudentStatusesAsync(long busId, DateTime? date, long? busRunId = null)
         {
             if (busId <= 0)
-                throw new Exception("BusId phai lon hon 0");
+                throw new Exception("BusId phải lớn hơn 0");
 
             var selectedDate = _appTime.GetRideCalendarDate(date);
             var busRuns = await ResolveBusRunsAsync(busId, selectedDate, busRunId);
@@ -244,7 +244,7 @@ namespace BE_API.Service
         private async Task<List<long>> ResolveBusRunsAsync(long busId, DateTime selectedDate, long? busRunId)
         {
             if (busRunId.HasValue && busRunId.Value <= 0)
-                throw new Exception("BusRunId phai lon hon 0");
+                throw new Exception("BusRunId phải lớn hơn 0");
 
             var query = _busRunRepo.Get()
                 .Where(x => x.BusId == busId && x.ServiceDate.Date == selectedDate.Date);
@@ -259,9 +259,9 @@ namespace BE_API.Service
             if (!busRuns.Any())
             {
                 if (busRunId.HasValue)
-                    throw new Exception("BusRun khong ton tai hoac khong thuoc bus/ngay da chon");
+                    throw new Exception("BusRun không tồn tại hoặc không thuộc bus/ngày đã chọn");
 
-                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
+                throw new Exception("Bus này chưa có lịch chạy thực tế trong ngày đã chọn");
             }
 
             return busRuns;
@@ -280,7 +280,7 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync();
 
             if (attendance != null && attendance.CheckInTime.HasValue && !attendance.CheckOutTime.HasValue)
-                throw new Exception("Hoc sinh da check in, chi co the check out");
+                throw new Exception("Học sinh đã check in, chỉ có thể check out");
 
             attendance = new Attendance
             {
@@ -300,7 +300,7 @@ namespace BE_API.Service
 
             attendance = await GetAttendanceQueryable()
                 .FirstOrDefaultAsync(x => x.Id == attendance.Id)
-                ?? throw new Exception("Attendance khong ton tai");
+                ?? throw new Exception("Attendance không tồn tại");
 
             await CreateGuardianNotificationAsync(
                 validation.Student,
@@ -331,13 +331,13 @@ namespace BE_API.Service
                 .OrderByDescending(x => x.CheckInTime ?? TimeSpan.MinValue)
                 .ThenByDescending(x => x.Id)
                 .FirstOrDefaultAsync()
-                ?? throw new Exception("Khong tim thay attendance de check out");
+                ?? throw new Exception("Không tìm thấy attendance để check out");
 
             if (!attendance.CheckInTime.HasValue)
-                throw new Exception("Hoc sinh chua check in");
+                throw new Exception("Học sinh chưa check in");
 
             if (attendance.CheckOutTime.HasValue)
-                throw new Exception("Hoc sinh da check out trong ngay nay");
+                throw new Exception("Học sinh đã check out trong ngày này");
 
             attendance.BusId = validation.Bus.Id;
             attendance.CheckOutTime = validation.CheckTime;
@@ -368,7 +368,7 @@ namespace BE_API.Service
             if (validation.ExpectedDropOffStationId.HasValue &&
                 validation.ExpectedDropOffStationId.Value != validation.Station.Id)
             {
-                var expectedStationName = validation.ExpectedDropOffStationName ?? "khong ro";
+                var expectedStationName = validation.ExpectedDropOffStationName ?? "không rõ";
 
                 await CreateGuardianNotificationAsync(
                     validation.Student,
@@ -377,9 +377,9 @@ namespace BE_API.Service
                     validation.AttendanceDate,
                     validation.CheckTime,
                     "WRONG_DROPOFF",
-                    $"Canh bao: Hoc sinh {validation.Student.FullName} da xuong xe {validation.Bus.LicensePlate}" +
-                    $"{FormatRouteSuffix(validation.RouteName)} tai diem {validation.Station.Name}, " +
-                    $"khong dung diem da dang ky {expectedStationName} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
+                    $"Cảnh báo: Học sinh {validation.Student.FullName} đã xuống xe {validation.Bus.LicensePlate}" +
+                    $"{FormatRouteSuffix(validation.RouteName)} tại điểm {validation.Station.Name}, " +
+                    $"không đúng điểm đã đăng ký {expectedStationName} lúc {FormatTime(validation.CheckTime)} ngày {validation.AttendanceDate:dd/MM/yyyy}.");
             }
 
             return MapToDto(attendance);
@@ -389,7 +389,7 @@ namespace BE_API.Service
         {
             var attendance = await _attendanceRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Attendance khong ton tai");
+                ?? throw new Exception("Attendance không tồn tại");
 
             _attendanceRepo.Delete(attendance);
             await _attendanceRepo.SaveChangesAsync();
@@ -410,19 +410,19 @@ namespace BE_API.Service
         private async Task<ManualAttendanceValidationResult> ValidateManualAttendanceAsync(AttendanceManualDto dto)
         {
             if (dto.StationId <= 0)
-                throw new Exception("StationId phai lon hon 0");
+                throw new Exception("StationId phải lớn hơn 0");
 
             var student = await _studentRepo.Get()
                 .Include(x => x.Guardian)
                 .FirstOrDefaultAsync(x => x.Id == dto.StudentId)
-                ?? throw new Exception("Student khong ton tai");
+                ?? throw new Exception("Student không tồn tại");
 
             var bus = await _busRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == dto.BusId)
-                ?? throw new Exception("Bus khong ton tai");
+                ?? throw new Exception("Bus không tồn tại");
 
             if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Bus khong o trang thai hoat dong");
+                throw new Exception("Bus không ở trạng thái hoạt động");
 
             var attendanceDate = _appTime.GetRideCalendarDate(dto.Date);
             var checkTime = dto.Time ?? _appTime.GetTimeOfDay();
@@ -444,7 +444,7 @@ namespace BE_API.Service
                 .FirstOrDefault(x => IsEligibleAttendanceTransferWindow(x.Booking.StartTime, actualBusRun.StartTime));
 
             if (runStudent == null)
-                throw new Exception("Hoc sinh khong nam trong danh sach booking cua tuyen nay o khung gio da chon");
+                throw new Exception("Học sinh không nằm trong danh sách booking của tuyến này ở khung giờ đã chọn");
 
             var isCheckingInOnDifferentBus = runStudent.BusRunId != actualBusRun.Id;
             if (isCheckingInOnDifferentBus)
@@ -453,17 +453,17 @@ namespace BE_API.Service
                     .CountAsync(x => x.BusRunId == actualBusRun.Id);
 
                 if (currentStudentCount >= actualBusRun.UsableCapacity)
-                    throw new Exception("Xe nay da het cho, khong the diem danh them hoc sinh");
+                    throw new Exception("Xe này đã hết chỗ, không thể điểm danh thêm học sinh");
             }
 
             var routeStation = await _routeStationRepo.Get()
                 .Where(x => x.RouteId == actualBusRun.RouteId && x.StationId == dto.StationId)
                 .Include(x => x.Station)
                 .FirstOrDefaultAsync()
-                ?? throw new Exception("Bus station khong thuoc route cua bus trong ngay da chon");
+                ?? throw new Exception("Bus station không thuộc route của bus trong ngày đã chọn");
 
             if (!routeStation.Station.IsEnabled)
-                throw new Exception($"Bus station '{routeStation.Station.Name}' dang khong hoat dong");
+                throw new Exception($"Bus station '{routeStation.Station.Name}' đang không hoạt động");
 
             return new ManualAttendanceValidationResult
             {
@@ -493,7 +493,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!runs.Any())
-                throw new Exception("Bus nay chua co lich chay thuc te trong ngay da chon");
+                throw new Exception("Bus này chưa có lịch chạy thực tế trong ngày đã chọn");
 
             for (var i = 0; i < runs.Count; i++)
             {
@@ -559,12 +559,12 @@ namespace BE_API.Service
 
         private static string FormatRouteSuffix(string? routeName)
         {
-            return string.IsNullOrWhiteSpace(routeName) ? string.Empty : $" tren tuyen {routeName}";
+            return string.IsNullOrWhiteSpace(routeName) ? string.Empty : $" trên tuyến {routeName}";
         }
 
         private static string FormatStationSuffix(string? stationName)
         {
-            return string.IsNullOrWhiteSpace(stationName) ? string.Empty : $" tai diem {stationName}";
+            return string.IsNullOrWhiteSpace(stationName) ? string.Empty : $" tại điểm {stationName}";
         }
 
         private static string FormatTime(TimeSpan time)
@@ -576,10 +576,10 @@ namespace BE_API.Service
         {
             return type switch
             {
-                "BOARDING" => "Hoc sinh da len xe",
-                "ALIGHTING" => "Hoc sinh da xuong xe",
-                "WRONG_DROPOFF" => "Canh bao xuong sai diem",
-                _ => "Thong bao SchoolBus"
+                "BOARDING" => "Học sinh đã lên xe",
+                "ALIGHTING" => "Học sinh đã xuống xe",
+                "WRONG_DROPOFF" => "Cảnh báo xuống sai điểm",
+                _ => "Thông báo SchoolBus"
             };
         }
 
@@ -595,15 +595,15 @@ namespace BE_API.Service
                     x.EndDate.Value.Date >= attendanceDate.Date);
 
             if (hasActiveOrder)
-                return "Hoc sinh co goi con hieu luc";
+                return "Học sinh có gói còn hiệu lực";
 
             var hasAnyOrder = await _orderRepo.Get()
                 .AnyAsync(x => x.StudentId == studentId);
 
             if (hasAnyOrder)
-                return "Goi da het han nhung van duoc di lan nay";
+                return "Gói đã hết hạn nhưng vẫn được đi lần này";
 
-            return "Hoc sinh chua co goi nhung van duoc di lan nay";
+            return "Học sinh chưa có gói nhưng vẫn được đi lần này";
         }
 
         private static string AppendOperationalNote(string baseNote, string? operationalNote)
@@ -623,13 +623,13 @@ namespace BE_API.Service
             var actualRunType = string.Equals(actualBusRun.Status, "BACKUP", StringComparison.OrdinalIgnoreCase)
                 ? "xe backup"
                 : actualBusRun.StartTime > runStudent.Booking.StartTime
-                    ? "xe gio sau"
-                    : "xe khac cung khung gio";
+                    ? "xe giờ sau"
+                    : "xe khác cùng khung giờ";
 
             if (string.IsNullOrWhiteSpace(assignedBusLicensePlate))
-                return $"Hoc sinh di tre va duoc diem danh tren {actualRunType}";
+                return $"Học sinh đi trễ và được điểm danh trên {actualRunType}";
 
-            return $"Hoc sinh di tre va duoc diem danh tren {actualRunType}, khac voi xe duoc chia ban dau ({assignedBusLicensePlate})";
+            return $"Học sinh đi trễ và được điểm danh trên {actualRunType}, khác với xe được chia ban đầu ({assignedBusLicensePlate})";
         }
 
         private static string? NormalizeImageUrl(string? imageUrl)

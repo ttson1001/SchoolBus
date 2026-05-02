@@ -69,10 +69,10 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.UserId == guardian.Id);
 
             if (wallet == null)
-                throw new Exception("Guardian chua co vi. Vui long nap tien truoc");
+                throw new Exception("Guardian chưa có ví. Vui lòng nạp tiền trước");
 
             if (wallet.Balance < package.Price)
-                throw new Exception("So du khong du de mua goi");
+                throw new Exception("Số dư không đủ để mua gói");
 
             var now = DateTime.UtcNow;
             var oldBalance = wallet.Balance;
@@ -128,7 +128,7 @@ namespace BE_API.Service
 
             var createdOrder = await GetOrderQueryable()
                 .FirstOrDefaultAsync(x => x.Id == order.Id)
-                ?? throw new Exception("Order khong ton tai");
+                ?? throw new Exception("Order không tồn tại");
 
             return MapToDto(createdOrder);
         }
@@ -298,7 +298,7 @@ namespace BE_API.Service
         public async Task<OrderPayOsStatusDto> GetPayOsOrderStatusAsync(long orderCode)
         {
             if (orderCode <= 0)
-                throw new Exception("OrderCode phai lon hon 0");
+                throw new Exception("OrderCode phải lớn hơn 0");
 
             var transactionLog = await GetPayOsOrderTransactionAsync(orderCode);
             var order = await GetOrderForTransactionAsync(transactionLog);
@@ -326,7 +326,7 @@ namespace BE_API.Service
             if (!string.IsNullOrWhiteSpace(status))
             {
                 if (!Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
-                    throw new Exception($"Status '{status}' khong hop le.");
+                    throw new Exception($"Status '{status}' không hợp lệ.");
 
                 query = query.Where(x => x.Status == orderStatus);
             }
@@ -435,14 +435,14 @@ namespace BE_API.Service
             var currentStatus = order.Status;
 
             if (currentStatus == OrderStatus.CANCELLED)
-                throw new Exception("Order da duoc huy truoc do");
+                throw new Exception("Order đã được hủy trước đó");
 
             await ExpireOrdersAsync(order.StudentId);
             order = await GetOrderByIdInternalAsync(id);
             currentStatus = order.Status;
 
             if (currentStatus == OrderStatus.EXPIRED)
-                throw new Exception("Order da het han, khong the huy");
+                throw new Exception("Order đã hết hạn, không thể hủy");
 
             if (currentStatus == OrderStatus.PAID && dto.RefundToWallet)
             {
@@ -509,7 +509,7 @@ namespace BE_API.Service
         {
             return await GetOrderQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Order khong ton tai");
+                ?? throw new Exception("Order không tồn tại");
         }
 
         private async Task ExpireOrdersAsync(long studentId)
@@ -547,24 +547,24 @@ namespace BE_API.Service
                     (!excludeOrderId.HasValue || x.Id != excludeOrderId.Value));
 
             if (hasActiveOrder)
-                throw new Exception("Student dang co goi con hieu luc");
+                throw new Exception("Student đang có gói còn hiệu lực");
         }
 
         private async Task<User> ValidateGuardianAsync(long guardianId)
         {
             if (guardianId <= 0)
-                throw new Exception("GuardianId phai lon hon 0");
+                throw new Exception("GuardianId phải lớn hơn 0");
 
             var guardian = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == guardianId)
-                ?? throw new Exception("Guardian khong ton tai");
+                ?? throw new Exception("Guardian không tồn tại");
 
             if (!string.Equals(guardian.Role.Name, "guardian", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("User duoc chon khong phai guardian");
+                throw new Exception("User được chọn không phải guardian");
 
             if (guardian.Status != AccountStatus.ACTIVE)
-                throw new Exception("Guardian dang khong hoat dong");
+                throw new Exception("Guardian đang không hoạt động");
 
             return guardian;
         }
@@ -572,14 +572,14 @@ namespace BE_API.Service
         private async Task<Student> ValidateStudentAsync(long studentId, long guardianId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lon hon 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             var student = await _studentRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == studentId)
-                ?? throw new Exception("Student khong ton tai");
+                ?? throw new Exception("Student không tồn tại");
 
             if (student.GuardianId != guardianId)
-                throw new Exception("Student khong thuoc guardian nay");
+                throw new Exception("Student không thuộc guardian này");
 
             return student;
         }
@@ -587,35 +587,35 @@ namespace BE_API.Service
         private async Task ValidateStudentExistsAsync(long studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lon hon 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             var exists = await _studentRepo.Get()
                 .AnyAsync(x => x.Id == studentId);
 
             if (!exists)
-                throw new Exception("Student khong ton tai");
+                throw new Exception("Student không tồn tại");
         }
 
         private async Task<Package> ValidatePackageAsync(long packageId)
         {
             if (packageId <= 0)
-                throw new Exception("PackageId phai lon hon 0");
+                throw new Exception("PackageId phải lớn hơn 0");
 
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == packageId)
-                ?? throw new Exception("Package khong ton tai");
+                ?? throw new Exception("Package không tồn tại");
 
             if (!string.Equals(package.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Package dang khong hoat dong");
+                throw new Exception("Package đang không hoạt động");
 
             if (package.DurationDays <= 0)
-                throw new Exception("Package phai co DurationDays lon hon 0");
+                throw new Exception("Package phải có DurationDays lớn hơn 0");
 
             if (package.Price <= 0)
-                throw new Exception("Package phai co gia lon hon 0");
+                throw new Exception("Package phải có giá lớn hơn 0");
 
             if (package.RouteLimit <= 0)
-                throw new Exception("Package phai co RouteLimit lon hon 0");
+                throw new Exception("Package phải có RouteLimit lớn hơn 0");
 
             return package;
         }
@@ -623,7 +623,7 @@ namespace BE_API.Service
         private async Task<List<long>> ValidateSelectedRoutesAsync(List<long>? routeIds, long campusId, int routeLimit)
         {
             if (routeIds == null || !routeIds.Any())
-                throw new Exception("Phai chon tuyen cho goi");
+                throw new Exception("Phải chọn tuyến cho gói");
 
             var normalizedRouteIds = routeIds
                 .Where(x => x > 0)
@@ -631,20 +631,20 @@ namespace BE_API.Service
                 .ToList();
 
             if (normalizedRouteIds.Count != routeLimit)
-                throw new Exception($"Goi nay yeu cau chon dung {routeLimit} tuyen");
+                throw new Exception($"Gói này yêu cầu chọn đúng {routeLimit} tuyến");
 
             var routes = await _busRouteRepo.Get()
                 .Where(x => normalizedRouteIds.Contains(x.Id))
                 .ToListAsync();
 
             if (routes.Count != normalizedRouteIds.Count)
-                throw new Exception("Co tuyen khong ton tai");
+                throw new Exception("Có tuyến không tồn tại");
 
             if (routes.Any(x => !x.IsEnabled))
-                throw new Exception("Co tuyen dang khong hoat dong");
+                throw new Exception("Có tuyến đang không hoạt động");
 
             if (routes.Any(x => x.CampusId != campusId))
-                throw new Exception("Tat ca tuyen phai thuoc cung campus cua hoc sinh");
+                throw new Exception("Tất cả tuyến phải thuộc cùng campus của học sinh");
 
             return normalizedRouteIds;
         }
@@ -652,7 +652,7 @@ namespace BE_API.Service
         private static void EnsurePayOsAmountSupported(decimal amount)
         {
             if (decimal.Truncate(amount) != amount)
-                throw new Exception("Gia goi thanh toan qua payOS phai la so nguyen VND");
+                throw new Exception("Giá gói thanh toán qua payOS phải là số nguyên VND");
         }
 
         private static bool IsPayOsUrlVerificationPing(WebhookData data)
@@ -678,7 +678,7 @@ namespace BE_API.Service
         {
             return await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Method == PayOsOrderMethod && x.Code == orderCode.ToString())
-                ?? throw new Exception("Khong tim thay giao dich mua goi payOS");
+                ?? throw new Exception("Không tìm thấy giao dịch mua gói payOS");
         }
 
         private async Task<Wallet> FindOrCreateWalletAsync(long userId)
@@ -702,7 +702,7 @@ namespace BE_API.Service
         private async Task<Order> GetOrderForTransactionAsync(TransactionLog transactionLog)
         {
             if (!transactionLog.OrderId.HasValue)
-                throw new Exception("Giao dich payOS chua gan voi order");
+                throw new Exception("Giao dịch payOS chưa gắn với order");
 
             return await GetOrderByIdInternalAsync(transactionLog.OrderId.Value);
         }
@@ -712,7 +712,7 @@ namespace BE_API.Service
             var url = string.IsNullOrWhiteSpace(inputUrl) ? configuredUrl : inputUrl.Trim();
 
             if (string.IsNullOrWhiteSpace(url))
-                throw new Exception($"{fieldName} cua payOS chua duoc cau hinh");
+                throw new Exception($"{fieldName} của payOS chưa được cấu hình");
 
             return url;
         }
@@ -724,10 +724,10 @@ namespace BE_API.Service
 
         private static string BuildCancelDescription(Order order, string? reason)
         {
-            var description = $"Hoan tien huy order {order.Id} cho hoc sinh {order.Student.FullName}";
+            var description = $"Hoàn tiền hủy order {order.Id} cho học sinh {order.Student.FullName}";
 
             if (!string.IsNullOrWhiteSpace(reason))
-                description += $". Ly do: {reason.Trim()}";
+                description += $". Lý do: {reason.Trim()}";
 
             return description;
         }

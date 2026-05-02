@@ -32,7 +32,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package khong ton tai");
+                ?? throw new Exception("Package không tồn tại");
 
             return MapToDto(package);
         }
@@ -40,16 +40,16 @@ namespace BE_API.Service
         public async Task CreatePackageAsync(PackageCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new Exception("Ten package khong duoc de trong");
+                throw new Exception("Tên package không được để trống");
 
             if (string.IsNullOrWhiteSpace(dto.Status))
-                throw new Exception("Status khong duoc de trong");
+                throw new Exception("Status không được để trống");
 
             if (dto.DurationDays <= 0)
-                throw new Exception("DurationDays phai lon hon 0");
+                throw new Exception("DurationDays phải lớn hơn 0");
 
             if (dto.RouteLimit <= 0)
-                throw new Exception("RouteLimit phai lon hon 0");
+                throw new Exception("RouteLimit phải lớn hơn 0");
 
             var package = new Package
             {
@@ -72,7 +72,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package khong ton tai");
+                ?? throw new Exception("Package không tồn tại");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
                 package.Name = dto.Name.Trim();
@@ -83,7 +83,7 @@ namespace BE_API.Service
             if (dto.DurationDays.HasValue)
             {
                 if (dto.DurationDays.Value <= 0)
-                    throw new Exception("DurationDays phai lon hon 0");
+                    throw new Exception("DurationDays phải lớn hơn 0");
 
                 package.DurationDays = dto.DurationDays.Value;
             }
@@ -91,7 +91,7 @@ namespace BE_API.Service
             if (dto.RouteLimit.HasValue)
             {
                 if (dto.RouteLimit.Value <= 0)
-                    throw new Exception("RouteLimit phai lon hon 0");
+                    throw new Exception("RouteLimit phải lớn hơn 0");
 
                 package.RouteLimit = dto.RouteLimit.Value;
             }
@@ -118,7 +118,7 @@ namespace BE_API.Service
         {
             var package = await _packageRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Package khong ton tai");
+                ?? throw new Exception("Package không tồn tại");
 
             _packageRepo.Delete(package);
             await _packageRepo.SaveChangesAsync();

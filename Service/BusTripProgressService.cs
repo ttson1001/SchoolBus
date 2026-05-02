@@ -45,13 +45,13 @@ namespace BE_API.Service
             var busRun = await ValidateBusRunAsync(dto.BusId, dto.BusRunId, rideDate);
             var routeStations = await GetRouteStationsAsync(busRun.RouteId);
             var targetStation = routeStations.FirstOrDefault(x => x.StationId == dto.StationId)
-                ?? throw new Exception("Tram khong thuoc tuyen cua chuyen xe nay");
+                ?? throw new Exception("Trạm không thuộc tuyến của chuyến xe này");
 
             var progressList = await GetTripProgressListAsync(busRun.Id, rideDate);
             var expectedStation = ResolveExpectedStation(routeStations, progressList.LastOrDefault());
 
             if (targetStation.OrderIndex != expectedStation.OrderIndex)
-                throw new Exception($"Xe phai xac nhan den tram '{expectedStation.Station.Name}' truoc");
+                throw new Exception($"Xe phải xác nhận đến trạm '{expectedStation.Station.Name}' trước");
 
             var progress = new BusTripProgress
             {
@@ -69,7 +69,7 @@ namespace BE_API.Service
 
             var createdProgress = await GetProgressQueryable()
                 .FirstOrDefaultAsync(x => x.Id == progress.Id)
-                ?? throw new Exception("Khong tim thay tien trinh chuyen xe");
+                ?? throw new Exception("Không tìm thấy tiến trình chuyến xe");
 
             return MapEvent(createdProgress);
         }
@@ -77,7 +77,7 @@ namespace BE_API.Service
         public async Task<List<BusTripProgressDriverScheduleDto>> GetDriverSchedulesAsync(long driverId, DateTime? rideDate, TimeSpan? atTime)
         {
             if (driverId <= 0)
-                throw new Exception("DriverId phai lon hon 0");
+                throw new Exception("DriverId phải lớn hơn 0");
 
             var selectedDate = _appTime.GetRideCalendarDate(rideDate);
             var runs = await GetBusRunQueryable()
@@ -90,13 +90,13 @@ namespace BE_API.Service
                 runs,
                 selectedDate,
                 atTime,
-                "Tai xe khong co lich chay nao trong ngay da chon");
+                "Tài xế không có lịch chạy nào trong ngày đã chọn");
         }
 
         public async Task<List<BusTripProgressDriverScheduleDto>> GetTeacherSchedulesAsync(long teacherId, DateTime? rideDate, TimeSpan? atTime)
         {
             if (teacherId <= 0)
-                throw new Exception("TeacherId phai lon hon 0");
+                throw new Exception("TeacherId phải lớn hơn 0");
 
             var selectedDate = _appTime.GetRideCalendarDate(rideDate);
             var runs = await GetBusRunQueryable()
@@ -109,7 +109,7 @@ namespace BE_API.Service
                 runs,
                 selectedDate,
                 atTime,
-                "Giao vien khong co lich chay nao trong ngay da chon");
+                "Giáo viên không có lịch chạy nào trong ngày đã chọn");
         }
 
         public async Task<BusTripProgressCurrentDto> GetCurrentAsync(long busId, long busRunId, DateTime? rideDate)
@@ -221,13 +221,13 @@ namespace BE_API.Service
         public async Task<List<BusTripProgressHistoryDto>> GetHistoryAsync(long? busId, long? routeId, long? campusId, DateTime? fromDate, DateTime? toDate)
         {
             if (busId.HasValue && busId.Value <= 0)
-                throw new Exception("BusId phai lon hon 0");
+                throw new Exception("BusId phải lớn hơn 0");
 
             if (routeId.HasValue && routeId.Value <= 0)
-                throw new Exception("RouteId phai lon hon 0");
+                throw new Exception("RouteId phải lớn hơn 0");
 
             if (campusId.HasValue && campusId.Value <= 0)
-                throw new Exception("CampusId phai lon hon 0");
+                throw new Exception("CampusId phải lớn hơn 0");
 
             var today = _appTime.TodayDate;
             var to = _appTime.GetRideCalendarDate(toDate);
@@ -239,7 +239,7 @@ namespace BE_API.Service
                 : to.AddDays(-7);
 
             if (from > to)
-                throw new Exception("Tu ngay phai nho hon hoac bang den ngay");
+                throw new Exception("Từ ngày phải nhỏ hơn hoặc bằng đến ngày");
 
             var busRuns = await GetBusRunQueryable()
                 .Where(x => x.ServiceDate.Date >= from && x.ServiceDate.Date <= to)
@@ -629,14 +629,14 @@ namespace BE_API.Service
         private async Task<Bus> ValidateBusAsync(long busId)
         {
             if (busId <= 0)
-                throw new Exception("BusId phai lon hon 0");
+                throw new Exception("BusId phải lớn hơn 0");
 
             var bus = await _busRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == busId)
-                ?? throw new Exception("Bus khong ton tai");
+                ?? throw new Exception("Bus không tồn tại");
 
             if (!string.Equals(bus.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Bus dang khong hoat dong");
+                throw new Exception("Bus đang không hoạt động");
 
             return bus;
         }
@@ -646,17 +646,17 @@ namespace BE_API.Service
             await ValidateBusAsync(busId);
 
             if (busRunId <= 0)
-                throw new Exception("BusRunId phai lon hon 0");
+                throw new Exception("BusRunId phải lớn hơn 0");
 
             var busRun = await GetBusRunQueryable()
                 .FirstOrDefaultAsync(x => x.Id == busRunId)
-                ?? throw new Exception($"Khong tim thay chuyen xe voi BusRunId = {busRunId}");
+                ?? throw new Exception($"Không tìm thấy chuyến xe với BusRunId = {busRunId}");
 
             if (busRun.BusId != busId)
-                throw new Exception($"BusRunId = {busRunId} thuoc xe {busRun.BusId}, khong phai xe {busId}");
+                throw new Exception($"BusRunId = {busRunId} thuộc xe {busRun.BusId}, không phải xe {busId}");
 
             if (busRun.ServiceDate.Date != rideDate.Date)
-                throw new Exception($"BusRunId = {busRunId} khong thuoc ngay {rideDate:yyyy-MM-dd}");
+                throw new Exception($"BusRunId = {busRunId} không thuộc ngày {rideDate:yyyy-MM-dd}");
 
             return busRun;
         }
@@ -670,11 +670,11 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!routeStations.Any())
-                throw new Exception("Tuyen xe chua co danh sach tram");
+                throw new Exception("Tuyến xe chưa có danh sách trạm");
 
             var disabledStation = routeStations.FirstOrDefault(x => !x.Station.IsEnabled);
             if (disabledStation != null)
-                throw new Exception($"Tram '{disabledStation.Station.Name}' dang khong hoat dong");
+                throw new Exception($"Trạm '{disabledStation.Station.Name}' đang không hoạt động");
 
             return routeStations;
         }
