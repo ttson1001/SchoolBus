@@ -127,7 +127,7 @@ namespace BE_API.Service
                 .AnyAsync(x => x.BusId == id);
 
             if (hasBusRun)
-                throw new Exception("Khong the xoa bus da duoc su dung trong lich chay thuc te");
+                throw new Exception("Không thể xóa bus đã được sử dụng trong lịch chạy thực tế");
 
             _busRepo.Delete(bus);
             await _busRepo.SaveChangesAsync();

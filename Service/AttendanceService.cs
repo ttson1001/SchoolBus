@@ -576,10 +576,10 @@ namespace BE_API.Service
         {
             return type switch
             {
-                "BOARDING" => "Học sinh đã lên xe",
-                "ALIGHTING" => "Học sinh đã xuống xe",
-                "WRONG_DROPOFF" => "Cảnh báo xuống sai điểm",
-                _ => "Thông báo SchoolBus"
+                "BOARDING" => "Hoc sinh da len xe",
+                "ALIGHTING" => "Hoc sinh da xuong xe",
+                "WRONG_DROPOFF" => "Canh bao xuong sai diem",
+                _ => "Thong bao SchoolBus"
             };
         }
 
@@ -595,15 +595,15 @@ namespace BE_API.Service
                     x.EndDate.Value.Date >= attendanceDate.Date);
 
             if (hasActiveOrder)
-                return "Học sinh có gói còn hiệu lực";
+                return "Hoc sinh co goi con hieu luc";
 
             var hasAnyOrder = await _orderRepo.Get()
                 .AnyAsync(x => x.StudentId == studentId);
 
             if (hasAnyOrder)
-                return "Gói đã hết hạn nhưng vẫn được đi lần này";
+                return "Goi da het han nhung van duoc di lan nay";
 
-            return "Học sinh chưa có gói nhưng vẫn được đi lần này";
+            return "Hoc sinh chua co goi nhung van duoc di lan nay";
         }
 
         private static string AppendOperationalNote(string baseNote, string? operationalNote)

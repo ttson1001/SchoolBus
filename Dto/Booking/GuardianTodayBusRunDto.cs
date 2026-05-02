@@ -20,6 +20,7 @@ namespace BE_API.Dto.Booking
         public string? TeacherName { get; set; }
         public int RunOrder { get; set; }
         public string RunStatus { get; set; } = null!;
+        public string TodayStatus { get; set; } = null!;
         public long StationId { get; set; }
         public string StationName { get; set; } = null!;
         public string? PickupAddress { get; set; }

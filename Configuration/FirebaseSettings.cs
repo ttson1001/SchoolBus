@@ -7,7 +7,7 @@ namespace BE_API.Configuration
         public string CredentialsPath { get; set; } = string.Empty;
 
         /// <summary>
-        /// Khi true, cho phép POST /api/FirebaseTest/Send không cần JWT ngay cả khi không phải Development (cẩn thận spam FCM).
+        /// Khi true, cho phAp POST /api/FirebaseTest/Send khAng can JWT ngay ca khi khAng phai Development (can than spam FCM).
         /// </summary>
         public bool AllowPublicTestEndpoint { get; set; }
     }

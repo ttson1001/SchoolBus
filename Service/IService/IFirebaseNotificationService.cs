@@ -10,7 +10,7 @@ namespace BE_API.Service.IService
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Giống SendAsync nhưng trả thêm mô tả lý do khi không gửi được (dùng cho API test / debug).
+        /// Giang SendAsync nhng tra thAm mA ta lA do khi khAng gai Aac (dAng cho API test / debug).
         /// </summary>
         Task<(bool Sent, string Detail)> SendDiagnosticAsync(
             string? deviceToken,

@@ -11,24 +11,24 @@ namespace BE_API.Controllers
     {
         private readonly IBookingService _bookingService;
 
-        private const string BOOKING_GET_SUCCESS = "Lay booking thanh cong";
-        private const string BOOKING_LIST_SUCCESS = "Lay danh sach booking thanh cong";
-        private const string BOOKING_CREATE_SUCCESS = "Tao booking thanh cong";
-        private const string BOOKING_UPDATE_SUCCESS = "Cap nhat booking thanh cong";
-        private const string BOOKING_DELETE_SUCCESS = "Xoa booking thanh cong";
-        private const string BOOKING_AUTO_ASSIGN_SUCCESS = "Chia hoc sinh vao xe thanh cong";
-        private const string BOOKING_AUTO_ASSIGN_BY_DATE_SUCCESS = "Chia hoc sinh vao xe theo ngay thanh cong";
-        private const string BUS_RUN_LIST_SUCCESS = "Lay danh sach lich chay thuc te thanh cong";
-        private const string GUARDIAN_TODAY_BUS_RUN_LIST_SUCCESS = "Lay danh sach con di xe trong ngay thanh cong";
-        private const string BUS_RUN_ASSIGN_STAFF_SUCCESS = "Gan tai xe va giao vien cho chuyen xe thanh cong";
-        private const string BOOKING_WEEKLY_SLOTS_SUCCESS = "Lay khung gio booking theo tuan thanh cong";
+        private const string BOOKING_GET_SUCCESS = "Lấy booking thành công";
+        private const string BOOKING_LIST_SUCCESS = "Lấy danh sách booking thành công";
+        private const string BOOKING_CREATE_SUCCESS = "Tạo booking thành công";
+        private const string BOOKING_UPDATE_SUCCESS = "Cập nhật booking thành công";
+        private const string BOOKING_DELETE_SUCCESS = "Xóa booking thành công";
+        private const string BOOKING_AUTO_ASSIGN_SUCCESS = "Chia học sinh vào xe thành công";
+        private const string BOOKING_AUTO_ASSIGN_BY_DATE_SUCCESS = "Chia học sinh vào xe theo ngày thành công";
+        private const string BUS_RUN_LIST_SUCCESS = "Lấy danh sách lịch chạy thực tế thành công";
+        private const string GUARDIAN_TODAY_BUS_RUN_LIST_SUCCESS = "Lấy danh sách con đi xe trong ngày thành công";
+        private const string BUS_RUN_ASSIGN_STAFF_SUCCESS = "Gán tài xế và giáo viên cho chuyến xe thành công";
+        private const string BOOKING_WEEKLY_SLOTS_SUCCESS = "Lấy khung giờ booking theo tuần thành công";
 
         public BookingController(IBookingService bookingService)
         {
             _bookingService = bookingService;
         }
 
-        /// <summary>Từ hôm nay đến 7 ngày sau (8 ngày), khung giờ theo appsettings BookingSlots — không query.</summary>
+        /// <summary>Ta hAm nay Aan 7 ngAy sau (8 ngAy), khung gia theo appsettings BookingSlots a khAng query.</summary>
         [HttpGet("[action]")]
         public async Task<IActionResult> WeeklySlots()
         {

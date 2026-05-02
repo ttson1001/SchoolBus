@@ -21,8 +21,8 @@ namespace BE_API.Controllers
         }
 
         /// <summary>
-        /// Phụ huynh / user: bỏ query userId → lấy thông báo của chính mình (theo JWT).
-        /// Admin: có thể truyền userId để xem thông báo user đó. User thường chỉ được userId trùng với token.
+        /// Pha huynh / user: ba query userId a lay thAng bAo caa chAnh mAnh (theo JWT).
+        /// Admin: cA tha truyan userId Aa xem thAng bAo user AA. User thang cha Aac userId trAng vai token.
         /// </summary>
         [HttpGet("[action]")]
         public async Task<IActionResult> Search(
@@ -68,7 +68,7 @@ namespace BE_API.Controllers
             var userIdValue = User.FindFirstValue("UserId");
 
             if (string.IsNullOrWhiteSpace(userIdValue) || !long.TryParse(userIdValue, out var id))
-                throw new Exception("Không đọc được UserId từ token");
+                throw new Exception("KhAng Aac Aac UserId ta token");
 
             return id;
         }

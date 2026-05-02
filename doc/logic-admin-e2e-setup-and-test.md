@@ -1043,6 +1043,210 @@ Neu chua lam phan nay thi can luu y:
 17. `POST /api/Attendance/ManualCheckIn`
 18. `POST /api/Attendance/ManualCheckOut`
 
+## 13.1 API moi cho guardian
+
+### GET `/api/Booking/GetTodayBusRunsByGuardian/{guardianId}`
+
+Muc dich:
+
+- cho guardian xem hom nay con di xe nao
+- kem thong tin xe, tai xe, giao vien
+- kem thong tin thuc te:
+  - da check-in tren dung xe nay chua
+  - dang o tren dung xe nay khong
+  - neu dang o xe khac thi xe nao
+- kem them `bookingTomorrow` neu hoc sinh co booking cua ngay mai
+
+Query:
+
+- `serviceDate` la ngay can xem
+- neu khong truyen thi backend tu lay ngay hien tai
+
+Vi du:
+
+```http
+GET /api/Booking/GetTodayBusRunsByGuardian/2?serviceDate=2026-04-30
+```
+
+Response mau:
+
+```json
+{
+  "message": "Lay danh sach con di xe trong ngay thanh cong",
+  "data": [
+    {
+      "todayBusRun": {
+        "bookingId": 1,
+        "studentId": 1,
+        "studentCode": "ST001",
+        "studentName": "Nguyen Minh Khang",
+        "studentAvatarUrl": "https://cdn.schoolbus.com/students/st001.jpg",
+        "routeId": 1,
+        "routeName": "Tuyen sang Quan 1 - Co so Q1",
+        "serviceDate": "2026-04-30T00:00:00",
+        "startTime": "07:00:00",
+        "busRunId": 42,
+        "busId": 1,
+        "busLabel": "BUS-Q1-01",
+        "driverId": 34,
+        "driverName": "Nguyen Van Tuan",
+        "teacherId": 50,
+        "teacherName": "Le Duc Huy",
+        "runOrder": 1,
+        "runStatus": "ASSIGNED",
+        "stationId": 1,
+        "stationName": "Tram Cong vien Tao Dan",
+        "pickupAddress": "diem safe point",
+        "hasCheckedInOnThisBus": true,
+        "isCurrentlyOnThisBus": true,
+        "currentBusId": null,
+        "currentBusLabel": null,
+        "isOnDifferentBusThanAssigned": false
+      },
+      "bookingTomorrow": {
+        "id": 9,
+        "studentId": 1,
+        "studentCode": "ST001",
+        "studentName": "Nguyen Minh Khang",
+        "guardianId": 2,
+        "guardianName": "Nguyen Lan Huong",
+        "routeId": 1,
+        "routeName": "Tuyen sang Quan 1 - Co so Q1",
+        "serviceDate": "2026-05-01T00:00:00",
+        "startTime": "07:00:00",
+        "stationId": 1,
+        "stationName": "Tram Cong vien Tao Dan",
+        "stationAddress": "55C Nguyen Thi Minh Khai, Quan 1, TP.HCM",
+        "pickupAddress": "diem safe point",
+        "latitude": 10.77978,
+        "longitude": 106.69165,
+        "status": "CONFIRMED",
+        "note": "Don tai cong cong vien Tao Dan, phu huynh cho san.",
+        "createdAt": "2026-04-29T17:09:02.6299474"
+      }
+    }
+  ]
+}
+```
+
+Rule:
+
+- `todayBusRun` la lich hom nay da duoc chia vao `BusRun`
+- `bookingTomorrow` chi lay booking cua ngay mai
+- neu khong co booking ngay mai thi `bookingTomorrow = null`
+- neu hoc sinh duoc phan xe A nhung thuc te len xe B:
+  - `todayBusRun` van giu xe duoc phan ban dau
+  - `currentBusId/currentBusLabel` se chi ra xe thuc te
+  - `isOnDifferentBusThanAssigned = true`
+
+## 13.2 API Current co hoc sinh theo tung tram
+
+### GET `/api/BusTripProgress/Current?busId={busId}&busRunId={busRunId}`
+
+Muc dich:
+
+- xem chuyen xe hien tai dang o tram nao
+- tram tiep theo la tram nao
+- moi tram co danh sach hoc sinh cua tram do
+
+Truoc day:
+
+- `Stations` chi co thong tin tram
+- danh sach hoc sinh nam o list rieng cua schedule/history
+
+Bay gio:
+
+- trong moi `station` se co them:
+  - `students: []`
+
+Mau response rut gon:
+
+```json
+{
+  "message": "Lấy trạng thái chuyến xe thành công",
+  "data": {
+    "busId": 1,
+    "busRunId": 42,
+    "routeId": 1,
+    "routeName": "Tuyen sang Quan 1 - Co so Q1",
+    "rideDate": "2026-04-30T00:00:00",
+    "startTime": "07:00:00",
+    "tripStatus": "AT_STATION",
+    "currentStationId": 1,
+    "currentStationName": "Tram Cong vien Tao Dan",
+    "nextStationId": 2,
+    "nextStationName": "Tram Cho Ben Thanh",
+    "nextOrderIndex": 2,
+    "isCompleted": false,
+    "stations": [
+      {
+        "stationId": 1,
+        "stationName": "Tram Cong vien Tao Dan",
+        "latitude": 10.77978,
+        "longitude": 106.69165,
+        "orderIndex": 1,
+        "isVisited": true,
+        "arrivedAt": "2026-04-30T06:59:00",
+        "students": [
+          {
+            "studentId": 1,
+            "studentCode": "ST001",
+            "studentName": "Nguyen Minh Khang",
+            "stationId": 1,
+            "stationName": "Tram Cong vien Tao Dan",
+            "pickupAddress": "diem safe point",
+            "pickupLatitude": 10.77978,
+            "pickupLongitude": 106.69165,
+            "hasCheckedInOnThisBus": true,
+            "isCurrentlyOnThisBus": true,
+            "currentBusId": null,
+            "currentBusLabel": null,
+            "isOnDifferentBusThanAssigned": false
+          }
+        ]
+      },
+      {
+        "stationId": 2,
+        "stationName": "Tram Cho Ben Thanh",
+        "latitude": 10.77251,
+        "longitude": 106.69802,
+        "orderIndex": 2,
+        "isVisited": false,
+        "arrivedAt": null,
+        "students": [
+          {
+            "studentId": 28,
+            "studentCode": "STB026",
+            "studentName": "Tran Ngoc Anh",
+            "stationId": 2,
+            "stationName": "Tram Cho Ben Thanh",
+            "pickupAddress": "diem safe point",
+            "pickupLatitude": 10.77401,
+            "pickupLongitude": 106.69352,
+            "hasCheckedInOnThisBus": false,
+            "isCurrentlyOnThisBus": false,
+            "currentBusId": 8,
+            "currentBusLabel": "BUS-SEED-06",
+            "isOnDifferentBusThanAssigned": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Rule:
+
+- `stations[].students` la danh sach hoc sinh thuoc tram do cua chuyen nay
+- neu hoc sinh dang thuc te o xe khac thi van hien trong tram booking goc
+- dong thoi:
+  - `currentBusId`
+  - `currentBusLabel`
+  - `isOnDifferentBusThanAssigned`
+  se cho biet hoc sinh dang nam o xe nao tren thuc te
+- cach nay giup man hinh `Current` render theo tram de giao vien/tai xe de nhin hon
+
 ## 14. Ket luan
 
 Nguon su that hien tai cua runtime la:

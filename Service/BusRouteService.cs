@@ -160,12 +160,8 @@ namespace BE_API.Service
             _routeRepo.Update(route);
             await _routeRepo.SaveChangesAsync();
 
-            var updatedRoute = await GetRouteQueryable()
-                .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus route không tồn tại");
-
-            var buses = await GetBusesByRouteIdAsync(updatedRoute.Id);
-            return MapToDto(updatedRoute, buses);
+            var buses = await GetBusesByRouteIdAsync(route.Id);
+            return MapToDto(route, buses);
         }
 
         public async Task DeleteBusRouteAsync(long id)
@@ -211,8 +207,7 @@ namespace BE_API.Service
             if (isEnabled.HasValue)
                 query = query.Where(x => x.IsEnabled == isEnabled.Value);
 
-            return query
-                .Include(x => x.Campus);
+            return query.Include(x => x.Campus);
         }
 
         private async Task<PagedResult<BusRouteDto>> BuildPagedResultAsync(IQueryable<BusRoute> query, int page, int pageSize)
@@ -228,14 +223,17 @@ namespace BE_API.Service
                 .ToListAsync();
 
             var routeIds = routes.Select(x => x.Id).ToList();
-            var busesByRoute = await _busRunRepo.Get()
+            var busRunRows = await _busRunRepo.Get()
                 .Include(x => x.Bus)
                 .Where(x => routeIds.Contains(x.RouteId))
+                .ToListAsync();
+
+            var busesByRoute = busRunRows
+                .Where(x => x.Bus != null)
                 .GroupBy(x => x.RouteId)
-                .ToDictionaryAsync(
+                .ToDictionary(
                     x => x.Key,
-                    x => x.Select(y => y.Bus)
-                        .Where(y => y != null)
+                    x => x.Select(y => y.Bus!)
                         .GroupBy(y => y.Id)
                         .Select(y => y.First())
                         .OrderBy(y => y.BusNumber ?? y.LicensePlate)
@@ -313,15 +311,18 @@ namespace BE_API.Service
 
         private async Task<List<Bus>> GetBusesByRouteIdAsync(long routeId)
         {
-            return await _busRunRepo.Get()
+            var busRuns = await _busRunRepo.Get()
                 .Include(x => x.Bus)
                 .Where(x => x.RouteId == routeId)
-                .Select(x => x.Bus)
-                .Where(x => x != null)
+                .ToListAsync();
+
+            return busRuns
+                .Where(x => x.Bus != null)
+                .Select(x => x.Bus!)
                 .GroupBy(x => x.Id)
                 .Select(x => x.First())
                 .OrderBy(x => x.BusNumber ?? x.LicensePlate)
-                .ToListAsync();
+                .ToList();
         }
 
         private static BusRouteDto MapToDto(BusRoute route, List<Bus> buses)

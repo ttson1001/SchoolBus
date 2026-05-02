@@ -50,7 +50,7 @@ namespace BE_API.Service
         {
             var station = await _stationRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus station không tồn tại");
+                ?? throw new Exception("Bus station khAng tan tai");
 
             return MapToDto(station);
         }
@@ -58,7 +58,7 @@ namespace BE_API.Service
         public async Task CreateBusStationAsync(BusStationCreateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new Exception("Tên bus station không được để trống");
+                throw new Exception("TAn bus station khAng Aac Aa trang");
 
             var normalizedStationName = dto.Name.Trim();
             await EnsureStationNameNotDuplicatedAsync(normalizedStationName);
@@ -81,7 +81,7 @@ namespace BE_API.Service
         {
             var station = await _stationRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus station không tồn tại");
+                ?? throw new Exception("Bus station khAng tan tai");
 
             if (!string.IsNullOrWhiteSpace(dto.Name))
             {
@@ -115,7 +115,7 @@ namespace BE_API.Service
         {
             var station = await _stationRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Bus station không tồn tại");
+                ?? throw new Exception("Bus station khAng tan tai");
 
             _stationRepo.Delete(station);
             await _stationRepo.SaveChangesAsync();
@@ -150,7 +150,7 @@ namespace BE_API.Service
                     x.Name.ToLower() == normalizedStationName);
 
             if (duplicated)
-                throw new Exception("Tên điểm đón đã tồn tại");
+                throw new Exception("TAn Aiam AAn AA tan tai");
         }
     }
 }

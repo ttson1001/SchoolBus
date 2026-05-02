@@ -45,13 +45,13 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(u => u.Email == dto.Email)
-                ?? throw new KeyNotFoundException("Khong tim thay tai khoan");
+                ?? throw new KeyNotFoundException("Không tìm thấy tài khoản");
 
             if (user.Status == AccountStatus.DISABLED)
-                throw new Exception("Tai khoan da bi vo hieu hoa. Vui long lien he quan tri vien.");
+                throw new Exception("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-                throw new Exception("Sai mat khau can kiem tra lai mat khau");
+                throw new Exception("Sai mật khẩu, vui lòng kiểm tra lại mật khẩu.");
 
             var normalizedDeviceToken = NormalizeDeviceToken(dto.DeviceToken);
             if (!string.IsNullOrWhiteSpace(normalizedDeviceToken) &&
@@ -73,12 +73,12 @@ namespace BE_API.Service
         public async Task<AccountDto> GetMeAsync(long userId)
         {
             if (userId <= 0)
-                throw new Exception("UserId khong hop le");
+                throw new Exception("UserId không hợp lệ");
 
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == userId)
-                ?? throw new Exception("Khong tim thay tai khoan");
+                ?? throw new Exception("Không tìm thấy tài khoản");
 
             return MapToAccountDto(user);
         }
@@ -86,13 +86,13 @@ namespace BE_API.Service
         public async Task SendEmailAsync(SendEmailRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.To))
-                throw new Exception("Email nguoi nhan khong duoc de trong");
+                throw new Exception("Email người nhận không được để trống");
 
             if (string.IsNullOrWhiteSpace(request.Subject))
-                throw new Exception("Tieu de email khong duoc de trong");
+                throw new Exception("Tiêu đề email không được để trống");
 
             if (string.IsNullOrWhiteSpace(request.Body))
-                throw new Exception("Noi dung email khong duoc de trong");
+                throw new Exception("Nội dung email không được để trống");
 
             ValidateEmailSettings();
 
@@ -140,19 +140,19 @@ namespace BE_API.Service
         private void ValidateEmailSettings()
         {
             if (string.IsNullOrWhiteSpace(_emailSettings.Host))
-                throw new Exception("Chua cau hinh Email:Host");
+                throw new Exception("Chưa cấu hình Email:Host");
 
             if (_emailSettings.Port <= 0)
-                throw new Exception("Chua cau hinh Email:Port hop le");
+                throw new Exception("Chưa cấu hình Email:Port hợp lệ");
 
             if (string.IsNullOrWhiteSpace(_emailSettings.FromEmail))
-                throw new Exception("Chua cau hinh Email:FromEmail");
+                throw new Exception("Chưa cấu hình Email:FromEmail");
 
             if (string.IsNullOrWhiteSpace(_emailSettings.Username))
-                throw new Exception("Chua cau hinh Email:Username");
+                throw new Exception("Chưa cấu hình Email:Username");
 
             if (string.IsNullOrWhiteSpace(_emailSettings.Password))
-                throw new Exception("Chua cau hinh Email:Password");
+                throw new Exception("Chưa cấu hình Email:Password");
         }
 
         private static AccountDto MapToAccountDto(User user)

@@ -1,4 +1,4 @@
-﻿using BE_API.Common;
+using BE_API.Common;
 using BE_API.Dto.Common;
 using BE_API.Dto.User;
 using BE_API.Entites;
@@ -322,11 +322,11 @@ namespace BE_API.Service
             var user = await _userRepo.Get()
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
-                ?? throw new Exception("User không tồn tại.");
+                ?? throw new Exception("User khong ton tai.");
 
             if (user.Role != null && user.Role.Name.ToLower() == "admin")
             {
-                throw new Exception("Không thể disable tài khoản ADMIN.");
+                throw new Exception("Khong the disable tai khoan ADMIN.");
             }
 
             user.Status = AccountStatus.DISABLED;

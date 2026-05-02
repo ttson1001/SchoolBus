@@ -12,8 +12,8 @@ namespace BE_API.Controllers
     {
         private readonly ISystemSettingService _systemSettingService;
 
-        private const string GET_SUCCESS = "Lay SimilarityThreshold thanh cong";
-        private const string UPDATE_SUCCESS = "Cap nhat SimilarityThreshold thanh cong";
+        private const string GET_SUCCESS = "Lấy SimilarityThreshold thành công";
+        private const string UPDATE_SUCCESS = "Cập nhật SimilarityThreshold thành công";
 
         public FaceRecognitionSettingController(ISystemSettingService systemSettingService)
         {
@@ -21,7 +21,7 @@ namespace BE_API.Controllers
         }
 
         [HttpGet("[action]")]
-        [SwaggerOperation(Summary = "Lay SimilarityThreshold hien tai tu database")]
+        [SwaggerOperation(Summary = "Lấy SimilarityThreshold hiện tại từ database")]
         public async Task<IActionResult> GetSimilarityThreshold()
         {
             var response = new ResponseDto();
@@ -40,7 +40,7 @@ namespace BE_API.Controllers
         }
 
         [HttpPut("[action]")]
-        [SwaggerOperation(Summary = "Cap nhat SimilarityThreshold dong va luu vao database")]
+        [SwaggerOperation(Summary = "Cập nhật SimilarityThreshold động và lưu vào database")]
         public async Task<IActionResult> UpdateSimilarityThreshold([FromBody] UpdateSimilarityThresholdDto dto)
         {
             var response = new ResponseDto();

@@ -39,16 +39,16 @@ namespace BE_API.Service
             CancellationToken cancellationToken = default)
         {
             if (!_firebaseSettings.Enabled)
-                return (false, "Firebase:Enabled = false trong cấu hình (appsettings hoặc Firebase__Enabled).");
+                return (false, "Firebase:Enabled = false trong cau hAnh (appsettings hoac Firebase__Enabled).");
 
             if (string.IsNullOrWhiteSpace(deviceToken))
-                return (false, "Thiếu FCM registration token (device token rỗng).");
+                return (false, "Thiau FCM registration token (device token rang).");
 
             var app = FirebaseApp.DefaultInstance;
             if (app == null)
             {
-                _logger.LogWarning("Firebase chưa được khởi tạo nên không thể gửi push notification.");
-                return (false, "Firebase Admin SDK chưa khởi tạo. Kiểm tra Firebase:CredentialsPath, file JSON tồn tại, và log lúc start API.");
+                _logger.LogWarning("Firebase cha Aac khaYi tao nAn khAng tha gai push notification.");
+                return (false, "Firebase Admin SDK cha khaYi tao. Kiam tra Firebase:CredentialsPath, file JSON tan tai, vA log lAc start API.");
             }
 
             var message = new Message
@@ -56,7 +56,7 @@ namespace BE_API.Service
                 Token = deviceToken.Trim(),
                 Notification = new FirebaseMessageNotification
                 {
-                    Title = string.IsNullOrWhiteSpace(title) ? "Thông báo SchoolBus" : title.Trim(),
+                    Title = string.IsNullOrWhiteSpace(title) ? "ThAng bAo SchoolBus" : title.Trim(),
                     Body = body?.Trim() ?? string.Empty
                 },
                 Data = data == null
@@ -70,12 +70,12 @@ namespace BE_API.Service
             {
                 var messaging = FirebaseMessaging.GetMessaging(app);
                 await messaging.SendAsync(message, cancellationToken);
-                return (true, "Đã gửi tới FCM thành công.");
+                return (true, "AA gai tai FCM thAnh cAng.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Gửi Firebase notification thất bại cho device token.");
-                return (false, $"Lỗi từ FCM: {ex.Message}");
+                _logger.LogError(ex, "Gai Firebase notification that bai cho device token.");
+                return (false, $"Lai ta FCM: {ex.Message}");
             }
         }
     }

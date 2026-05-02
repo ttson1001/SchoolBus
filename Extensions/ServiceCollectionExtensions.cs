@@ -17,6 +17,7 @@ namespace BE_API.Extensions
 
             services.AddScoped<IAttendanceService, AttendanceService>();
             services.AddScoped<IBookingService, BookingService>();
+            services.AddScoped<IBookingRecurringJobService, BookingRecurringJobService>();
             services.AddScoped<IBusRouteService, BusRouteService>();
             services.AddScoped<IBusService, BusService>();
             services.AddScoped<IBusStationService, BusStationService>();

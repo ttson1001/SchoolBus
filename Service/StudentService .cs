@@ -1,4 +1,4 @@
-﻿using BE_API.Common;
+using BE_API.Common;
 using BE_API.Dto.Common;
 using BE_API.Dto.Student;
 using BE_API.Dto.User;
@@ -671,4 +671,3 @@ namespace BE_API.Service
         }
     }
 }
-

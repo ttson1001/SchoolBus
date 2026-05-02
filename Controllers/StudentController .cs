@@ -151,7 +151,7 @@ namespace BE_API.Controllers
                 var role = GetCurrentRole();
 
                 if (!string.Equals(role, "guardian", StringComparison.OrdinalIgnoreCase))
-                    throw new Exception("Tài khoản hiện tại không phải guardian");
+                    throw new Exception("TAi khoan hian tai khAng phai guardian");
 
                 var data = await _studentService.GetStudentsByGuardianIdAsync(userId);
                 response.Data = data;
@@ -244,7 +244,7 @@ namespace BE_API.Controllers
             var userIdValue = User.FindFirstValue("UserId");
 
             if (string.IsNullOrWhiteSpace(userIdValue) || !long.TryParse(userIdValue, out var userId))
-                throw new Exception("Không đọc được UserId từ token");
+                throw new Exception("KhAng Aac Aac UserId ta token");
 
             return userId;
         }
@@ -254,7 +254,7 @@ namespace BE_API.Controllers
             var role = User.FindFirstValue("Role");
 
             if (string.IsNullOrWhiteSpace(role))
-                throw new Exception("Không đọc được Role từ token");
+                throw new Exception("KhAng Aac Aac Role ta token");
 
             return role;
         }

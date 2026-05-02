@@ -301,6 +301,10 @@ namespace BE_API.Service
                             TeacherName = assignedRun.Teacher?.FullName ?? assignedRun.Teacher?.Email,
                             RunOrder = assignedRun.RunOrder,
                             RunStatus = assignedRun.Status,
+                            TodayStatus = ResolveGuardianTodayStatus(
+                                hasCheckedInOnThisBus,
+                                isCurrentlyOnThisBus,
+                                activeOnOtherBus != null),
                             StationId = assignment.Booking.StationId,
                             StationName = assignment.Booking.Station?.Name ?? string.Empty,
                             PickupAddress = assignment.Booking.PickupAddress,
@@ -390,7 +394,7 @@ namespace BE_API.Service
         {
             var student = await ValidateStudentAsync(dto.StudentId);
             var route = await ValidateRouteAsync(dto.RouteId);
-            var serviceDate = NormalizeBookingServiceDate(dto.ServiceDate);
+            var serviceDate = NormalizeBookingServiceDate(dto.ServiceDate, dto.StartTime);
             ValidateBookingSlot(dto.StartTime);
             var station = await ResolveStationAsync(
                 route.Id,
@@ -429,8 +433,8 @@ namespace BE_API.Service
 
             var studentId = dto.StudentId ?? booking.StudentId;
             var routeId = dto.RouteId ?? booking.RouteId;
-            var serviceDate = NormalizeBookingServiceDate(dto.ServiceDate ?? booking.ServiceDate);
             var startTime = dto.StartTime ?? booking.StartTime;
+            var serviceDate = NormalizeBookingServiceDate(dto.ServiceDate ?? booking.ServiceDate, startTime);
             var status = dto.Status != null ? NormalizeStatus(dto.Status) : booking.Status;
             var latitude = dto.Latitude ?? booking.Latitude;
             var longitude = dto.Longitude ?? booking.Longitude;
@@ -484,7 +488,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!bookings.Any())
-                throw new Exception("Khong co booking nao de chia xe");
+                throw new Exception("Không có booking nào để chia xe");
 
             var existingRuns = await _busRunRepo.Get()
                 .Where(x =>
@@ -655,7 +659,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!groups.Any())
-                throw new Exception("Khong co booking nao de chia xe trong ngay da chon");
+                throw new Exception("Không có booking nào để chia xe trong ngày đã chọn");
 
             var result = new List<BusRunDto>();
 
@@ -684,6 +688,52 @@ namespace BE_API.Service
                 .ToList();
         }
 
+        public async Task FinalizeSoftSlotBookingsForDateAsync(DateTime serviceDate)
+        {
+            var normalizedServiceDate = serviceDate.Date;
+            if (normalizedServiceDate <= _appTime.TodayDate)
+                throw new Exception("Chi co the xu ly soft booking cho ngay mai hoac xa hon");
+
+            var softGroups = await _bookingRepo.Get()
+                .Where(x =>
+                    x.ServiceDate.Date == normalizedServiceDate &&
+                    x.Status != "CANCELLED" &&
+                    !IsHardSlot(x.StartTime))
+                .Select(x => new
+                {
+                    x.RouteId,
+                    x.StartTime
+                })
+                .Distinct()
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.RouteId)
+                .ToListAsync();
+
+            foreach (var group in softGroups)
+            {
+                var bookings = await _bookingRepo.Get()
+                    .Include(x => x.Student)
+                    .ThenInclude(x => x.Guardian)
+                    .Include(x => x.Route)
+                    .Where(x =>
+                        x.ServiceDate.Date == normalizedServiceDate &&
+                        x.RouteId == group.RouteId &&
+                        x.StartTime == group.StartTime &&
+                        x.Status != "CANCELLED")
+                    .OrderBy(x => x.CreatedAt)
+                    .ToListAsync();
+
+                if (!bookings.Any() || bookings.Count >= _bookingSlotSettings.SoftSlotMinStudents)
+                    continue;
+
+                await CancelSoftSlotBookingsAndNotifyAsync(
+                    bookings,
+                    bookings[0].Route,
+                    normalizedServiceDate,
+                    group.StartTime);
+            }
+        }
+
         public async Task DeleteAsync(long id)
         {
             var booking = await _bookingRepo.Get()
@@ -707,7 +757,7 @@ namespace BE_API.Service
             var lastDay = today.AddDays(daysAfterToday);
             var slots = BuildMergedWeekSlots(cfgStart, cfgEnd);
 
-            var viNames = new[] { "Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy" };
+            var viNames = new[] { "Chu nhat", "Thu hai", "Thu ba", "Thu tu", "Thu nam", "Thu sau", "Thu bay" };
 
             var days = new List<BookingDayTimeSlotsDto>(daysAfterToday + 1);
             for (var i = 0; i <= daysAfterToday; i++)
@@ -778,7 +828,7 @@ namespace BE_API.Service
                 if (string.IsNullOrWhiteSpace(s))
                     continue;
                 if (!TimeSpan.TryParse(s.Trim(), out var ts))
-                    throw new Exception($"Cau hinh BookingSlots:HardSlotTimes — gia tri khong hop le: '{s}'");
+                    throw new Exception($"Cau hinh BookingSlots:HardSlotTimes a gia tri khong hop le: '{s}'");
                 ValidateBookingSlot(ts);
                 if (ts < windowLo || ts > windowHi)
                     continue;
@@ -823,8 +873,8 @@ namespace BE_API.Service
                 var guardian = group.First().Student.Guardian;
                 var names = string.Join(", ", group.Select(x => x.Student.FullName).Distinct());
                 var message =
-                    $"Khong du hoc sinh de mo chuyen xe bus ngay {dateLabel}, khung gio {timeLabel}, tuyen {route.Name}. " +
-                    $"Booking cua hoc sinh: {names}. Trang thai da chuyen thanh huy.";
+                    $"Không đủ học sinh để mở chuyến xe bus ngày {dateLabel}, khung giờ {timeLabel}, tuyến {route.Name}. " +
+                    $"Booking của học sinh: {names}. Trạng thái đã chuyển thành hủy.";
 
                 var notification = new Notification
                 {
@@ -839,7 +889,7 @@ namespace BE_API.Service
 
                 await _firebaseNotificationService.SendAsync(
                     guardian.DeviceToken,
-                    "Huy chuyen xe - khong du hoc sinh",
+                    "Hủy chuyến xe - không đủ học sinh",
                     message,
                     new Dictionary<string, string>
                     {
@@ -863,15 +913,15 @@ namespace BE_API.Service
         private async Task<Student> ValidateStudentAsync(long studentId)
         {
             if (studentId <= 0)
-                throw new Exception("StudentId phai lon hon 0");
+                throw new Exception("StudentId phải lớn hơn 0");
 
             var student = await _studentRepo.Get()
                 .Include(x => x.Guardian)
                 .FirstOrDefaultAsync(x => x.Id == studentId)
-                ?? throw new Exception("Student khong ton tai");
+                ?? throw new Exception("Student không tồn tại");
 
             if (student.Status != AccountStatus.ACTIVE)
-                throw new Exception("Student dang khong hoat dong");
+                throw new Exception("Student đang không hoạt động");
 
             return student;
         }
@@ -879,28 +929,38 @@ namespace BE_API.Service
         private async Task<BusRoute> ValidateRouteAsync(long routeId)
         {
             if (routeId <= 0)
-                throw new Exception("RouteId phai lon hon 0");
+                throw new Exception("RouteId phải lớn hơn 0");
 
             var route = await _routeRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == routeId)
-                ?? throw new Exception("Bus route khong ton tai");
+                ?? throw new Exception("Bus route không tồn tại");
 
             if (!route.IsEnabled)
-                throw new Exception("Bus route dang khong hoat dong");
+                throw new Exception("Bus route đang không hoạt động");
 
             return route;
         }
 
-        private DateTime NormalizeBookingServiceDate(DateTime serviceDate)
+        private DateTime NormalizeBookingServiceDate(DateTime serviceDate, TimeSpan startTime)
         {
             var normalizedServiceDate = serviceDate.Date;
-            if (normalizedServiceDate <= _appTime.TodayDate)
-                throw new Exception("ServiceDate phai duoc dat truoc it nhat 1 ngay");
+            var today = _appTime.TodayDate;
 
-            var tomorrow = _appTime.TodayDate.AddDays(1);
-            var cutoffTime = new TimeSpan(20, 0, 0);
-            if (normalizedServiceDate == tomorrow && _appTime.GetTimeOfDay() >= cutoffTime)
-                throw new Exception("Sau 20:00 khong the booking cho ngay mai");
+            if (IsHardSlot(startTime))
+            {
+                if (normalizedServiceDate < today.AddDays(Math.Max(1, _bookingSlotSettings.HardSlotAdvanceDays)))
+                    throw new Exception("Khung giờ cứng phải được đặt trước ít nhất 1 ngày");
+
+                var tomorrow = today.AddDays(1);
+                var cutoffTime = new TimeSpan(20, 0, 0);
+                if (normalizedServiceDate == tomorrow && _appTime.GetTimeOfDay() >= cutoffTime)
+                    throw new Exception("Sau 20:00 không thể booking cho ngày mai với khung giờ cứng");
+            }
+            else
+            {
+                if (normalizedServiceDate < today.AddDays(Math.Max(2, _bookingSlotSettings.SoftSlotAdvanceDays)))
+                    throw new Exception("Khung giờ mềm phải được đặt trước ít nhất 2 ngày");
+            }
 
             return normalizedServiceDate;
         }
@@ -909,7 +969,7 @@ namespace BE_API.Service
         {
             var normalizedServiceDate = serviceDate.Date;
             if (normalizedServiceDate <= _appTime.TodayDate)
-                throw new Exception("Chi co the chia xe cho ngay mai hoac xa hon");
+                throw new Exception("Chỉ có thể chia xe cho ngày mai hoặc xa hơn");
 
             return normalizedServiceDate;
         }
@@ -917,17 +977,17 @@ namespace BE_API.Service
         private void ValidateBookingSlot(TimeSpan startTime)
         {
             if (_bookingSlotSettings.StepMinutes <= 0)
-                throw new Exception("Cau hinh BookingSlots:StepMinutes khong hop le");
+                throw new Exception("Cấu hình BookingSlots:StepMinutes không hợp lệ");
 
             var startSlot = new TimeSpan(_bookingSlotSettings.StartHour, 0, 0);
             var endSlot = new TimeSpan(_bookingSlotSettings.EndHour, 0, 0);
 
             if (startTime < startSlot || startTime > endSlot)
-                throw new Exception($"Khung gio booking chi duoc phep tu {startSlot:hh\\:mm} den {endSlot:hh\\:mm}");
+                throw new Exception($"Khung giờ booking chỉ được phép từ {startSlot:hh\\:mm} đến {endSlot:hh\\:mm}");
 
             var minutesFromStart = (int)(startTime - startSlot).TotalMinutes;
             if (minutesFromStart % _bookingSlotSettings.StepMinutes != 0)
-                throw new Exception($"Khung gio booking phai theo buoc {_bookingSlotSettings.StepMinutes} phut");
+                throw new Exception($"Khung giờ booking phải theo bước {_bookingSlotSettings.StepMinutes} phút");
         }
 
         private async Task<BusStation> ResolveStationAsync(
@@ -942,7 +1002,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             if (!routeStations.Any())
-                throw new Exception("Route chua co tram de booking");
+                throw new Exception("Route chưa có trạm để booking");
 
             var station = ResolveStation(routeStations, stationId, latitude, longitude, "chon");
 
@@ -1232,6 +1292,23 @@ namespace BE_API.Service
         private static string? NormalizeOptional(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string ResolveGuardianTodayStatus(
+            bool hasCheckedInOnThisBus,
+            bool isCurrentlyOnThisBus,
+            bool isOnDifferentBusThanAssigned)
+        {
+            if (isCurrentlyOnThisBus)
+                return "ON_ASSIGNED_BUS";
+
+            if (isOnDifferentBusThanAssigned)
+                return "ON_DIFFERENT_BUS";
+
+            if (hasCheckedInOnThisBus)
+                return "CHECKED_OUT";
+
+            return "NOT_CHECKED_IN";
         }
 
         private static BusStation ResolveStation(

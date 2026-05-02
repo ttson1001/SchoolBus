@@ -25,9 +25,10 @@ namespace BE_API.Service.IService
         Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsAsync(AutoAssignBookingRequestDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsByDateAsync(DateTime serviceDate);
+        Task FinalizeSoftSlotBookingsForDateAsync(DateTime serviceDate);
         Task DeleteAsync(long id);
 
-        /// <summary>Hôm nay → hôm nay + 7 ngày (8 ngày), slot theo BookingSlots trong appsettings.</summary>
+        /// <summary>HAm nay a hAm nay + 7 ngAy (8 ngAy), slot theo BookingSlots trong appsettings.</summary>
         Task<BookingWeeklySlotsDto> GetWeeklyBookingSlotsAsync();
     }
 }

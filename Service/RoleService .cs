@@ -1,4 +1,4 @@
-﻿using BE_API.Dto.Common;
+using BE_API.Dto.Common;
 using BE_API.Dto.Role;
 using BE_API.Entites;
 using BE_API.Repository;
@@ -53,7 +53,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role không tồn tại");
+                ?? throw new Exception("Role khong ton tai");
 
             return new RoleDto
             {
@@ -76,7 +76,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role không tồn tại");
+                ?? throw new Exception("Role khong ton tai");
 
             role.Name = dto.Name;
 
@@ -93,7 +93,7 @@ namespace BE_API.Service
         {
             var role = await _roleRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("Role không tồn tại");
+                ?? throw new Exception("Role khong ton tai");
 
             _roleRepo.Delete(role);
         }

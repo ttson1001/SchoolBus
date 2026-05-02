@@ -3,6 +3,9 @@ using BE_API.Configuration;
 using BE_API.Database;
 using BE_API.Service;
 using BE_API.Extensions;
+using BE_API.Service.IService;
+using Hangfire;
+using Hangfire.SqlServer;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -58,6 +61,19 @@ builder.Services.AddScoped<PayOSClient>(serviceProvider =>
 builder.Services.AddDbContext<BeContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new SqlServerStorageOptions
+        {
+            PrepareSchemaIfNecessary = true
+        }));
+
+builder.Services.AddHangfireServer();
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -92,7 +108,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Nhập token theo định dạng: Bearer {token}"
+        Description = "Nhap token theo dinh dang: Bearer {token}"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -126,6 +142,7 @@ app.UseCors("AllowAllOrigin");
 EnsureMigrate(app);
 await app.EnsureSystemSeedDataAsync();
 EnsureFirebaseInitialized(app);
+RegisterRecurringJobs(app);
 
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
@@ -140,6 +157,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHangfireDashboard("/hangfire");
 
 app.MapControllers();
 
@@ -203,4 +221,54 @@ static void EnsureFirebaseInitialized(WebApplication webApp)
     {
         logger.LogError(ex, "Firebase: failed to create FirebaseApp. Push will be unavailable until configuration is fixed.");
     }
+}
+
+static void RegisterRecurringJobs(WebApplication webApp)
+{
+    var timeZone = ResolveVietnamTimeZone();
+    using var scope = webApp.Services.CreateScope();
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    recurringJobManager.AddOrUpdate<IBookingRecurringJobService>(
+        "booking-auto-assign-tomorrow-8pm",
+        job => job.AutoAssignTomorrowBusRunsAsync(),
+        "0 20 * * *",
+        new RecurringJobOptions
+        {
+            TimeZone = timeZone
+        });
+
+    recurringJobManager.AddOrUpdate<IBookingRecurringJobService>(
+        "booking-finalize-soft-tomorrow-midnight",
+        job => job.FinalizeTomorrowSoftBookingsAsync(),
+        "0 0 * * *",
+        new RecurringJobOptions
+        {
+            TimeZone = timeZone
+        });
+}
+
+static TimeZoneInfo ResolveVietnamTimeZone()
+{
+    var candidateIds = new[]
+    {
+        "Asia/Ho_Chi_Minh",
+        "SE Asia Standard Time"
+    };
+
+    foreach (var candidateId in candidateIds)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(candidateId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+        }
+        catch (InvalidTimeZoneException)
+        {
+        }
+    }
+
+    return TimeZoneInfo.Local;
 }

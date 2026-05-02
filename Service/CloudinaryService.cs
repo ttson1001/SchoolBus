@@ -21,7 +21,7 @@ namespace BE_API.Service
                 string.IsNullOrWhiteSpace(_settings.ApiKey) ||
                 string.IsNullOrWhiteSpace(_settings.ApiSecret))
             {
-                throw new Exception("Chưa cấu hình Cloudinary");
+                throw new Exception("Cha cau hAnh Cloudinary");
             }
 
             var account = new Account(_settings.CloudName, _settings.ApiKey, _settings.ApiSecret);
@@ -45,10 +45,10 @@ namespace BE_API.Service
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
             if (uploadResult.Error != null)
-                throw new Exception($"Upload Cloudinary thất bại: {uploadResult.Error.Message}");
+                throw new Exception($"Upload Cloudinary that bai: {uploadResult.Error.Message}");
 
             if (uploadResult.SecureUrl == null)
-                throw new Exception("Cloudinary không trả về URL ảnh");
+                throw new Exception("Cloudinary khAng tra va URL anh");
 
             return new UploadImageResultDto
             {
@@ -62,12 +62,12 @@ namespace BE_API.Service
         private static void ValidateImageFile(IFormFile? file)
         {
             if (file == null || file.Length == 0)
-                throw new Exception("File ảnh không được để trống");
+                throw new Exception("File anh khAng Aac Aa trang");
 
             if (string.IsNullOrWhiteSpace(file.ContentType) ||
                 !file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
-                throw new Exception("File tải lên phải là ảnh");
+                throw new Exception("File tai lAn phai lA anh");
             }
         }
     }

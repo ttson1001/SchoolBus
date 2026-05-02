@@ -100,7 +100,7 @@ namespace BE_API.Service
         {
             var transactionLog = await GetQueryable()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("TransactionLog không tồn tại");
+                ?? throw new Exception("TransactionLog khAng tan tai");
 
             return MapToDto(transactionLog);
         }
@@ -139,7 +139,7 @@ namespace BE_API.Service
         {
             var transactionLog = await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("TransactionLog không tồn tại");
+                ?? throw new Exception("TransactionLog khAng tan tai");
 
             if (dto.OrderId.HasValue)
             {
@@ -190,7 +190,7 @@ namespace BE_API.Service
         {
             var transactionLog = await _transactionLogRepo.Get()
                 .FirstOrDefaultAsync(x => x.Id == id)
-                ?? throw new Exception("TransactionLog không tồn tại");
+                ?? throw new Exception("TransactionLog khAng tan tai");
 
             _transactionLogRepo.Delete(transactionLog);
             await _transactionLogRepo.SaveChangesAsync();
@@ -205,12 +205,12 @@ namespace BE_API.Service
         private async Task ValidateOrderAsync(long orderId)
         {
             if (orderId <= 0)
-                throw new Exception("OrderId phải lớn hơn 0");
+                throw new Exception("OrderId phai lan hn 0");
 
             var exists = await _orderRepo.Get().AnyAsync(x => x.Id == orderId);
 
             if (!exists)
-                throw new Exception("Order không tồn tại");
+                throw new Exception("Order khAng tan tai");
         }
 
         private async Task EnsureCodeNotDuplicatedAsync(string? code, long? excludedId)
@@ -225,25 +225,25 @@ namespace BE_API.Service
                     (!excludedId.HasValue || x.Id != excludedId.Value));
 
             if (exists)
-                throw new Exception("Code giao dịch đã tồn tại");
+                throw new Exception("Code giao dach AA tan tai");
         }
 
         private static void ValidateTransactionLog(TransactionLog transactionLog)
         {
             if (transactionLog.Amount <= 0)
-                throw new Exception("Amount phải lớn hơn 0");
+                throw new Exception("Amount phai lan hn 0");
 
             if (string.IsNullOrWhiteSpace(transactionLog.Method))
-                throw new Exception("Method không được để trống");
+                throw new Exception("Method khAng Aac Aa trang");
 
             if (string.IsNullOrWhiteSpace(transactionLog.Status))
-                throw new Exception("Status không được để trống");
+                throw new Exception("Status khAng Aac Aa trang");
         }
 
         private static string NormalizeRequired(string? value, string fieldName)
         {
             if (string.IsNullOrWhiteSpace(value))
-                throw new Exception($"{fieldName} không được để trống");
+                throw new Exception($"{fieldName} khAng Aac Aa trang");
 
             return value.Trim();
         }
