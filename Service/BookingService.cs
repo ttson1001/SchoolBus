@@ -753,28 +753,28 @@ namespace BE_API.Service
             var cfgEnd = _bookingSlotSettings.EndHour;
 
             var today = _appTime.TodayDate.Date;
-            const int daysAfterToday = 7;
-            var lastDay = today.AddDays(daysAfterToday);
-            var slots = BuildMergedWeekSlots(cfgStart, cfgEnd);
+            var firstBookingDate = today.AddDays(_bookingSlotSettings.HardSlotAdvanceDays);
+            const int visibleDays = 7;
+            var lastDay = firstBookingDate.AddDays(visibleDays - 1);
 
             var viNames = new[] { "Chu nhat", "Thu hai", "Thu ba", "Thu tu", "Thu nam", "Thu sau", "Thu bay" };
 
-            var days = new List<BookingDayTimeSlotsDto>(daysAfterToday + 1);
-            for (var i = 0; i <= daysAfterToday; i++)
+            var days = new List<BookingDayTimeSlotsDto>(visibleDays);
+            for (var i = 0; i < visibleDays; i++)
             {
-                var date = today.AddDays(i);
+                var date = firstBookingDate.AddDays(i);
                 days.Add(new BookingDayTimeSlotsDto
                 {
                     Date = date.ToString("yyyy-MM-dd"),
                     DayOfWeek = (int)date.DayOfWeek,
                     DayName = viNames[(int)date.DayOfWeek],
-                    Slots = slots
+                    Slots = BuildVisibleWeekSlotsForDate(date, cfgStart, cfgEnd)
                 });
             }
 
             return Task.FromResult(new BookingWeeklySlotsDto
             {
-                WeekStartDate = today.ToString("yyyy-MM-dd"),
+                WeekStartDate = firstBookingDate.ToString("yyyy-MM-dd"),
                 WeekEndDate = lastDay.ToString("yyyy-MM-dd"),
                 StartHour = cfgStart,
                 EndHour = cfgEnd,
@@ -811,6 +811,24 @@ namespace BE_API.Service
             }
 
             return list;
+        }
+
+        private IReadOnlyList<BookingWeekSlotItemDto> BuildVisibleWeekSlotsForDate(
+            DateTime serviceDate,
+            int windowStartHour,
+            int windowEndHour)
+        {
+            var allSlots = BuildMergedWeekSlots(windowStartHour, windowEndHour);
+            var softAvailableDate = _appTime.TodayDate.Date.AddDays(_bookingSlotSettings.SoftSlotAdvanceDays);
+
+            if (serviceDate.Date < softAvailableDate)
+            {
+                return allSlots
+                    .Where(x => string.Equals(x.Kind, "hard", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            return allSlots;
         }
 
         private IReadOnlyList<string> BuildHardSlotStartTimesValidated(int windowStartHour, int windowEndHour)
