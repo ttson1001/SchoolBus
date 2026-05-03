@@ -8,7 +8,7 @@ namespace BE_API.Service.IService
         Task<PagedResult<CampusDto>> SearchCampusAsync(string? keyword, int page, int pageSize);
         Task<PagedResult<CampusDto>> GetActiveCampusesAsync(string? keyword, int page, int pageSize);
         Task<CampusDto> GetCampusByIdAsync(long id);
-        Task CreateCampusAsync(CampusCreateDto dto);
+        Task<CampusDto> CreateCampusAsync(CampusCreateDto dto);
         Task<CampusDto> UpdateCampusAsync(long id, CampusUpdateDto dto);
         Task DeleteCampusAsync(long id);
     }

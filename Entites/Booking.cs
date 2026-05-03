@@ -18,6 +18,9 @@ namespace BE_API.Entites
         public string? PickupAddress { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+        public string? OriginalPickupAddress { get; set; }
+        public double? OriginalLatitude { get; set; }
+        public double? OriginalLongitude { get; set; }
 
         public string Status { get; set; } = null!;
         public string? Note { get; set; }

@@ -61,6 +61,7 @@ namespace BE_API.Service
                 throw new Exception("Tuyến xe phải có ít nhất một trạm");
 
             var normalizedRouteName = dto.Name.Trim();
+            var normalizedRouteStatus = NormalizeRouteStatus(dto.RouteStatus);
             await EnsureRouteNameNotDuplicatedAsync(normalizedRouteName);
 
             var campus = await ValidateCampusAsync(dto.CampusId);
@@ -70,6 +71,7 @@ namespace BE_API.Service
             var route = new BusRoute
             {
                 Name = normalizedRouteName,
+                RouteStatus = normalizedRouteStatus,
                 CampusId = campus.Id,
                 IsEnabled = true
             };
@@ -113,6 +115,9 @@ namespace BE_API.Service
                 await EnsureRouteNameNotDuplicatedAsync(normalizedRouteName, id);
                 route.Name = normalizedRouteName;
             }
+
+            if (dto.RouteStatus != null)
+                route.RouteStatus = NormalizeRouteStatus(dto.RouteStatus);
 
             if (dto.CampusId.HasValue)
             {
@@ -331,6 +336,7 @@ namespace BE_API.Service
             {
                 Id = route.Id,
                 Name = route.Name,
+                RouteStatus = route.RouteStatus,
                 IsEnabled = route.IsEnabled,
                 CampusId = route.CampusId,
                 CampusName = route.Campus.Name,
@@ -363,6 +369,19 @@ namespace BE_API.Service
                     })
                     .ToList()
             };
+        }
+
+        private static string NormalizeRouteStatus(string? routeStatus)
+        {
+            if (string.IsNullOrWhiteSpace(routeStatus))
+                return "PICKUP";
+
+            var normalizedRouteStatus = routeStatus.Trim().ToUpperInvariant();
+
+            if (normalizedRouteStatus != "PICKUP" && normalizedRouteStatus != "DROPOFF")
+                throw new Exception("RouteStatus khong hop le. Chi chap nhan PICKUP hoac DROPOFF");
+
+            return normalizedRouteStatus;
         }
     }
 }

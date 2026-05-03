@@ -131,7 +131,8 @@ namespace BE_API.Service
                 Description = station.Description,
                 Latitude = station.Latitude,
                 Longitude = station.Longitude,
-                IsEnabled = station.IsEnabled
+                IsEnabled = station.IsEnabled,
+                CampusId = station.CampusId
             };
         }
 

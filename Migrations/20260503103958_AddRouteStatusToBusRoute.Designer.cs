@@ -4,6 +4,7 @@ using BE_API.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BE_API.Migrations
 {
     [DbContext(typeof(BeContext))]
-    partial class BeContextModelSnapshot : ModelSnapshot
+    [Migration("20260503103958_AddRouteStatusToBusRoute")]
+    partial class AddRouteStatusToBusRoute
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -100,15 +103,6 @@ namespace BE_API.Migrations
                     b.Property<string>("Note")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<double?>("OriginalLatitude")
-                        .HasColumnType("float");
-
-                    b.Property<double?>("OriginalLongitude")
-                        .HasColumnType("float");
-
-                    b.Property<string>("OriginalPickupAddress")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PickupAddress")
                         .HasMaxLength(500)

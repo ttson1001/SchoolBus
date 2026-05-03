@@ -91,7 +91,8 @@ namespace BE_API.Controllers
 
             try
             {
-                await _campusService.CreateCampusAsync(dto);
+                var data = await _campusService.CreateCampusAsync(dto);
+                response.Data = data;
                 response.Message = CAMPUS_CREATE_SUCCESS;
                 return Ok(response);
             }

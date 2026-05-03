@@ -272,6 +272,12 @@ namespace BE_API.Database
                 .WithMany(c => c.BusRoutes)
                 .HasForeignKey(r => r.CampusId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BusStation>()
+                .HasOne(x => x.Campus)
+                .WithMany(x => x.BusStations)
+                .HasForeignKey(x => x.CampusId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
     }

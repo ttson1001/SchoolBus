@@ -338,6 +338,9 @@ namespace BE_API.Service
                                 PickupAddress = tomorrowBooking.PickupAddress,
                                 Latitude = tomorrowBooking.Latitude,
                                 Longitude = tomorrowBooking.Longitude,
+                                OriginalPickupAddress = tomorrowBooking.OriginalPickupAddress,
+                                OriginalLatitude = tomorrowBooking.OriginalLatitude,
+                                OriginalLongitude = tomorrowBooking.OriginalLongitude,
                                 Status = tomorrowBooking.Status,
                                 Note = tomorrowBooking.Note,
                                 CreatedAt = tomorrowBooking.CreatedAt
@@ -414,6 +417,9 @@ namespace BE_API.Service
                 PickupAddress = NormalizeOptional(dto.PickupAddress),
                 Latitude = dto.Latitude,
                 Longitude = dto.Longitude,
+                OriginalPickupAddress = null,
+                OriginalLatitude = null,
+                OriginalLongitude = null,
                 Status = "PENDING",
                 Note = NormalizeOptional(dto.Note),
                 CreatedAt = DateTime.UtcNow
@@ -598,6 +604,8 @@ namespace BE_API.Service
             await _busRunRepo.AddAsync(backupRun);
             await _busRunRepo.SaveChangesAsync();
             createdRuns.Add(backupRun);
+
+            await ApplySafePointsToAssignedBookingsAsync(createdRuns, bookingAssignments);
 
             var runIds = createdRuns.Select(x => x.Id).ToList();
             var runs = await _busRunRepo.Get()
@@ -1229,8 +1237,8 @@ namespace BE_API.Service
 
             var stationGroups = bookings
                 .OrderBy(x => routeStationOrder.TryGetValue(x.StationId, out var orderIndex) ? orderIndex : int.MaxValue)
-                .ThenBy(x => x.Latitude ?? double.MaxValue)
-                .ThenBy(x => x.Longitude ?? double.MaxValue)
+                .ThenBy(x => GetSourceLatitude(x) ?? double.MaxValue)
+                .ThenBy(x => GetSourceLongitude(x) ?? double.MaxValue)
                 .ThenBy(x => x.CreatedAt)
                 .ThenBy(x => x.Id)
                 .GroupBy(x => x.StationId)
@@ -1268,6 +1276,53 @@ namespace BE_API.Service
                 throw new Exception("Không thể cân bằng học sinh vào đúng số lượng mỗi xe");
 
             return assignments;
+        }
+
+        private async Task ApplySafePointsToAssignedBookingsAsync(
+            List<BusRun> createdRuns,
+            List<List<Booking>> bookingAssignments)
+        {
+            for (var i = 0; i < bookingAssignments.Count; i++)
+            {
+                var busRun = createdRuns[i];
+                var assignedBookings = bookingAssignments[i];
+
+                foreach (var stationGroup in assignedBookings.GroupBy(x => x.StationId))
+                {
+                    var groupBookings = stationGroup.ToList();
+                    var bookingsWithCoordinates = groupBookings
+                        .Where(x => GetSourceLatitude(x).HasValue && GetSourceLongitude(x).HasValue)
+                        .ToList();
+
+                    if (!bookingsWithCoordinates.Any())
+                        continue;
+
+                    var safePointLatitude = bookingsWithCoordinates
+                        .Average(x => GetSourceLatitude(x)!.Value);
+                    var safePointLongitude = bookingsWithCoordinates
+                        .Average(x => GetSourceLongitude(x)!.Value);
+                    var stationName = groupBookings[0].Station?.Name ?? $"Tram {stationGroup.Key}";
+                    var safePointAddress = $"Safe point {stationName} - Xe {busRun.RunOrder}";
+
+                    foreach (var booking in groupBookings)
+                    {
+                        if (booking.OriginalPickupAddress == null)
+                            booking.OriginalPickupAddress = booking.PickupAddress;
+
+                        if (!booking.OriginalLatitude.HasValue)
+                            booking.OriginalLatitude = booking.Latitude;
+
+                        if (!booking.OriginalLongitude.HasValue)
+                            booking.OriginalLongitude = booking.Longitude;
+
+                        booking.PickupAddress = safePointAddress;
+                        booking.Latitude = safePointLatitude;
+                        booking.Longitude = safePointLongitude;
+                    }
+                }
+            }
+
+            await _bookingRepo.SaveChangesAsync();
         }
 
         private (List<(Bus bus, int usableCapacity)> PrimaryBuses, Bus BackupBus) SelectBusesForAssignment(
@@ -1310,6 +1365,16 @@ namespace BE_API.Service
         private static string? NormalizeOptional(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static double? GetSourceLatitude(Booking booking)
+        {
+            return booking.OriginalLatitude ?? booking.Latitude;
+        }
+
+        private static double? GetSourceLongitude(Booking booking)
+        {
+            return booking.OriginalLongitude ?? booking.Longitude;
         }
 
         private static string ResolveGuardianTodayStatus(
@@ -1503,6 +1568,9 @@ namespace BE_API.Service
                 PickupAddress = booking.PickupAddress,
                 Latitude = booking.Latitude,
                 Longitude = booking.Longitude,
+                OriginalPickupAddress = booking.OriginalPickupAddress,
+                OriginalLatitude = booking.OriginalLatitude,
+                OriginalLongitude = booking.OriginalLongitude,
                 Status = booking.Status,
                 Note = booking.Note,
                 CreatedAt = booking.CreatedAt

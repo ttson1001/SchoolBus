@@ -8,5 +8,6 @@
         public string? Phone { get; set; }
         public bool? IsActive { get; set; }
         public string? ImageUrl { get; set; }
+        public List<CampusInitialBusStationCreateDto>? InitialBusStations { get; set; }
     }
 }

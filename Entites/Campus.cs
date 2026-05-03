@@ -14,5 +14,6 @@
 
         public ICollection<Student> Students { get; set; } = new List<Student>();
         public ICollection<BusRoute> BusRoutes { get; set; } = new List<BusRoute>();
+        public ICollection<BusStation> BusStations { get; set; } = new List<BusStation>();
     }
 }

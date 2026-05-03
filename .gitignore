@@ -14,3 +14,4 @@ obj/
 # User files
 *.user
 *.suo
+build_tmp/
