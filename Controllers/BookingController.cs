@@ -154,6 +154,25 @@ namespace BE_API.Controllers
             }
         }
 
+        [HttpPost("[action]")]
+        public async Task<IActionResult> CreateTestBookingsForTomorrow([FromBody] CreateTestBookingsForTomorrowDto dto)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var data = await _bookingService.CreateTestBookingsForTomorrowAsync(dto);
+                response.Data = data;
+                response.Message = "Tạo booking test cho ngày mai thành công";
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.Message = ex.Message;
+                return BadRequest(response);
+            }
+        }
+
         [HttpPut("[action]/{id}")]
         public async Task<IActionResult> Update(long id, [FromBody] BookingUpdateDto dto)
         {

@@ -33,6 +33,7 @@ namespace BE_API.Service
         private readonly IRepository<Attendance> _attendanceRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IAppTime _appTime;
+        private readonly IAccountService _accountService;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
         private readonly BookingSlotSettings _bookingSlotSettings;
 
@@ -48,6 +49,7 @@ namespace BE_API.Service
             IRepository<Attendance> attendanceRepo,
             IRepository<Notification> notificationRepo,
             IAppTime appTime,
+            IAccountService accountService,
             IFirebaseNotificationService firebaseNotificationService,
             IOptions<BookingSlotSettings> bookingSlotOptions)
         {
@@ -62,6 +64,7 @@ namespace BE_API.Service
             _attendanceRepo = attendanceRepo;
             _notificationRepo = notificationRepo;
             _appTime = appTime;
+            _accountService = accountService;
             _firebaseNotificationService = firebaseNotificationService;
             _bookingSlotSettings = bookingSlotOptions.Value;
         }
@@ -354,6 +357,61 @@ namespace BE_API.Service
                 .ToList();
         }
 
+        public async Task<int> SendBusRunAssignmentEmailsAsync(DateTime serviceDate)
+        {
+            var normalizedServiceDate = serviceDate.Date;
+
+            var assignments = await _busRunStudentRepo.Get()
+                .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
+                .Include(x => x.Booking)
+                .ThenInclude(x => x.Station)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Route)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Bus)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Driver)
+                .Include(x => x.BusRun)
+                .ThenInclude(x => x.Teacher)
+                .Where(x => x.Booking.ServiceDate.Date == normalizedServiceDate)
+                .OrderBy(x => x.Booking.StartTime)
+                .ThenBy(x => x.BusRun.RunOrder)
+                .ThenBy(x => x.Student.StudentCode)
+                .ToListAsync();
+
+            if (!assignments.Any())
+                return 0;
+
+            var emailsSent = 0;
+
+            foreach (var guardianGroup in assignments
+                .Where(x => !string.IsNullOrWhiteSpace(x.Student.Guardian.Email))
+                .GroupBy(x => new
+                {
+                    x.Student.GuardianId,
+                    GuardianName = x.Student.Guardian.FullName ?? x.Student.Guardian.Email ?? string.Empty,
+                    GuardianEmail = x.Student.Guardian.Email ?? string.Empty
+                }))
+            {
+                var rows = guardianGroup.ToList();
+                var request = new SendEmailRequest
+                {
+                    To = guardianGroup.Key.GuardianEmail,
+                    Subject = BuildBusRunAssignmentEmailSubject(normalizedServiceDate),
+                    Body = BuildBusRunAssignmentEmailBody(
+                        guardianGroup.Key.GuardianName,
+                        normalizedServiceDate,
+                        rows)
+                };
+
+                await _accountService.SendEmailAsync(request);
+                emailsSent++;
+            }
+
+            return emailsSent;
+        }
+
         public async Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto)
         {
             if (!dto.DriverId.HasValue && !dto.TeacherId.HasValue)
@@ -429,6 +487,151 @@ namespace BE_API.Service
             await _bookingRepo.SaveChangesAsync();
 
             return await GetByIdAsync(booking.Id);
+        }
+
+        public async Task<List<BookingDto>> CreateTestBookingsForTomorrowAsync(CreateTestBookingsForTomorrowDto dto)
+        {
+            if (dto.RouteId <= 0)
+                throw new Exception("RouteId phải lớn hơn 0");
+
+            if (dto.BookingCount <= 0)
+                throw new Exception("BookingCount phải lớn hơn 0");
+
+            var route = await ValidateRouteAsync(dto.RouteId);
+            ValidateBookingSlot(dto.StartTime);
+
+            var serviceDate = _appTime.TodayDate.AddDays(1);
+            var routeStations = await _routeStationRepo.Get()
+                .Where(x => x.RouteId == route.Id)
+                .Include(x => x.Station)
+                .OrderBy(x => x.OrderIndex)
+                .ToListAsync();
+
+            if (!routeStations.Any())
+                throw new Exception("Route chưa có trạm để tạo booking test");
+
+            if (dto.StationId.HasValue && routeStations.All(x => x.StationId != dto.StationId.Value))
+                throw new Exception("StationId không thuộc route đã chọn");
+
+            var baseStudentsQuery = _studentRepo.Get()
+                .Where(x => x.Status == AccountStatus.ACTIVE && x.CampusId == route.CampusId);
+
+            if (dto.StudentIds != null && dto.StudentIds.Any())
+            {
+                var studentIds = dto.StudentIds
+                    .Where(x => x > 0)
+                    .Distinct()
+                    .ToList();
+
+                if (!studentIds.Any())
+                    throw new Exception("StudentIds không hợp lệ");
+
+                baseStudentsQuery = baseStudentsQuery.Where(x => studentIds.Contains(x.Id));
+            }
+
+            var candidateStudents = await baseStudentsQuery
+                .OrderBy(x => x.StudentCode)
+                .ThenBy(x => x.Id)
+                .ToListAsync();
+
+            var availableStudents = new List<Student>();
+            foreach (var student in candidateStudents)
+            {
+                var duplicated = await _bookingRepo.Get()
+                    .AnyAsync(x =>
+                        x.StudentId == student.Id &&
+                        x.RouteId == route.Id &&
+                        x.ServiceDate.Date == serviceDate.Date &&
+                        x.StartTime == dto.StartTime);
+
+                if (!duplicated)
+                    availableStudents.Add(student);
+
+                if (availableStudents.Count >= dto.BookingCount)
+                    break;
+            }
+
+            if (!availableStudents.Any())
+                throw new Exception("Không còn học sinh phù hợp để tạo booking test cho ngày mai");
+
+            if (availableStudents.Count < dto.BookingCount)
+                throw new Exception($"Không đủ học sinh phù hợp để tạo {dto.BookingCount} booking test. Hiện chỉ còn {availableStudents.Count} học sinh có thể dùng.");
+
+            var createdBookings = new List<BookingDto>();
+            for (var i = 0; i < availableStudents.Count; i++)
+            {
+                var student = availableStudents[i];
+                var routeStation = dto.StationId.HasValue
+                    ? routeStations.First(x => x.StationId == dto.StationId.Value)
+                    : routeStations[i % routeStations.Count];
+                var station = routeStation.Station;
+
+                var latitude = station.Latitude.HasValue
+                    ? station.Latitude.Value + ((i % 5) * 0.0002d)
+                    : (double?)null;
+                var longitude = station.Longitude.HasValue
+                    ? station.Longitude.Value + ((i % 5) * 0.0002d)
+                    : (double?)null;
+                var pickupAddressPrefix = string.IsNullOrWhiteSpace(dto.PickupAddressPrefix)
+                    ? "Diem test"
+                    : dto.PickupAddressPrefix.Trim();
+
+                var booking = await CreateAsync(new BookingCreateDto
+                {
+                    StudentId = student.Id,
+                    RouteId = route.Id,
+                    ServiceDate = serviceDate,
+                    StartTime = dto.StartTime,
+                    StationId = station.Id,
+                    PickupAddress = $"{pickupAddressPrefix} {station.Name} #{i + 1}",
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    Note = "Booking test tu dong tao"
+                });
+
+                createdBookings.Add(booking);
+            }
+
+            return createdBookings;
+        }
+
+        public async Task<int> DeleteAllTomorrowBookingsAsync()
+        {
+            var tomorrow = _appTime.TodayDate.AddDays(1);
+
+            var runs = await _busRunRepo.Get()
+                .Where(x => x.ServiceDate.Date == tomorrow)
+                .ToListAsync();
+
+            if (runs.Any())
+            {
+                var runIds = runs.Select(x => x.Id).ToList();
+                var runStudents = await _busRunStudentRepo.Get()
+                    .Where(x => runIds.Contains(x.BusRunId))
+                    .ToListAsync();
+
+                if (runStudents.Any())
+                {
+                    _busRunStudentRepo.DeleteRange(runStudents);
+                    await _busRunStudentRepo.SaveChangesAsync();
+                }
+
+                _busRunRepo.DeleteRange(runs);
+                await _busRunRepo.SaveChangesAsync();
+            }
+
+            var bookings = await _bookingRepo.Get()
+                .Where(x => x.ServiceDate.Date == tomorrow)
+                .ToListAsync();
+
+            if (!bookings.Any())
+                return 0;
+
+            var deletedCount = bookings.Count;
+            _bookingRepo.DeleteRange(bookings);
+            await _bookingRepo.SaveChangesAsync();
+
+            return deletedCount;
         }
 
         public async Task<BookingDto> UpdateAsync(long id, BookingUpdateDto dto)
@@ -702,11 +905,13 @@ namespace BE_API.Service
             if (normalizedServiceDate <= _appTime.TodayDate)
                 throw new Exception("Chi co the xu ly soft booking cho ngay mai hoac xa hon");
 
+            var hardSlotTimes = GetHardSlotTimes();
+
             var softGroups = await _bookingRepo.Get()
                 .Where(x =>
                     x.ServiceDate.Date == normalizedServiceDate &&
                     x.Status != "CANCELLED" &&
-                    !IsHardSlot(x.StartTime))
+                    !hardSlotTimes.Contains(x.StartTime))
                 .Select(x => new
                 {
                     x.RouteId,
@@ -873,10 +1078,23 @@ namespace BE_API.Service
 
         private bool IsHardSlot(TimeSpan startTime)
         {
+            return GetHardSlotTimes().Contains(startTime);
+        }
+
+        private HashSet<TimeSpan> GetHardSlotTimes()
+        {
             var hardLabels = BuildHardSlotStartTimesValidated(
                 _bookingSlotSettings.StartHour,
                 _bookingSlotSettings.EndHour);
-            return new HashSet<string>(hardLabels, StringComparer.Ordinal).Contains(FormatSlotTime(startTime));
+
+            var hardTimes = new HashSet<TimeSpan>();
+            foreach (var label in hardLabels)
+            {
+                if (TimeSpan.TryParse(label, out var hardTime))
+                    hardTimes.Add(hardTime);
+            }
+
+            return hardTimes;
         }
 
         private async Task CancelSoftSlotBookingsAndNotifyAsync(
@@ -1677,6 +1895,76 @@ namespace BE_API.Service
                 if (sameTeacher)
                     throw new Exception("Teacher đã được gán cho chuyến khác cùng khung giờ");
             }
+        }
+
+        private static string BuildBusRunAssignmentEmailSubject(DateTime serviceDate)
+        {
+            return $"[FaceRide] Lich xe bus ngay {serviceDate:dd/MM/yyyy}";
+        }
+
+        private static string BuildBusRunAssignmentEmailBody(
+            string guardianName,
+            DateTime serviceDate,
+            List<BusRunStudent> assignments)
+        {
+            var rows = assignments
+                .OrderBy(x => x.Booking.StartTime)
+                .ThenBy(x => x.BusRun.RunOrder)
+                .ThenBy(x => x.Student.StudentCode)
+                .Select(x =>
+                {
+                    var busLabel = !string.IsNullOrWhiteSpace(x.BusRun.Bus.BusNumber)
+                        ? x.BusRun.Bus.BusNumber
+                        : x.BusRun.Bus.LicensePlate;
+
+                    var driverName = x.BusRun.Driver?.FullName ?? x.BusRun.Driver?.Email ?? "Chua phan cong";
+                    var teacherName = x.BusRun.Teacher?.FullName ?? x.BusRun.Teacher?.Email ?? "Chua phan cong";
+                    var pickupAddress = string.IsNullOrWhiteSpace(x.Booking.PickupAddress)
+                        ? x.Booking.Station?.Address ?? "Chua cap nhat"
+                        : x.Booking.PickupAddress;
+
+                    return $@"
+<tr>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(x.Student.FullName)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(x.BusRun.Route.Name)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{x.Booking.StartTime:hh\\:mm}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(busLabel)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(driverName)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(teacherName)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(x.Booking.Station?.Name ?? string.Empty)}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(pickupAddress)}</td>
+</tr>";
+                });
+
+            return $@"
+<div style='font-family:Arial,sans-serif;font-size:14px;color:#111827;line-height:1.6;'>
+    <p>Chao {HtmlEncode(guardianName)},</p>
+    <p>He thong da chia xe bus thanh cong cho ngay <strong>{serviceDate:dd/MM/yyyy}</strong>. Duoi day la thong tin xe cua hoc sinh:</p>
+    <table style='border-collapse:collapse;width:100%;margin-top:12px;'>
+        <thead>
+            <tr style='background:#f3f4f6;'>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Hoc sinh</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Tuyen</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Gio</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Xe</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Tai xe</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Giao vien</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Tram</th>
+                <th style='padding:8px;border:1px solid #d1d5db;text-align:left;'>Diem don</th>
+            </tr>
+        </thead>
+        <tbody>
+            {string.Join(string.Empty, rows)}
+        </tbody>
+    </table>
+    <p style='margin-top:16px;'>Vui long theo doi ung dung de cap nhat diem danh va thong tin chuyen xe trong ngay.</p>
+    <p>FaceRide</p>
+</div>";
+        }
+
+        private static string HtmlEncode(string? value)
+        {
+            return System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
         }
 
         private static string Capitalize(string value)

@@ -40,4 +40,15 @@
     <Folder Include="Migrations\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="build_tmp\**" />
+    <Compile Remove="artifacts\**" />
+    <Content Remove="build_tmp\**" />
+    <Content Remove="artifacts\**" />
+    <None Remove="build_tmp\**" />
+    <None Remove="artifacts\**" />
+    <EmbeddedResource Remove="build_tmp\**" />
+    <EmbeddedResource Remove="artifacts\**" />
+  </ItemGroup>
+
 </Project>

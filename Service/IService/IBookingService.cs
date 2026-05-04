@@ -14,6 +14,8 @@ namespace BE_API.Service.IService
             int pageSize);
         Task<BookingDto> GetByIdAsync(long id);
         Task<BookingDto> CreateAsync(BookingCreateDto dto);
+        Task<List<BookingDto>> CreateTestBookingsForTomorrowAsync(CreateTestBookingsForTomorrowDto dto);
+        Task<int> DeleteAllTomorrowBookingsAsync();
         Task<BookingDto> UpdateAsync(long id, BookingUpdateDto dto);
         Task<List<BusRunDto>> GetBusRunsAsync(
             DateTime serviceDate,
@@ -22,6 +24,7 @@ namespace BE_API.Service.IService
             long? driverId,
             long? teacherId);
         Task<List<GuardianBusRunWithTomorrowBookingDto>> GetTodayBusRunsByGuardianAsync(long guardianId, DateTime? serviceDate);
+        Task<int> SendBusRunAssignmentEmailsAsync(DateTime serviceDate);
         Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsAsync(AutoAssignBookingRequestDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsByDateAsync(DateTime serviceDate);

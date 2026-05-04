@@ -26,10 +26,12 @@ namespace BE_API.Service
             try
             {
                 var runs = await _bookingService.AutoAssignBusRunsByDateAsync(tomorrow);
+                var emailCount = await _bookingService.SendBusRunAssignmentEmailsAsync(tomorrow);
                 _logger.LogInformation(
-                    "Hangfire auto-assigned bus runs for {ServiceDate:yyyy-MM-dd}. Total runs: {RunCount}",
+                    "Hangfire auto-assigned bus runs for {ServiceDate:yyyy-MM-dd}. Total runs: {RunCount}. Emails sent: {EmailCount}",
                     tomorrow,
-                    runs.Count);
+                    runs.Count,
+                    emailCount);
             }
             catch (Exception ex) when (
                 string.Equals(ex.Message, "Khong co booking nao de chia xe trong ngay da chon", StringComparison.OrdinalIgnoreCase) ||

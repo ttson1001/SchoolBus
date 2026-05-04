@@ -10,10 +10,14 @@ namespace BE_API.Service
     public class BusStationService : IBusStationService
     {
         private readonly IRepository<BusStation> _stationRepo;
+        private readonly IRepository<BusRouteStation> _routeStationRepo;
 
-        public BusStationService(IRepository<BusStation> stationRepo)
+        public BusStationService(
+            IRepository<BusStation> stationRepo,
+            IRepository<BusRouteStation> routeStationRepo)
         {
             _stationRepo = stationRepo;
+            _routeStationRepo = routeStationRepo;
         }
 
         public async Task<PagedResult<BusStationDto>> SearchBusStationAsync(string? keyword, int page, int pageSize)
@@ -103,7 +107,12 @@ namespace BE_API.Service
                 station.Longitude = dto.Longitude;
 
             if (dto.IsEnabled.HasValue)
+            {
+                if (!dto.IsEnabled.Value)
+                    await EnsureStationCanBeDisabledAsync(station.Id);
+
                 station.IsEnabled = dto.IsEnabled.Value;
+            }
 
             _stationRepo.Update(station);
             await _stationRepo.SaveChangesAsync();
@@ -152,6 +161,15 @@ namespace BE_API.Service
 
             if (duplicated)
                 throw new Exception("Tên điểm đón đã tồn tại");
+        }
+
+        private async Task EnsureStationCanBeDisabledAsync(long stationId)
+        {
+            var usedInRoute = await _routeStationRepo.Get()
+                .AnyAsync(x => x.StationId == stationId);
+
+            if (usedInRoute)
+                throw new Exception("Không thể vô hiệu hóa bus station đang có tuyến");
         }
     }
 }
