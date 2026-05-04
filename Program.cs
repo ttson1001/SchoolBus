@@ -8,6 +8,7 @@ using Hangfire;
 using Hangfire.SqlServer;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
+using Hangfire.Dashboard;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -157,7 +158,10 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new AllowAllHangfireDashboardAuthorizationFilter() }
+});
 
 app.MapControllers();
 
@@ -271,4 +275,12 @@ static TimeZoneInfo ResolveVietnamTimeZone()
     }
 
     return TimeZoneInfo.Local;
+}
+
+sealed class AllowAllHangfireDashboardAuthorizationFilter : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        return true;
+    }
 }
