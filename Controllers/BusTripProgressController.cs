@@ -28,7 +28,7 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Lấy danh sách lịch chạy trong ngày của tài xế")]
-        public async Task<IActionResult> DriverSchedules(long driverId, DateTime? rideDate, TimeSpan? atTime)
+        public async Task<IActionResult> DriverSchedules(long? driverId, DateTime? rideDate, TimeSpan? atTime)
         {
             return await ExecuteAsync(
                 () => _busTripProgressService.GetDriverSchedulesAsync(driverId, rideDate, atTime),
@@ -37,7 +37,7 @@ namespace BE_API.Controllers
 
         [HttpGet("[action]")]
         [SwaggerOperation(Summary = "Lấy danh sách lịch chạy trong ngày của giáo viên")]
-        public async Task<IActionResult> TeacherSchedules(long teacherId, DateTime? rideDate, TimeSpan? atTime)
+        public async Task<IActionResult> TeacherSchedules(long? teacherId, DateTime? rideDate, TimeSpan? atTime)
         {
             return await ExecuteAsync(
                 () => _busTripProgressService.GetTeacherSchedulesAsync(teacherId, rideDate, atTime),

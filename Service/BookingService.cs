@@ -13,7 +13,7 @@ namespace BE_API.Service
 {
     public class BookingService : IBookingService
     {
-        private const double MaxPickupDistanceKm = 4d;
+        private const double DefaultMaxPickupDistanceMeters = 500d;
 
         private static readonly HashSet<string> AllowedStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -34,6 +34,7 @@ namespace BE_API.Service
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IAppTime _appTime;
         private readonly IAccountService _accountService;
+        private readonly ISystemSettingService _systemSettingService;
         private readonly IFirebaseNotificationService _firebaseNotificationService;
         private readonly BookingSlotSettings _bookingSlotSettings;
 
@@ -50,6 +51,7 @@ namespace BE_API.Service
             IRepository<Notification> notificationRepo,
             IAppTime appTime,
             IAccountService accountService,
+            ISystemSettingService systemSettingService,
             IFirebaseNotificationService firebaseNotificationService,
             IOptions<BookingSlotSettings> bookingSlotOptions)
         {
@@ -65,6 +67,7 @@ namespace BE_API.Service
             _notificationRepo = notificationRepo;
             _appTime = appTime;
             _accountService = accountService;
+            _systemSettingService = systemSettingService;
             _firebaseNotificationService = firebaseNotificationService;
             _bookingSlotSettings = bookingSlotOptions.Value;
         }
@@ -682,6 +685,7 @@ namespace BE_API.Service
         {
             var route = await ValidateRouteAsync(dto.RouteId);
             var serviceDate = NormalizeAssignmentServiceDate(dto.ServiceDate);
+            var backupStartTime = ResolveBackupStartTime(dto.StartTime);
 
             var bookings = await _bookingRepo.Get()
                 .Include(x => x.Student)
@@ -703,7 +707,8 @@ namespace BE_API.Service
                 .Where(x =>
                     x.RouteId == route.Id &&
                     x.ServiceDate.Date == serviceDate.Date &&
-                    x.StartTime == dto.StartTime)
+                    (x.StartTime == dto.StartTime ||
+                     (x.Status == "BACKUP" && x.StartTime == backupStartTime)))
                 .ToListAsync();
 
             if (existingRuns.Any())
@@ -792,7 +797,7 @@ namespace BE_API.Service
             {
                 RouteId = route.Id,
                 ServiceDate = serviceDate,
-                StartTime = dto.StartTime,
+                StartTime = backupStartTime,
                 BusId = busPlan.BackupBus.Id,
                 DriverId = staffPlan.DriverIds[loads.Count],
                 TeacherId = staffPlan.TeacherIds[loads.Count],
@@ -1265,8 +1270,12 @@ namespace BE_API.Service
                     station.Latitude.Value,
                     station.Longitude.Value);
 
-                if (distanceKm > MaxPickupDistanceKm)
-                    throw new Exception($"Diem don cach tram '{station.Name}' {distanceKm:F2}km, vuot qua gioi han {MaxPickupDistanceKm:0.#}km");
+                var maxPickupDistanceMeters = await _systemSettingService
+                    .ResolveBookingPickupDistanceMetersAsync(DefaultMaxPickupDistanceMeters);
+                var distanceMeters = distanceKm * 1000d;
+
+                if (distanceMeters > maxPickupDistanceMeters)
+                    throw new Exception($"Diem don cach tram '{station.Name}' {distanceMeters:F0}m, vuot qua gioi han {maxPickupDistanceMeters:F0}m");
             }
 
             return station;
@@ -1610,6 +1619,11 @@ namespace BE_API.Service
                 return "CHECKED_OUT";
 
             return "NOT_CHECKED_IN";
+        }
+
+        private static TimeSpan ResolveBackupStartTime(TimeSpan primaryStartTime)
+        {
+            return primaryStartTime.Add(TimeSpan.FromMinutes(15));
         }
 
         private static BusStation ResolveStation(

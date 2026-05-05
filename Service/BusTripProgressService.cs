@@ -74,14 +74,31 @@ namespace BE_API.Service
             return MapEvent(createdProgress);
         }
 
-        public async Task<List<BusTripProgressDriverScheduleDto>> GetDriverSchedulesAsync(long driverId, DateTime? rideDate, TimeSpan? atTime)
+        public async Task<List<BusTripProgressDriverScheduleDto>> GetDriverSchedulesAsync(long? driverId, DateTime? rideDate, TimeSpan? atTime)
         {
-            if (driverId <= 0)
-                throw new Exception("DriverId phải lớn hơn 0");
+            if (driverId.HasValue && driverId.Value <= 0)
+                throw new Exception("DriverId phai lon hon 0");
+
+            if (!driverId.HasValue && !rideDate.HasValue)
+            {
+                var today = _appTime.TodayDate;
+                var allRuns = await GetBusRunQueryable()
+                    .Where(x => x.DriverId.HasValue && x.ServiceDate.Date <= today)
+                    .OrderByDescending(x => x.ServiceDate)
+                    .ThenBy(x => x.StartTime)
+                    .ThenBy(x => x.RunOrder)
+                    .ToListAsync();
+
+                return await BuildSchedulesForRunsAsync(
+                    allRuns,
+                    null,
+                    atTime,
+                    "Khong co lich chay nao tu truoc toi hien tai");
+            }
 
             var selectedDate = _appTime.GetRideCalendarDate(rideDate);
             var runs = await GetBusRunQueryable()
-                .Where(x => x.DriverId == driverId && x.ServiceDate.Date == selectedDate)
+                .Where(x => x.DriverId.HasValue && (!driverId.HasValue || x.DriverId == driverId.Value) && x.ServiceDate.Date == selectedDate)
                 .OrderBy(x => x.StartTime)
                 .ThenBy(x => x.RunOrder)
                 .ToListAsync();
@@ -90,17 +107,34 @@ namespace BE_API.Service
                 runs,
                 selectedDate,
                 atTime,
-                "Tài xế không có lịch chạy nào trong ngày đã chọn");
+                "Tai xe khong co lich chay nao trong ngay da chon");
         }
 
-        public async Task<List<BusTripProgressDriverScheduleDto>> GetTeacherSchedulesAsync(long teacherId, DateTime? rideDate, TimeSpan? atTime)
+        public async Task<List<BusTripProgressDriverScheduleDto>> GetTeacherSchedulesAsync(long? teacherId, DateTime? rideDate, TimeSpan? atTime)
         {
-            if (teacherId <= 0)
-                throw new Exception("TeacherId phải lớn hơn 0");
+            if (teacherId.HasValue && teacherId.Value <= 0)
+                throw new Exception("TeacherId phai lon hon 0");
+
+            if (!teacherId.HasValue && !rideDate.HasValue)
+            {
+                var today = _appTime.TodayDate;
+                var allRuns = await GetBusRunQueryable()
+                    .Where(x => x.TeacherId.HasValue && x.ServiceDate.Date <= today)
+                    .OrderByDescending(x => x.ServiceDate)
+                    .ThenBy(x => x.StartTime)
+                    .ThenBy(x => x.RunOrder)
+                    .ToListAsync();
+
+                return await BuildSchedulesForRunsAsync(
+                    allRuns,
+                    null,
+                    atTime,
+                    "Khong co lich chay nao tu truoc toi hien tai");
+            }
 
             var selectedDate = _appTime.GetRideCalendarDate(rideDate);
             var runs = await GetBusRunQueryable()
-                .Where(x => x.TeacherId == teacherId && x.ServiceDate.Date == selectedDate)
+                .Where(x => x.TeacherId.HasValue && (!teacherId.HasValue || x.TeacherId == teacherId.Value) && x.ServiceDate.Date == selectedDate)
                 .OrderBy(x => x.StartTime)
                 .ThenBy(x => x.RunOrder)
                 .ToListAsync();
@@ -109,7 +143,7 @@ namespace BE_API.Service
                 runs,
                 selectedDate,
                 atTime,
-                "Giáo viên không có lịch chạy nào trong ngày đã chọn");
+                "Giao vien khong co lich chay nao trong ngay da chon");
         }
 
         public async Task<BusTripProgressCurrentDto> GetCurrentAsync(long busId, long busRunId, DateTime? rideDate)
@@ -399,11 +433,14 @@ namespace BE_API.Service
             if (!runs.Any())
                 throw new Exception(emptyMessage);
 
-            var selectedDate = _appTime.GetRideCalendarDate(rideDate);
+            var today = _appTime.TodayDate;
+            var selectedDate = rideDate.HasValue
+                ? _appTime.GetRideCalendarDate(rideDate)
+                : today;
             var selectedTime = atTime ?? _appTime.GetTimeOfDay();
             var runIds = runs.Select(x => x.Id).ToList();
             var routeIds = runs.Select(x => x.RouteId).Distinct().ToList();
-            var startTimes = runs.Select(x => x.StartTime).Distinct().ToList();
+            var rideDates = runs.Select(x => x.ServiceDate.Date).Distinct().ToList();
 
             var routeStations = await _routeStationRepo.Get()
                 .Include(x => x.Station)
@@ -413,7 +450,7 @@ namespace BE_API.Service
                 .ToListAsync();
 
             var progressByRun = await GetProgressQueryable()
-                .Where(x => runIds.Contains(x.BusRunId) && x.RideDate.Date == selectedDate)
+                .Where(x => runIds.Contains(x.BusRunId))
                 .OrderBy(x => x.OrderIndex)
                 .ThenBy(x => x.ArrivedAt)
                 .ToListAsync();
@@ -423,10 +460,7 @@ namespace BE_API.Service
                 .Include(x => x.Booking)
                 .ThenInclude(x => x.Station)
                 .Include(x => x.BusRun)
-                .Where(x =>
-                    x.BusRun.ServiceDate.Date == selectedDate &&
-                    routeIds.Contains(x.BusRun.RouteId) &&
-                    startTimes.Contains(x.BusRun.StartTime))
+                .Where(x => runIds.Contains(x.BusRunId))
                 .ToListAsync();
 
             var studentIds = runStudentAssignments
@@ -438,26 +472,46 @@ namespace BE_API.Service
                 .Include(x => x.Bus)
                 .Where(x =>
                     studentIds.Contains(x.StudentId) &&
-                    x.Date.Date == selectedDate)
+                    rideDates.Contains(x.Date.Date))
                 .OrderByDescending(x => x.Id)
                 .ToListAsync();
 
-            var runningRuns = runs
-                .Where(x => IsRunActiveNow(x, runs, selectedTime))
+            var todayRuns = runs
+                .Where(x => x.ServiceDate.Date == today)
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.RunOrder)
                 .ToList();
 
-            var recommendedRunId = runningRuns.Count == 1
-                ? runningRuns[0].Id
-                : runs.FirstOrDefault(x => x.StartTime > selectedTime)?.Id
-                    ?? runs.Last().Id;
+            var runningRuns = todayRuns
+                .Where(x => IsRunActiveNow(x, todayRuns, selectedTime))
+                .ToList();
+
+            long? recommendedRunId = null;
+            if (todayRuns.Any())
+            {
+                recommendedRunId = runningRuns.Count == 1
+                    ? runningRuns[0].Id
+                    : todayRuns.FirstOrDefault(x => x.StartTime > selectedTime)?.Id
+                        ?? todayRuns.Last().Id;
+            }
 
             return runs.Select(x =>
             {
+                var runDate = x.ServiceDate.Date;
+                var sameDayRuns = runs
+                    .Where(r => r.ServiceDate.Date == runDate)
+                    .ToList();
+                var dayAttendances = attendances
+                    .Where(a => a.Date.Date == runDate)
+                    .ToList();
+                var progressForRun = progressByRun
+                    .Where(p => p.BusRunId == x.Id && p.RideDate.Date == runDate)
+                    .ToList();
                 var stations = routeStations
                     .Where(s => s.RouteId == x.RouteId)
                     .Select(routeStation =>
                     {
-                        var progress = progressByRun.FirstOrDefault(p => p.BusRunId == x.Id && p.OrderIndex == routeStation.OrderIndex);
+                        var progress = progressForRun.FirstOrDefault(p => p.OrderIndex == routeStation.OrderIndex);
 
                         return new BusTripProgressStationStatusDto
                         {
@@ -472,6 +526,13 @@ namespace BE_API.Service
                     })
                     .ToList();
 
+                var visitedStationCount = progressForRun
+                    .Select(p => p.OrderIndex)
+                    .Distinct()
+                    .Count();
+
+                var isCompleted = stations.Any() && visitedStationCount >= stations.Count;
+
                 var stationOrderMap = stations
                     .ToDictionary(s => s.StationId, s => s.OrderIndex);
 
@@ -482,23 +543,23 @@ namespace BE_API.Service
                     BusLabel = ResolveBusLabel(x.Bus),
                     RouteId = x.RouteId,
                     RouteName = x.Route.Name,
-                    RideDate = selectedDate,
+                    RideDate = runDate,
                     StartTime = x.StartTime,
                     ShiftType = x.Status,
-                    IsRunningNow = IsRunActiveNow(x, runs, selectedTime),
-                    IsUpcoming = selectedTime < x.StartTime,
-                    IsCompleted = IsRunCompleted(x, runs, selectedTime),
-                    IsRecommended = x.Id == recommendedRunId,
+                    IsRunningNow = runDate == today && IsRunActiveNow(x, sameDayRuns, selectedTime),
+                    IsUpcoming = runDate == today && selectedTime < x.StartTime,
+                    IsCompleted = isCompleted,
+                    IsRecommended = runDate == today && recommendedRunId.HasValue && x.Id == recommendedRunId.Value,
                     Students = BuildDisplayStudentsForRun(
                             x,
-                            selectedDate,
+                            runDate,
                             runStudentAssignments,
-                            attendances)
+                            dayAttendances)
                         .Select(a =>
                         {
-                            var checkedInOnThisBus = HasCheckedInOnThisBus(attendances, x, a.StudentId);
-                            var currentlyOnThisBus = IsCurrentlyOnThisBus(attendances, x, a.StudentId);
-                            var activeOnOtherBus = GetActiveAttendanceOnOtherBus(attendances, selectedDate, x, a.StudentId);
+                            var checkedInOnThisBus = HasCheckedInOnThisBus(dayAttendances, x, a.StudentId);
+                            var currentlyOnThisBus = IsCurrentlyOnThisBus(dayAttendances, x, a.StudentId);
+                            var activeOnOtherBus = GetActiveAttendanceOnOtherBus(dayAttendances, runDate, x, a.StudentId);
 
                             return new BusTripProgressDriverScheduleStudentDto
                             {
@@ -529,7 +590,11 @@ namespace BE_API.Service
                         .ToList(),
                     Stations = stations
                 };
-            }).ToList();
+            })
+            .OrderByDescending(x => x.RideDate)
+            .ThenBy(x => x.StartTime)
+            .ThenBy(x => x.BusRunId)
+            .ToList();
         }
 
         private IQueryable<BusRun> GetBusRunQueryable()

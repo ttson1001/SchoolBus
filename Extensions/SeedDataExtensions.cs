@@ -16,6 +16,8 @@ namespace BE_API.Extensions
             "teacher",
             "staff"
         };
+        private const string BookingPickupDistanceMetersKey = "Booking.PickupDistanceMeters";
+        private const string DefaultBookingPickupDistanceMetersValue = "500";
 
         public static async Task EnsureSystemSeedDataAsync(this WebApplication webApp)
         {
@@ -27,6 +29,7 @@ namespace BE_API.Extensions
 
             await EnsureRolesAsync(context, logger);
             await EnsureAdminUserAsync(context, settings, logger);
+            await EnsureSystemSettingsAsync(context, logger);
         }
 
         private static async Task EnsureRolesAsync(BeContext context, ILogger logger)
@@ -115,6 +118,29 @@ namespace BE_API.Extensions
             await context.SaveChangesAsync();
 
             logger.LogInformation("Normalized existing admin account: {Email}", normalizedEmail);
+        }
+
+        private static async Task EnsureSystemSettingsAsync(BeContext context, ILogger logger)
+        {
+            var setting = await context.SystemSettings
+                .FirstOrDefaultAsync(x => x.Key == BookingPickupDistanceMetersKey);
+
+            if (setting != null)
+                return;
+
+            await context.SystemSettings.AddAsync(new SystemSetting
+            {
+                Key = BookingPickupDistanceMetersKey,
+                Value = DefaultBookingPickupDistanceMetersValue,
+                Description = "Khoang cach toi da tu diem don den bus station, tinh theo met"
+            });
+
+            await context.SaveChangesAsync();
+
+            logger.LogInformation(
+                "Seeded system setting {Key}={Value}",
+                BookingPickupDistanceMetersKey,
+                DefaultBookingPickupDistanceMetersValue);
         }
     }
 }
