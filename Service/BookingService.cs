@@ -2198,7 +2198,7 @@ namespace BE_API.Service
 <tr>
     <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(x.Student.FullName)}</td>
     <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(x.BusRun.Route.Name)}</td>
-    <td style='padding:8px;border:1px solid #d1d5db;'>{x.Booking.StartTime:hh\\:mm}</td>
+    <td style='padding:8px;border:1px solid #d1d5db;'>{FormatSlotTime(x.Booking.StartTime)}</td>
     <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(busLabel)}</td>
     <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(driverName)}</td>
     <td style='padding:8px;border:1px solid #d1d5db;'>{HtmlEncode(teacherName)}</td>
