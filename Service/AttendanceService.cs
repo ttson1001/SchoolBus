@@ -313,6 +313,23 @@ namespace BE_API.Service
                 $"{FormatRouteSuffix(validation.RouteName)}" +
                 $"{FormatStationSuffix(validation.Station.Name)} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
 
+            if (validation.ExpectedDropOffStationId.HasValue &&
+                validation.ExpectedDropOffStationId.Value != validation.Station.Id)
+            {
+                var expectedStationName = validation.ExpectedDropOffStationName ?? "khong ro";
+
+                await CreateGuardianNotificationAsync(
+                    validation.Student,
+                    validation.Bus,
+                    validation.RouteName,
+                    validation.AttendanceDate,
+                    validation.CheckTime,
+                    "WRONG_PICKUP",
+                    $"Canh bao: Hoc sinh {validation.Student.FullName} da len xe {validation.Bus.LicensePlate}" +
+                    $"{FormatRouteSuffix(validation.RouteName)} tai diem {validation.Station.Name}, " +
+                    $"khong dung diem da dang ky {expectedStationName} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
+            }
+
             return MapToDto(attendance);
         }
 
@@ -578,6 +595,7 @@ namespace BE_API.Service
             {
                 "BOARDING" => "Học sinh đã lên xe",
                 "ALIGHTING" => "Học sinh đã xuống xe",
+                "WRONG_PICKUP" => "Cảnh báo lên sai điểm",
                 "WRONG_DROPOFF" => "Cảnh báo xuống sai điểm",
                 _ => "Thông báo SchoolBus"
             };

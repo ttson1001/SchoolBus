@@ -430,6 +430,8 @@ namespace BE_API.Service
                 .FirstOrDefaultAsync(x => x.Id == busRunId)
                 ?? throw new Exception("Bus run không tồn tại");
 
+            EnsureBusRunStaffEditable(busRun);
+
             var driverId = dto.DriverId ?? busRun.DriverId;
             var teacherId = dto.TeacherId ?? busRun.TeacherId;
 
@@ -462,6 +464,7 @@ namespace BE_API.Service
             var route = await ValidateRouteAsync(dto.RouteId);
             var serviceDate = NormalizeBookingServiceDate(dto.ServiceDate, dto.StartTime);
             ValidateBookingSlot(dto.StartTime);
+            ValidateRouteStatusForBookingTime(route, dto.StartTime);
             var station = await ResolveStationAsync(
                 route.Id,
                 dto.StationId,
@@ -656,6 +659,7 @@ namespace BE_API.Service
             await ValidateStudentAsync(studentId);
             var route = await ValidateRouteAsync(routeId);
             ValidateBookingSlot(startTime);
+            ValidateRouteStatusForBookingTime(route, startTime);
             var station = await ResolveStationAsync(
                 route.Id,
                 dto.StationId ?? booking.StationId,
@@ -1112,7 +1116,8 @@ namespace BE_API.Service
                 list.Add(new BookingWeekSlotItemDto
                 {
                     StartTime = startTime,
-                    Kind = hardSet.Contains(startTime) ? "hard" : "soft"
+                    Kind = hardSet.Contains(startTime) ? "hard" : "soft",
+                    AllowedRouteStatuses = ResolveAllowedRouteStatuses(TimeSpan.Parse(startTime))
                 });
             }
 
@@ -1350,6 +1355,18 @@ namespace BE_API.Service
             return route;
         }
 
+        private void ValidateRouteStatusForBookingTime(BusRoute route, TimeSpan startTime)
+        {
+            var routeStatus = NormalizeRouteStatus(route.RouteStatus);
+            var allowedRouteStatuses = ResolveAllowedRouteStatuses(startTime);
+
+            if (allowedRouteStatuses.Contains(routeStatus, StringComparer.OrdinalIgnoreCase))
+                return;
+
+            throw new Exception(
+                $"Khung gio {FormatSlotTime(startTime)} chi cho phep booking tuyen {string.Join(", ", allowedRouteStatuses)}.");
+        }
+
         private DateTime NormalizeBookingServiceDate(DateTime serviceDate, TimeSpan startTime)
         {
             var normalizedServiceDate = serviceDate.Date;
@@ -1397,6 +1414,29 @@ namespace BE_API.Service
             var minutesFromStart = (int)(startTime - startSlot).TotalMinutes;
             if (minutesFromStart % _bookingSlotSettings.StepMinutes != 0)
                 throw new Exception($"Khung giờ booking phải theo bước {_bookingSlotSettings.StepMinutes} phút");
+        }
+
+        private static string NormalizeRouteStatus(string? routeStatus)
+        {
+            return string.IsNullOrWhiteSpace(routeStatus)
+                ? "PICKUP"
+                : routeStatus.Trim().ToUpperInvariant();
+        }
+
+        private static IReadOnlyList<string> ResolveAllowedRouteStatuses(TimeSpan startTime)
+        {
+            var hour = startTime.Hours;
+
+            if (hour is 6 or 7 or 8)
+                return ["PICKUP"];
+
+            if (hour is 10 or 11)
+                return ["PICKUP", "DROPOFF"];
+
+            if (hour is 16 or 17 or 18)
+                return ["DROPOFF"];
+
+            return ["PICKUP", "DROPOFF"];
         }
 
         private async Task<BusStation> ResolveStationAsync(
@@ -2069,6 +2109,17 @@ namespace BE_API.Service
                 if (sameTeacher)
                     throw new Exception("Teacher đã được gán cho chuyến khác cùng khung giờ");
             }
+        }
+
+        private void EnsureBusRunStaffEditable(BusRun busRun)
+        {
+            var today = _appTime.TodayDate;
+
+            if (busRun.ServiceDate.Date < today)
+                throw new Exception("Không thể chỉnh sửa tài xế và giáo viên khi xe đã tới giờ chạy");
+
+            if (busRun.ServiceDate.Date == today && busRun.StartTime <= _appTime.GetTimeOfDay())
+                throw new Exception("Không thể chỉnh sửa tài xế và giáo viên khi xe đã tới giờ chạy");
         }
 
         private static string BuildBusRunAssignmentEmailSubject(DateTime serviceDate)

@@ -39,5 +39,8 @@ namespace BE_API.Dto.Booking
 
         /// <summary><c>hard</c> hoac <c>soft</c>.</summary>
         public string Kind { get; set; } = string.Empty;
+
+        /// <summary>Danh sach huong tuyen duoc phep booking trong khung gio nay.</summary>
+        public IReadOnlyList<string> AllowedRouteStatuses { get; set; } = Array.Empty<string>();
     }
 }

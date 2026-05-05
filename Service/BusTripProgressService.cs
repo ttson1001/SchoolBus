@@ -532,6 +532,16 @@ namespace BE_API.Service
                     .Count();
 
                 var isCompleted = stations.Any() && visitedStationCount >= stations.Count;
+                var isRunningNow = !isCompleted &&
+                                   runDate == today &&
+                                   IsRunActiveNow(x, sameDayRuns, selectedTime);
+                var isUpcoming = !isCompleted &&
+                                 runDate == today &&
+                                 selectedTime < x.StartTime;
+                var isRecommended = !isCompleted &&
+                                    runDate == today &&
+                                    recommendedRunId.HasValue &&
+                                    x.Id == recommendedRunId.Value;
 
                 var stationOrderMap = stations
                     .ToDictionary(s => s.StationId, s => s.OrderIndex);
@@ -546,10 +556,10 @@ namespace BE_API.Service
                     RideDate = runDate,
                     StartTime = x.StartTime,
                     ShiftType = x.Status,
-                    IsRunningNow = runDate == today && IsRunActiveNow(x, sameDayRuns, selectedTime),
-                    IsUpcoming = runDate == today && selectedTime < x.StartTime,
+                    IsRunningNow = isRunningNow,
+                    IsUpcoming = isUpcoming,
                     IsCompleted = isCompleted,
-                    IsRecommended = runDate == today && recommendedRunId.HasValue && x.Id == recommendedRunId.Value,
+                    IsRecommended = isRecommended,
                     Students = BuildDisplayStudentsForRun(
                             x,
                             runDate,
