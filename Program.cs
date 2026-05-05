@@ -250,6 +250,15 @@ static void RegisterRecurringJobs(WebApplication webApp)
         {
             TimeZone = timeZone
         });
+
+    recurringJobManager.AddOrUpdate<IBookingRecurringJobService>(
+        "booking-reminder-notifications-every-30-minutes",
+        job => job.ProcessTodayBookingReminderNotificationsAsync(),
+        "*/30 * * * *",
+        new RecurringJobOptions
+        {
+            TimeZone = timeZone
+        });
 }
 
 static TimeZoneInfo ResolveVietnamTimeZone()

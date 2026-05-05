@@ -21,6 +21,8 @@ namespace BE_API.Service
             "CONFIRMED",
             "CANCELLED"
         };
+        private const string BookingReminderSoonType = "BOOKING_REMINDER_SOON";
+        private const string BookingReminderLateType = "BOOKING_REMINDER_LATE";
 
         private readonly IRepository<Booking> _bookingRepo;
         private readonly IRepository<BusRun> _busRunRepo;
@@ -904,6 +906,92 @@ namespace BE_API.Service
                 .ToList();
         }
 
+        public async Task ProcessTodayBookingReminderNotificationsAsync()
+        {
+            var today = _appTime.TodayDate;
+            var nowTime = _appTime.GetTimeOfDay();
+            var reminderWindowEnd = nowTime.Add(TimeSpan.FromMinutes(30));
+
+            var bookings = await _bookingRepo.Get()
+                .Include(x => x.Student)
+                .ThenInclude(x => x.Guardian)
+                .Include(x => x.Route)
+                .Include(x => x.Station)
+                .Where(x =>
+                    x.ServiceDate.Date == today &&
+                    x.Status != "CANCELLED")
+                .OrderBy(x => x.StartTime)
+                .ThenBy(x => x.Id)
+                .ToListAsync();
+
+            if (!bookings.Any())
+                return;
+
+            var routeIds = bookings.Select(x => x.RouteId).Distinct().ToList();
+            var startTimes = bookings.Select(x => x.StartTime).Distinct().ToList();
+            var studentIds = bookings.Select(x => x.StudentId).Distinct().ToList();
+
+            var runs = await _busRunRepo.Get()
+                .Where(x =>
+                    x.ServiceDate.Date == today &&
+                    routeIds.Contains(x.RouteId))
+                .ToListAsync();
+
+            var runIds = runs.Select(x => x.Id).ToList();
+            var runStudents = runIds.Any()
+                ? await _busRunStudentRepo.Get()
+                    .Where(x => runIds.Contains(x.BusRunId))
+                    .ToListAsync()
+                : new List<BusRunStudent>();
+
+            var attendances = await _attendanceRepo.Get()
+                .Where(x =>
+                    studentIds.Contains(x.StudentId) &&
+                    x.Date.Date == today)
+                .ToListAsync();
+
+            foreach (var booking in bookings)
+            {
+                var matchingRunIds = runs
+                    .Where(x =>
+                        x.RouteId == booking.RouteId &&
+                        (x.StartTime == booking.StartTime ||
+                         (string.Equals(x.Status, "BACKUP", StringComparison.OrdinalIgnoreCase) &&
+                          x.StartTime == ResolveBackupStartTime(booking.StartTime))))
+                    .Select(x => x.Id)
+                    .ToList();
+
+                var matchingBusIds = runs
+                    .Where(x => matchingRunIds.Contains(x.Id))
+                    .Select(x => x.BusId)
+                    .Distinct()
+                    .ToList();
+
+                var hasCheckIn = attendances.Any(x =>
+                    x.StudentId == booking.StudentId &&
+                    x.CheckInTime.HasValue &&
+                    (!matchingBusIds.Any() || matchingBusIds.Contains(x.BusId)));
+
+                if (hasCheckIn)
+                    continue;
+
+                if (booking.StartTime > nowTime && booking.StartTime <= reminderWindowEnd)
+                {
+                    await CreateBookingReminderNotificationAsync(
+                        booking,
+                        BookingReminderSoonType,
+                        BuildBookingReminderSoonMessage(booking));
+                }
+                else if (booking.StartTime <= nowTime)
+                {
+                    await CreateBookingReminderNotificationAsync(
+                        booking,
+                        BookingReminderLateType,
+                        BuildBookingReminderLateMessage(booking));
+                }
+            }
+        }
+
         public async Task FinalizeSoftSlotBookingsForDateAsync(DateTime serviceDate)
         {
             var normalizedServiceDate = serviceDate.Date;
@@ -1148,6 +1236,78 @@ namespace BE_API.Service
                         ["startTime"] = timeLabel
                     });
             }
+        }
+
+        private async Task CreateBookingReminderNotificationAsync(
+            Booking booking,
+            string type,
+            string message)
+        {
+            var guardian = booking.Student.Guardian;
+            if (guardian == null || guardian.Id <= 0)
+                return;
+
+            var duplicatedNotification = await _notificationRepo.Get()
+                .AnyAsync(x =>
+                    x.UserId == guardian.Id &&
+                    x.Type == type &&
+                    x.Message == message &&
+                    x.CreatedAt.Date == booking.ServiceDate.Date);
+
+            if (duplicatedNotification)
+                return;
+
+            var notification = new Notification
+            {
+                UserId = guardian.Id,
+                Type = type,
+                Message = message,
+                CreatedAt = _appTime.UtcNow
+            };
+
+            await _notificationRepo.AddAsync(notification);
+            await _notificationRepo.SaveChangesAsync();
+
+            await _firebaseNotificationService.SendAsync(
+                guardian.DeviceToken,
+                BuildBookingReminderPushTitle(type),
+                message,
+                new Dictionary<string, string>
+                {
+                    ["type"] = type,
+                    ["bookingId"] = booking.Id.ToString(),
+                    ["studentId"] = booking.StudentId.ToString(),
+                    ["guardianId"] = guardian.Id.ToString(),
+                    ["routeId"] = booking.RouteId.ToString(),
+                    ["serviceDate"] = booking.ServiceDate.ToString("yyyy-MM-dd"),
+                    ["startTime"] = FormatSlotTime(booking.StartTime)
+                });
+        }
+
+        private static string BuildBookingReminderSoonMessage(Booking booking)
+        {
+            var studentName = booking.Student.FullName;
+            var routeName = booking.Route.Name;
+            var stationName = booking.Station?.Name ?? "tram da chon";
+            var timeLabel = FormatSlotTime(booking.StartTime);
+
+            return $"Nhac phu huynh: hoc sinh {studentName} sap toi gio len xe luc {timeLabel} tren tuyen {routeName}, tram {stationName}.";
+        }
+
+        private static string BuildBookingReminderLateMessage(Booking booking)
+        {
+            var studentName = booking.Student.FullName;
+            var routeName = booking.Route.Name;
+            var timeLabel = FormatSlotTime(booking.StartTime);
+
+            return $"Hoc sinh {studentName} da tre gio len xe luc {timeLabel} tren tuyen {routeName} va hien chua co diem danh len xe.";
+        }
+
+        private static string BuildBookingReminderPushTitle(string type)
+        {
+            return string.Equals(type, BookingReminderLateType, StringComparison.OrdinalIgnoreCase)
+                ? "Thong bao tre gio len xe"
+                : "Nhac sap den gio len xe";
         }
 
         private IQueryable<Booking> GetQueryable()

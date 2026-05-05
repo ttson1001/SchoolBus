@@ -28,6 +28,7 @@ namespace BE_API.Service.IService
         Task<BusRunDto> AssignBusRunStaffAsync(long busRunId, BusRunAssignStaffDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsAsync(AutoAssignBookingRequestDto dto);
         Task<List<BusRunDto>> AutoAssignBusRunsByDateAsync(DateTime serviceDate);
+        Task ProcessTodayBookingReminderNotificationsAsync();
         Task FinalizeSoftSlotBookingsForDateAsync(DateTime serviceDate);
         Task DeleteAsync(long id);
 

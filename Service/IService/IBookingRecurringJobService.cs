@@ -4,5 +4,6 @@ namespace BE_API.Service.IService
     {
         Task AutoAssignTomorrowBusRunsAsync();
         Task FinalizeTomorrowSoftBookingsAsync();
+        Task ProcessTodayBookingReminderNotificationsAsync();
     }
 }

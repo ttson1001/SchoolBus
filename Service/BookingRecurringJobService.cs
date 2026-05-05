@@ -53,5 +53,16 @@ namespace BE_API.Service
                 "Hangfire finalized soft bookings for {ServiceDate:yyyy-MM-dd}.",
                 tomorrow);
         }
+
+        public async Task ProcessTodayBookingReminderNotificationsAsync()
+        {
+            var today = _appTime.TodayDate;
+
+            await _bookingService.ProcessTodayBookingReminderNotificationsAsync();
+
+            _logger.LogInformation(
+                "Hangfire processed booking reminder notifications for {ServiceDate:yyyy-MM-dd}.",
+                today);
+        }
     }
 }
