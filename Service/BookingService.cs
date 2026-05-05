@@ -709,6 +709,26 @@ namespace BE_API.Service
             if (!bookings.Any())
                 throw new Exception("Không có booking nào để chia xe");
 
+            var bookingIds = bookings
+                .Select(x => x.Id)
+                .Distinct()
+                .ToList();
+
+            var staleRunStudents = await _busRunStudentRepo.Get()
+                .Where(x => bookingIds.Contains(x.BookingId))
+                .ToListAsync();
+
+            var staleRunIds = staleRunStudents
+                .Select(x => x.BusRunId)
+                .Distinct()
+                .ToList();
+
+            if (staleRunStudents.Any())
+            {
+                _busRunStudentRepo.DeleteRange(staleRunStudents);
+                await _busRunStudentRepo.SaveChangesAsync();
+            }
+
             var existingRuns = await _busRunRepo.Get()
                 .Where(x =>
                     x.RouteId == route.Id &&
@@ -732,6 +752,32 @@ namespace BE_API.Service
 
                 _busRunRepo.DeleteRange(existingRuns);
                 await _busRunRepo.SaveChangesAsync();
+            }
+
+            if (staleRunIds.Any())
+            {
+                var orphanRunIds = new List<long>();
+                foreach (var staleRunId in staleRunIds)
+                {
+                    var hasAnyStudents = await _busRunStudentRepo.Get()
+                        .AnyAsync(x => x.BusRunId == staleRunId);
+
+                    if (!hasAnyStudents)
+                        orphanRunIds.Add(staleRunId);
+                }
+
+                if (orphanRunIds.Any())
+                {
+                    var orphanRuns = await _busRunRepo.Get()
+                        .Where(x => orphanRunIds.Contains(x.Id))
+                        .ToListAsync();
+
+                    if (orphanRuns.Any())
+                    {
+                        _busRunRepo.DeleteRange(orphanRuns);
+                        await _busRunRepo.SaveChangesAsync();
+                    }
+                }
             }
 
             var minSoft = _bookingSlotSettings.SoftSlotMinStudents;
