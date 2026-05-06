@@ -6,7 +6,7 @@ namespace BE_API.Service.IService
     public interface IStudentService
     {
         Task<PagedResult<StudentDto>> SearchStudentAsync(string? keyword, long? campusId, long? guardianId, string? status, int page, int pageSize);
-        Task<StudentDto> GetStudentByIdAsync(long id);
+        Task<StudentDetailDto> GetStudentByIdAsync(long id);
         Task<StudentDetailDto> GetStudentByCodeAsync(string studentCode);
         Task<List<StudentDto>> GetStudentsByCampusIdAsync(long campusId);
         Task<List<StudentDto>> GetStudentsByGuardianIdAsync(long guardianId);

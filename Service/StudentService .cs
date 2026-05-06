@@ -9,6 +9,7 @@ using BE_API.Service.IService;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using System.Globalization;
+using System.Text.Json.Nodes;
 
 namespace BE_API.Service
 {
@@ -17,17 +18,20 @@ namespace BE_API.Service
         private readonly IRepository<Student> _studentRepo;
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<Campus> _campusRepo;
+        private readonly IFaceAIService _faceAIService;
         private readonly IAppTime _appTime;
 
         public StudentService(
             IRepository<Student> studentRepo,
             IRepository<User> userRepo,
             IRepository<Campus> campusRepo,
+            IFaceAIService faceAIService,
             IAppTime appTime)
         {
             _studentRepo = studentRepo;
             _userRepo = userRepo;
             _campusRepo = campusRepo;
+            _faceAIService = faceAIService;
             _appTime = appTime;
         }
 
@@ -78,15 +82,18 @@ namespace BE_API.Service
             };
         }
 
-        public async Task<StudentDto> GetStudentByIdAsync(long id)
+        public async Task<StudentDetailDto> GetStudentByIdAsync(long id)
         {
             var student = await _studentRepo.Get()
                 .Include(x => x.Guardian)
+                .ThenInclude(x => x.Role)
                 .Include(x => x.Campus)
                 .FirstOrDefaultAsync(x => x.Id == id)
                 ?? throw new Exception("Student không tồn tại");
 
-            return MapToStudentDto(student);
+            var detail = MapToStudentDetailDto(student);
+            detail.FaceAiRegisteredFaces = await TryGetStudentFaceAiRegisteredFacesAsync(student.Id);
+            return detail;
         }
 
         public async Task<StudentDetailDto> GetStudentByCodeAsync(string studentCode)
@@ -645,8 +652,43 @@ namespace BE_API.Service
                 Guardian = MapToGuardianDto(student.Guardian),
                 CampusId = student.CampusId,
                 CampusName = student.Campus?.Name ?? string.Empty,
-                Status = student.Status.ToString()
+                Status = student.Status.ToString(),
+                FaceAiRegisteredFaces = null
             };
+        }
+
+        private async Task<JsonNode?> TryGetStudentFaceAiRegisteredFacesAsync(long studentId)
+        {
+            try
+            {
+                var facesNode = await _faceAIService.GetStudentFacesAsync((int)studentId) as JsonNode;
+                var imagesNode = await TryGetStudentFaceAiRegisteredImagesAsync(studentId);
+
+                if (facesNode is JsonObject facesObject &&
+                    imagesNode is JsonObject imagesObject &&
+                    imagesObject["images"] != null)
+                {
+                    facesObject["images"] = imagesObject["images"]?.DeepClone();
+                }
+
+                return facesNode;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<JsonNode?> TryGetStudentFaceAiRegisteredImagesAsync(long studentId)
+        {
+            try
+            {
+                return await _faceAIService.GetStudentImagesAsync((int)studentId) as JsonNode;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static UserDto MapToGuardianDto(User? guardian)

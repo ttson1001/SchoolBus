@@ -1,4 +1,5 @@
 using BE_API.Dto.User;
+using System.Text.Json.Nodes;
 
 namespace BE_API.Dto.Student
 {
@@ -15,5 +16,6 @@ namespace BE_API.Dto.Student
         public long CampusId { get; set; }
         public string CampusName { get; set; } = null!;
         public string Status { get; set; } = null!;
+        public JsonNode? FaceAiRegisteredFaces { get; set; }
     }
 }
