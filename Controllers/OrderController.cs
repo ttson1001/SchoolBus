@@ -2,6 +2,7 @@ using BE_API.Dto.Common;
 using BE_API.Dto.Order;
 using BE_API.Service.IService;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using PayOS.Models.Webhooks;
 
 namespace BE_API.Controllers
@@ -12,6 +13,7 @@ namespace BE_API.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly IWalletService _walletService;
+        private readonly ILogger<OrderController> _logger;
 
         private const string ORDER_GET_SUCCESS = "Lấy order thành công";
         private const string ORDER_LIST_SUCCESS = "Lấy danh sách order thành công";
@@ -20,10 +22,14 @@ namespace BE_API.Controllers
         private const string ORDER_PAYOS_WEBHOOK_SUCCESS = "Xử lý webhook payOS thành công";
         private const string ORDER_CANCEL_SUCCESS = "Hủy order thành công";
 
-        public OrderController(IOrderService orderService, IWalletService walletService)
+        public OrderController(
+            IOrderService orderService,
+            IWalletService walletService,
+            ILogger<OrderController> logger)
         {
             _orderService = orderService;
             _walletService = walletService;
+            _logger = logger;
         }
 
         [HttpPost("[action]")]
@@ -71,15 +77,37 @@ namespace BE_API.Controllers
 
             try
             {
+                var orderCode = webhook?.Data?.OrderCode;
+                var code = webhook?.Data?.Code;
+                var description = webhook?.Data?.Description;
+
+                _logger.LogInformation(
+                    "PayOS webhook received at OrderController. OrderCode={OrderCode}, Code={Code}, Description={Description}",
+                    orderCode,
+                    code,
+                    description);
+
                 object data;
 
                 try
                 {
                     data = await _orderService.HandlePayOsWebhookAsync(webhook);
+
+                    _logger.LogInformation(
+                        "PayOS webhook routed to order service successfully. OrderCode={OrderCode}",
+                        orderCode);
                 }
                 catch (Exception ex) when (string.Equals(ex.Message, "Khong tim thay giao dich mua goi payOS", StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogWarning(
+                        "PayOS webhook was not matched to order transaction, falling back to wallet service. OrderCode={OrderCode}",
+                        orderCode);
+
                     data = await _walletService.HandlePayOsWebhookAsync(webhook);
+
+                    _logger.LogInformation(
+                        "PayOS webhook routed to wallet service successfully. OrderCode={OrderCode}",
+                        orderCode);
                 }
 
                 response.Data = data;
@@ -88,6 +116,12 @@ namespace BE_API.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(
+                    ex,
+                    "PayOS webhook handling failed in OrderController. OrderCode={OrderCode}, Code={Code}",
+                    webhook?.Data?.OrderCode,
+                    webhook?.Data?.Code);
+
                 response.Message = ex.Message;
                 return BadRequest(response);
             }
