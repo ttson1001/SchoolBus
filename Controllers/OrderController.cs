@@ -97,7 +97,7 @@ namespace BE_API.Controllers
                         "PayOS webhook routed to order service successfully. OrderCode={OrderCode}",
                         orderCode);
                 }
-                catch (Exception ex) when (string.Equals(ex.Message, "Khong tim thay giao dich mua goi payOS", StringComparison.OrdinalIgnoreCase))
+                catch (Exception ex) when (ShouldFallbackToWalletWebhook(ex))
                 {
                     _logger.LogWarning(
                         "PayOS webhook was not matched to order transaction, falling back to wallet service. OrderCode={OrderCode}",
@@ -125,6 +125,23 @@ namespace BE_API.Controllers
                 response.Message = ex.Message;
                 return BadRequest(response);
             }
+        }
+
+        private static bool ShouldFallbackToWalletWebhook(Exception ex)
+        {
+            if (string.IsNullOrWhiteSpace(ex.Message))
+            {
+                return false;
+            }
+
+            var normalizedMessage = ex.Message
+                .Trim()
+                .ToLowerInvariant();
+
+            return normalizedMessage.Contains("giao d")
+                && normalizedMessage.Contains("mua g")
+                && normalizedMessage.Contains("payos")
+                && (normalizedMessage.Contains("khong tim thay") || normalizedMessage.Contains("khã´ng tã¬m tháº¥y") || normalizedMessage.Contains("không tìm thấy"));
         }
 
         [HttpGet("[action]/{orderCode}")]
