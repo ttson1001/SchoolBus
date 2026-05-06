@@ -32,6 +32,7 @@ namespace BE_API.Service
         private readonly IRepository<BusRoute> _routeRepo;
         private readonly IRepository<BusRouteStation> _routeStationRepo;
         private readonly IRepository<Bus> _busRepo;
+        private readonly IRepository<BusTripProgress> _busTripProgressRepo;
         private readonly IRepository<Attendance> _attendanceRepo;
         private readonly IRepository<Notification> _notificationRepo;
         private readonly IAppTime _appTime;
@@ -49,6 +50,7 @@ namespace BE_API.Service
             IRepository<BusRoute> routeRepo,
             IRepository<BusRouteStation> routeStationRepo,
             IRepository<Bus> busRepo,
+            IRepository<BusTripProgress> busTripProgressRepo,
             IRepository<Attendance> attendanceRepo,
             IRepository<Notification> notificationRepo,
             IAppTime appTime,
@@ -65,6 +67,7 @@ namespace BE_API.Service
             _routeRepo = routeRepo;
             _routeStationRepo = routeStationRepo;
             _busRepo = busRepo;
+            _busTripProgressRepo = busTripProgressRepo;
             _attendanceRepo = attendanceRepo;
             _notificationRepo = notificationRepo;
             _appTime = appTime;
@@ -740,9 +743,18 @@ namespace BE_API.Service
             if (existingRuns.Any())
             {
                 var existingRunIds = existingRuns.Select(x => x.Id).ToList();
+                var existingProgresses = await _busTripProgressRepo.Get()
+                    .Where(x => existingRunIds.Contains(x.BusRunId))
+                    .ToListAsync();
                 var existingRunStudents = await _busRunStudentRepo.Get()
                     .Where(x => existingRunIds.Contains(x.BusRunId))
                     .ToListAsync();
+
+                if (existingProgresses.Any())
+                {
+                    _busTripProgressRepo.DeleteRange(existingProgresses);
+                    await _busTripProgressRepo.SaveChangesAsync();
+                }
 
                 if (existingRunStudents.Any())
                 {
@@ -768,6 +780,16 @@ namespace BE_API.Service
 
                 if (orphanRunIds.Any())
                 {
+                    var orphanProgresses = await _busTripProgressRepo.Get()
+                        .Where(x => orphanRunIds.Contains(x.BusRunId))
+                        .ToListAsync();
+
+                    if (orphanProgresses.Any())
+                    {
+                        _busTripProgressRepo.DeleteRange(orphanProgresses);
+                        await _busTripProgressRepo.SaveChangesAsync();
+                    }
+
                     var orphanRuns = await _busRunRepo.Get()
                         .Where(x => orphanRunIds.Contains(x.Id))
                         .ToListAsync();
@@ -1780,13 +1802,13 @@ namespace BE_API.Service
                     foreach (var booking in groupBookings)
                     {
                         if (booking.OriginalPickupAddress == null)
-                            booking.OriginalPickupAddress = booking.PickupAddress;
+                            booking.OriginalPickupAddress = ResolveSourcePickupAddress(booking);
 
                         if (!booking.OriginalLatitude.HasValue)
-                            booking.OriginalLatitude = booking.Latitude;
+                            booking.OriginalLatitude = GetSourceLatitude(booking);
 
                         if (!booking.OriginalLongitude.HasValue)
-                            booking.OriginalLongitude = booking.Longitude;
+                            booking.OriginalLongitude = GetSourceLongitude(booking);
 
                         booking.PickupAddress = safePointAddress;
                         booking.Latitude = safePointLatitude;
@@ -1842,12 +1864,21 @@ namespace BE_API.Service
 
         private static double? GetSourceLatitude(Booking booking)
         {
-            return booking.OriginalLatitude ?? booking.Latitude;
+            return booking.OriginalLatitude ?? booking.Latitude ?? booking.Station?.Latitude;
         }
 
         private static double? GetSourceLongitude(Booking booking)
         {
-            return booking.OriginalLongitude ?? booking.Longitude;
+            return booking.OriginalLongitude ?? booking.Longitude ?? booking.Station?.Longitude;
+        }
+
+        private static string ResolveSourcePickupAddress(Booking booking)
+        {
+            return booking.OriginalPickupAddress
+                ?? booking.PickupAddress
+                ?? booking.Station?.Address
+                ?? booking.Station?.Name
+                ?? "Tram da chon";
         }
 
         private static string ResolveGuardianTodayStatus(
