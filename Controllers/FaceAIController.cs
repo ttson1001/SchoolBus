@@ -91,14 +91,14 @@ namespace BE_API.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> RecognizeCheckIn([FromForm] FaceRecognitionAttendanceFormDto dto)
         {
-            return await ExecuteAsync(() => _faceAIService.RecognizeCheckInAsync(dto), "Nhận diện và check in thành công");
+            return await ExecuteAsync(() => _faceAIService.RecognizeCheckInAsync(dto), "Nhận diện khuôn mặt thành công");
         }
 
         [HttpPost("[action]")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> RecognizeCheckOut([FromForm] FaceRecognitionAttendanceFormDto dto)
         {
-            return await ExecuteAsync(() => _faceAIService.RecognizeCheckOutAsync(dto), "Nhận diện và check out thành công");
+            return await ExecuteAsync(() => _faceAIService.RecognizeCheckOutAsync(dto), "Nhận diện khuôn mặt thành công");
         }
 
         private static async Task<IActionResult> ExecuteAsync<T>(Func<Task<T>> action, string successMessage)

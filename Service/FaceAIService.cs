@@ -173,22 +173,10 @@ namespace BE_API.Service
             if (!recognition.IsMatched || !recognition.StudentId.HasValue)
                 throw new Exception(recognition.Message ?? "Không nhận diện được học sinh phù hợp");
 
-            var imageUrl = await TryUploadAttendanceImageAsync(dto.File, "attendance/checkout");
-
-            var attendance = await _attendanceService.ManualCheckOutAsync(new AttendanceManualDto
-            {
-                StudentId = recognition.StudentId.Value,
-                BusId = dto.BusId,
-                StationId = dto.StationId,
-                Date = dto.Date,
-                Time = dto.Time,
-                ImageUrl = imageUrl
-            });
-
             return new FaceRecognitionAttendanceResultDto
             {
                 Recognition = recognition,
-                Attendance = attendance
+                Attendance = null
             };
         }
 
