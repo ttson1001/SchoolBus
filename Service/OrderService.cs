@@ -6,6 +6,7 @@ using BE_API.Repository;
 using BE_API.Service.IService;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using PayOS;
 using PayOS.Models.Webhooks;
 using PayOS.Models.V2.PaymentRequests;
@@ -30,6 +31,7 @@ namespace BE_API.Service
         private readonly IRepository<TransactionLog> _transactionLogRepo;
         private readonly PayOSClient _payOsClient;
         private readonly PayOsSettings _payOsSettings;
+        private readonly ILogger<OrderService> _logger;
 
         public OrderService(
             IRepository<Order> orderRepo,
@@ -41,7 +43,8 @@ namespace BE_API.Service
             IRepository<Payment> paymentRepo,
             IRepository<TransactionLog> transactionLogRepo,
             PayOSClient payOsClient,
-            IOptions<PayOsSettings> payOsOptions)
+            IOptions<PayOsSettings> payOsOptions,
+            ILogger<OrderService> logger)
         {
             _orderRepo = orderRepo;
             _userRepo = userRepo;
@@ -53,6 +56,7 @@ namespace BE_API.Service
             _transactionLogRepo = transactionLogRepo;
             _payOsClient = payOsClient;
             _payOsSettings = payOsOptions.Value;
+            _logger = logger;
         }
 
         public async Task<OrderDto> CreateOrderAsync(OrderCreateDto dto)
@@ -150,6 +154,16 @@ namespace BE_API.Service
             var description = BuildDirectOrderDescription(student.Id);
             var createdAt = DateTime.UtcNow;
 
+            _logger.LogInformation(
+                "Creating payOS order link. OrderCode={OrderCode}, GuardianId={GuardianId}, StudentId={StudentId}, PackageId={PackageId}, Amount={Amount}, ReturnUrl={ReturnUrl}, CancelUrl={CancelUrl}",
+                orderCode,
+                guardian.Id,
+                student.Id,
+                package.Id,
+                package.Price,
+                returnUrl,
+                cancelUrl);
+
             var paymentRequest = new CreatePaymentLinkRequest
             {
                 OrderCode = orderCode,
@@ -160,6 +174,13 @@ namespace BE_API.Service
             };
 
             var paymentLink = await _payOsClient.PaymentRequests.CreateAsync(paymentRequest);
+
+            _logger.LogInformation(
+                "payOS order link created. OrderCode={OrderCode}, CheckoutUrl={CheckoutUrl}, ReturnUrl={ReturnUrl}, CancelUrl={CancelUrl}",
+                orderCode,
+                paymentLink.CheckoutUrl,
+                returnUrl,
+                cancelUrl);
 
             var order = new Order
             {
