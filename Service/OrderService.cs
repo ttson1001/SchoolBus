@@ -20,6 +20,7 @@ namespace BE_API.Service
         private const string PayOsOrderMethod = "PAYOS_ORDER";
         private const string PayOsPaymentMethod = "PAYOS";
         private const string SystemReceiver = "SYSTEM";
+        private const string PayOsOrderTransactionPaidStatus = "PAID";
 
         private readonly IRepository<Order> _orderRepo;
         private readonly IRepository<User> _userRepo;
@@ -258,13 +259,13 @@ namespace BE_API.Service
             var order = await GetOrderForTransactionAsync(transactionLog);
 
             if (order.Status == OrderStatus.PAID &&
-                string.Equals(transactionLog.Status, PaymentStatus.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
+                IsDirectPayOsOrderTransactionPaidStatus(transactionLog.Status))
             {
                 return MapToPayOsStatusDto(order, transactionLog);
             }
 
             if (order.Status == OrderStatus.CANCELLED &&
-                !string.Equals(transactionLog.Status, PaymentStatus.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase))
+                !IsDirectPayOsOrderTransactionPaidStatus(transactionLog.Status))
             {
                 return MapToPayOsStatusDto(order, transactionLog);
             }
@@ -299,7 +300,7 @@ namespace BE_API.Service
                 order.PaidAt = paidAt;
                 order.ExpiredAt = null;
 
-                transactionLog.Status = PaymentStatus.SUCCESS.ToString();
+                transactionLog.Status = PayOsOrderTransactionPaidStatus;
                 transactionLog.PaidAt = paidAt;
 
                 _orderRepo.Update(order);
@@ -810,6 +811,17 @@ namespace BE_API.Service
             return string.Join(",", routeIds);
         }
 
+        private static bool IsDirectPayOsOrderTransactionPaidStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return false;
+            }
+
+            return string.Equals(status, PayOsOrderTransactionPaidStatus, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, PaymentStatus.SUCCESS.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
         private static List<long> ParseSelectedRouteIds(string? selectedRouteIds)
         {
             if (string.IsNullOrWhiteSpace(selectedRouteIds))
@@ -871,7 +883,9 @@ namespace BE_API.Service
                 OrderCode = long.TryParse(transactionLog.Code, out var orderCode) ? orderCode : 0,
                 Amount = transactionLog.Amount,
                 OrderStatus = order.Status.ToString(),
-                TransactionStatus = transactionLog.Status,
+                TransactionStatus = IsDirectPayOsOrderTransactionPaidStatus(transactionLog.Status)
+                    ? PayOsOrderTransactionPaidStatus
+                    : transactionLog.Status,
                 PaidAt = transactionLog.PaidAt ?? order.PaidAt,
                 StartDate = order.StartDate,
                 EndDate = order.EndDate,
