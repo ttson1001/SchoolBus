@@ -313,10 +313,10 @@ namespace BE_API.Service
                 $"{FormatRouteSuffix(validation.RouteName)}" +
                 $"{FormatStationSuffix(validation.Station.Name)} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
 
-            if (validation.ExpectedDropOffStationId.HasValue &&
-                validation.ExpectedDropOffStationId.Value != validation.Station.Id)
+            if (validation.ExpectedCheckInStationId.HasValue &&
+                validation.ExpectedCheckInStationId.Value != validation.Station.Id)
             {
-                var expectedStationName = validation.ExpectedDropOffStationName ?? "khong ro";
+                var expectedStationName = validation.ExpectedCheckInStationName ?? "khong ro";
 
                 await CreateGuardianNotificationAsync(
                     validation.Student,
@@ -382,10 +382,10 @@ namespace BE_API.Service
                 $"{FormatRouteSuffix(validation.RouteName)}" +
                 $"{FormatStationSuffix(validation.Station.Name)} luc {FormatTime(validation.CheckTime)} ngay {validation.AttendanceDate:dd/MM/yyyy}.");
 
-            if (validation.ExpectedDropOffStationId.HasValue &&
-                validation.ExpectedDropOffStationId.Value != validation.Station.Id)
+            if (validation.ExpectedCheckOutStationId.HasValue &&
+                validation.ExpectedCheckOutStationId.Value != validation.Station.Id)
             {
-                var expectedStationName = validation.ExpectedDropOffStationName ?? "không rõ";
+                var expectedStationName = validation.ExpectedCheckOutStationName ?? "không rõ";
 
                 await CreateGuardianNotificationAsync(
                     validation.Student,
@@ -482,13 +482,37 @@ namespace BE_API.Service
             if (!routeStation.Station.IsEnabled)
                 throw new Exception($"Bus station '{routeStation.Station.Name}' đang không hoạt động");
 
+            var orderedRouteStations = await _routeStationRepo.Get()
+                .Where(x => x.RouteId == actualBusRun.RouteId)
+                .Include(x => x.Station)
+                .OrderBy(x => x.OrderIndex)
+                .ToListAsync();
+
+            var firstRouteStation = orderedRouteStations.FirstOrDefault()?.Station;
+            var lastRouteStation = orderedRouteStations.LastOrDefault()?.Station;
+            var routeStatus = actualBusRun.Route.RouteStatus?.Trim().ToUpperInvariant() ?? "PICKUP";
+            var expectedCheckInStationId = routeStatus == "DROPOFF"
+                ? firstRouteStation?.Id
+                : runStudent.Booking.StationId;
+            var expectedCheckInStationName = routeStatus == "DROPOFF"
+                ? firstRouteStation?.Name
+                : runStudent.Booking.Station?.Name;
+            var expectedCheckOutStationId = routeStatus == "PICKUP"
+                ? lastRouteStation?.Id
+                : lastRouteStation?.Id;
+            var expectedCheckOutStationName = routeStatus == "PICKUP"
+                ? lastRouteStation?.Name
+                : lastRouteStation?.Name;
+
             return new ManualAttendanceValidationResult
             {
                 Student = student,
                 Bus = bus,
                 RouteName = actualBusRun.Route.Name,
-                ExpectedDropOffStationId = runStudent.Booking.StationId,
-                ExpectedDropOffStationName = runStudent.Booking.Station?.Name,
+                ExpectedCheckInStationId = expectedCheckInStationId,
+                ExpectedCheckInStationName = expectedCheckInStationName,
+                ExpectedCheckOutStationId = expectedCheckOutStationId,
+                ExpectedCheckOutStationName = expectedCheckOutStationName,
                 Station = routeStation.Station,
                 AttendanceDate = attendanceDate,
                 CheckTime = checkTime,
@@ -723,8 +747,10 @@ namespace BE_API.Service
             public Student Student { get; set; } = null!;
             public Bus Bus { get; set; } = null!;
             public string RouteName { get; set; } = null!;
-            public long? ExpectedDropOffStationId { get; set; }
-            public string? ExpectedDropOffStationName { get; set; }
+            public long? ExpectedCheckInStationId { get; set; }
+            public string? ExpectedCheckInStationName { get; set; }
+            public long? ExpectedCheckOutStationId { get; set; }
+            public string? ExpectedCheckOutStationName { get; set; }
             public BusStation Station { get; set; } = null!;
             public DateTime AttendanceDate { get; set; }
             public TimeSpan CheckTime { get; set; }
